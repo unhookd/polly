@@ -1,0 +1,124 @@
+workflows:
+  version: 2
+  build:
+    jobs:
+      - tests:
+
+      - one:
+          requires:
+            - tests
+
+      - two:
+          requires:
+            - tests
+
+      - three:
+          requires:
+            - tests
+
+      - three-continued:
+          requires:
+            - three
+
+      - four:
+          requires:
+            - one
+            - two
+            - three-continued
+
+defaults: &defaults
+  working_directory: /home/app/current
+  environment: &environment_defaults
+    CUSTOM: "settings"
+  docker:
+    - image: &build_image polly:latest
+
+version: 2
+jobs:
+  tests:
+    <<: *defaults
+    steps:
+      - checkout
+
+      - setup_remote_docker
+
+      - run:
+          name: bundle and test
+          command: |
+            set -e
+
+            bundle install --path=vendor/bundle
+
+            bundle exec rspec
+
+            ./bin/polly version
+
+  one:
+    <<: *defaults
+    steps:
+      - checkout
+
+      - setup_remote_docker
+
+      - run:
+          name: foo
+          command: |
+            set -e
+
+            true
+
+  two:
+    <<: *defaults
+    steps:
+      - checkout
+
+      - setup_remote_docker
+
+      - run:
+          name: bar
+          command: |
+            set -e
+
+            true
+
+  three:
+    <<: *defaults
+    steps:
+      - checkout
+
+      - setup_remote_docker
+
+      - run:
+          name: baz
+          command: |
+            set -e
+
+            true
+
+  three-continued:
+    <<: *defaults
+    steps:
+      - checkout
+
+      - setup_remote_docker
+
+      - run:
+          name: bip
+          command: |
+            set -e
+
+            true
+
+  four:
+    <<: *defaults
+    steps:
+      - checkout
+
+      - setup_remote_docker
+
+      - run:
+          name: bop
+          command: |
+            set -e
+
+            true

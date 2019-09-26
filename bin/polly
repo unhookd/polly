@@ -1,0 +1,391 @@
+#!/usr/bin/env ruby
+
+require 'thor'
+
+$executing_as = File.basename($0)
+$polly_dir = File.dirname(File.dirname(File.realpath(__FILE__)))
+
+lib = File.join($polly_dir, "lib")
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+
+require 'polly'
+
+class PollyTasks < Thor
+  desc "debug-io", ""
+  def debug_io(delay = 1)
+    $stdout.sync = true
+    $stderr.sync = true
+
+    while true
+      $stdout.puts("stdout" * 3)
+      $stderr.puts("stderr" * 3)
+
+      sleep delay.to_i
+    end
+  end
+
+  desc "version", ""
+  def version
+    obv = ::Polly::Observe.new
+    obv.register_channels([::Polly::POLLY])
+    obv.report_stdout(::Polly::POLLY, ::Polly::VERSION)
+    obv.flush($stdout, $stderr)
+  end
+
+  desc "test [PIPELINE]", ""
+  option "concurrency", :type => :numeric, :default => Polly::Plan::DEFAULT_CONCURRENCY
+  option "idle-timeout", :type => :numeric, :default => Polly::Execute::DEFAULT_IDLE_TIMEOUT
+  option "with-bootstrap", :type => :string, :default => nil
+  option "dry-run", :type => :boolean, :default => false
+  option "keep-completed", :type => :boolean, :default => false
+  option "detached-failed", :type => :boolean, :default => false
+  option "debug", :type => :boolean, :default => false
+  option "short-circuit", :type => :boolean, :default => false
+  option "skip", :type => :string, :default => nil
+  option "only", :type => :string, :default => nil
+  option "init", :type => :boolean, :default => true
+  def test(run_pipeline_upto_these_jobs = nil)
+    start_time = Time.now
+
+    obv = ::Polly::Observe.new
+
+    exe = ::Polly::Execute.new(options) #TODO: namespacing... --exe-idle-timeout --plan-concurrency ???
+    revision = exe.current_revision
+
+    plan = ::Polly::Plan.new(revision, run_pipeline_upto_these_jobs, options)
+
+    #TODO: switch plan based on detected hueristics here
+    plan.load_circleci
+
+    obv.register_channels(["plan"] + plan.all_jobs.collect { |key, _| key } + ["exe"])
+
+    obv.report_stdout("plan", plan.description)
+    obv.report_stderr("plan", "debug")
+
+    obv.report_stdout("exe", exe.description)
+
+    while plan.has_unfinished_jobs? && exe.running?
+      started_this_loop = plan.jobs_ready_to_start.collect do |job_to_start|
+        exe.start_job!(job_to_start)
+      end
+
+      unless started_this_loop.empty?
+        obv.report_stdout("plan", "started #{started_this_loop.collect(&:run_name)}")
+      end
+
+      finished_this_loop, io_this_loop = exe.wait_for_jobs_to_finish
+      
+      finished_this_loop.collect do |finished_job|
+        plan.complete_job!(finished_job)
+        finished_job
+      end
+
+      io_this_loop.each do |job, stdout, stderr|
+        obv.report_io(job.run_name, stdout, stderr)
+      end
+
+      unless finished_this_loop.empty?
+        obv.report_stdout("plan", "finished #{finished_this_loop.collect(&:run_name)}")
+      end
+
+      obv.flush($stdout, $stderr)
+    end
+
+    cleanup_all_ok = exe.wait_for_cleanup
+
+    duration = Time.now - start_time
+
+    if cleanup_all_ok
+      obv.report_stdout("plan", "all jobs completed... #{duration}s")
+    else
+      obv.report_stdout("plan", "some jobs failed... #{duration}s")
+    end
+
+    obv.flush($stdout, $stderr)
+  end
+
+  desc "push [BRANCH]", ""
+  def push(branch = nil)
+    exe = ::Polly::Execute.new
+
+    branch ||= exe.current_branch
+
+    git_init_cmd = [
+                     "kubectl", "exec", exe.polly_pod,
+                     "-i",
+                     "--",
+                     "git", "init", "--bare", "/var/tmp/git/#{exe.current_app}"
+                   ]
+
+    exe.systemx(*git_init_cmd)
+
+    exe.systemx("git", "push", "-f", "polly", branch, "--exec=#{$polly_dir}/bin/polly receive-pack")
+  end
+
+  desc "rcp [APP] [ORIGIN]", ""
+  def rcp(app, origin)
+    #TODO: getpty fix??? for --test --build support?
+    cmd = ["git", "receive-pack", "/var/tmp/git/#{app}"]
+    exec(*cmd)
+  end
+
+  desc "receive-pack [ORIGIN]", ""
+  def receive_pack(origin = nil)
+    exe = ::Polly::Execute.new
+
+    git_push_cmd = [
+                     "kubectl", "exec", exe.polly_pod,
+                     "-i",
+                     "--",
+                     "polly", "rcp", exe.current_app, origin 
+                   ].compact
+
+    exec(*git_push_cmd)
+  end
+
+  desc "build", ""
+  #? option "run", :type => :string, :default => nil
+  #? option "push", :type => :string, :default => nil
+  option "cache", :type => :boolean, :default => true
+  def build(container_definition="Dockerfile")
+    exe = ::Polly::Execute.new
+
+    version = exe.current_revision
+    app = exe.current_app
+
+    build_dockerfile = ["docker", "build", "-f", container_definition, options["cache"] ? nil : "--no-cache", "-t", app + ":" + version, "."].compact
+    exe.systemx(*build_dockerfile)
+
+    tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":latest"]
+    exe.systemx(*tag_dockerfile)
+
+    tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":git-latest"]
+    exe.systemx(*tag_dockerfile)
+
+    tag_dockerfile = ["docker", "tag", app + ":" + version, "localhost/" + app + ":git-latest"]
+    exe.systemx(*tag_dockerfile)
+
+    if options["push"]
+      tag_dockerfile = ["docker", "tag", app + ":" + version, options["push"] + "/" + app + ":" + version]
+      puts tag_dockerfile
+      exe.systemx(*tag_dockerfile)
+
+      push_dockerfile = ["docker", "push", options["push"] + "/" + app + ":" + version]
+      exe.systemx(*push_dockerfile)
+    end
+  end
+
+  desc "checkout [REPO] [VERSION] [DESTINATION]", ""
+  def checkout(repo, version, destination)
+    exe = ::Polly::Execute.new
+
+    exe.systemx("mkdir", "-p", destination)
+
+    #TODO: implement locking as an option
+    polly_lock = "#{File.dirname(destination)}/.polly.lock"
+
+    File.open(polly_lock, File::RDWR|File::CREAT, 0644) { |f|
+      f.flock(File::LOCK_EX)
+      if Dir.chdir(destination)
+        if exe.system("git", "status")
+        else
+          exe.systemx("git", "init")
+        end
+
+        exe.system("git", "remote", "add", "origin", repo)
+        exe.systemx("git","fetch", "origin")
+
+        #TODO: implement caching option/flag
+        #systemx("git", "clean", "-f", "-d", "-x")
+        exe.systemx("git", "checkout", "-m", version)
+
+        exe.systemx("chmod", "777", destination)
+        exe.systemx("chown", "-R", "1000", File.dirname(destination))
+      end
+    }
+  end
+
+  desc "init", ""
+  option "re-init", :type => :boolean, :default => false
+  def init
+    exe = ::Polly::Execute.new
+
+    unless exe.in_polly?
+      $stderr.puts "... halting, init only for polly"
+      Kernel.exit(1)
+    end
+
+    polly_run=<<-HEREDOC
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "polly-headless"
+spec:
+  clusterIP: "None"
+  ports:
+  - port: 8111
+    name: nginx-apt-proxy
+    protocol: TCP
+  - port: 8080
+    name: apache2
+    protocol: TCP
+  - port: 5000
+    name: docker-registry
+    protocol: TCP
+  selector:
+    name: "polly-app"
+...
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "polly-app"
+spec:
+  ports:
+  - port: 8111
+    name: nginx-apt-proxy
+    protocol: TCP
+  - port: 8080
+    name: apache2
+    protocol: TCP
+  - port: 5000
+    name: docker-registry
+    protocol: TCP
+  selector:
+    name: "polly-app"
+...
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "polly-app-node"
+spec:
+  type: NodePort
+  ports:
+  - port: 5000
+    nodePort: 31500
+    name: docker-registry-node
+    protocol: TCP
+  selector:
+    name: "polly-app"
+...
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: polly-app
+  labels:
+    app: polly-app
+spec:
+  revisionHistoryLimit: 1
+  strategy:
+    type: Recreate
+    #type: RollingUpdate
+    #rollingUpdate:
+    #  maxUnavailable: 1
+    #  maxSurge: 0
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: polly-app
+      annotations:
+        "ops.v2.rutty/bash": bash
+    spec:
+      volumes:
+        - name: tmp
+          hostPath:
+            path: /var/tmp/polly-safe
+      initContainers:
+      - name: app-init
+        image: polly:latest
+        imagePullPolicy: IfNotPresent
+        args: ["bash", "-ex", "-c", "mkdir -p /var/tmp/git"]
+        securityContext:
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+        volumeMounts:
+          - mountPath: /var/tmp
+            name: tmp
+      containers:
+      - name: polly-app
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - mountPath: /var/tmp
+            name: tmp
+        image: #{exe.current_app}:#{exe.current_revision}
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            memory: 500Mi
+            cpu: 500m
+          limits:
+            memory: 1000Mi
+            cpu: 2000m
+        ports:
+        - containerPort: 8111
+        - containerPort: 8080
+        - containerPort: 5000
+        command: ["polly", "dev", "/var/lib/polly/Procfile.init"]
+        env:
+        #- name: GIT_TRACE_PACKET
+        #  value: "/var/log/git.trace"
+        #- name: GIT_FLUSH
+        #  value: "1"
+...
+HEREDOC
+
+    if options["re-init"]
+      deploy_polly_app = ["kubectl", "delete", "-f", "-"]
+      options = {:stdin_data => polly_run}
+      exe.execute_simple(:blocking, deploy_polly_app, options)
+
+      wait_polly_app_deleted = ["kubectl", "wait", "--for=delete", "pod", "-l", "name=polly-app"]
+      exe.execute_simple(:blocking, wait_polly_app_deleted, {})
+    end
+
+    deploy_polly_app = ["kubectl", "apply", "-f", "-"]
+    options = {:stdin_data => polly_run}
+    exe.execute_simple(:blocking, deploy_polly_app, options)
+
+    wait_polly_app = ["kubectl", "wait", "--for=condition=available", "deployment/polly-app"]
+    exe.execute_simple(:blocking, wait_polly_app, {})
+
+    wait_polly_app = ["kubectl", "rollout", "status", "deployment/polly-app"]
+    exe.execute_simple(:blocking, wait_polly_app, {})
+
+    puts exe.polly_pod
+  end
+
+  desc "sh", ""
+  def sh
+    exe = ::Polly::Execute.new
+    exec(*["kubectl", "exec", exe.polly_pod, "-i", $stdin.tty? ? "-t" : nil, "--", "bash"].compact)
+  end
+
+  desc "logs", ""
+  def logs
+    exe = ::Polly::Execute.new
+    exec(*["kubectl", "logs", exe.polly_pod, "-f"].compact)
+  end
+
+  desc "dev", ""
+  option "prepare", :type => :boolean, :default => false
+  option "only-prepare", :type => :boolean, :default => false
+  def dev(procfile = "Procfile")
+    exe = ::Polly::Execute.new
+
+    exe.execute_procfile(ENV['PWD'], "Prepfile") if (options["prepare"] || options["only-prepare"])
+    exe.execute_procfile(ENV['PWD'], procfile) unless options["only-prepare"]
+  end
+end
+
+case $executing_as
+  when "thor"
+
+  when Polly::POLLY, "Thorfile"
+    PollyTasks.start(ARGV)
+end

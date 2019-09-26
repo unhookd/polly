@@ -1,0 +1,2 @@
+apache2: /usr/sbin/apache2 -D FOREGROUND
+nginx-apt-proxy: /usr/sbin/nginx -g 'daemon off;'

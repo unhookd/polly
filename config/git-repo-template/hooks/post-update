@@ -1,0 +1,32 @@
+#!/bin/sh
+#
+# processes and installs git repo in polygond controller
+
+set -e
+set -x
+
+echo post-update... "${1}"
+
+if git show-ref "${1}"
+then
+  git symbolic-ref HEAD "${1}"
+  git update-server-info
+
+  if [ "refs/tags/polygond/build" = "${1}" ];
+  then
+    echo "TODO: build docker image based on tag polygond kaniko ${1}"
+  elif [ "refs/tags/polygond/test" = "${1}" ];
+  then
+    echo "TODO: run tests based on tags"
+    #TMPCHECKOUT=$(mktemp -d)/$(basename $(pwd))
+    #git clone -l . ${TMPCHECKOUT}
+    #cd ${TMPCHECKOUT}
+    #unset GIT_DIR
+    #polygond test
+    #export GIT_DIR="."
+  else
+    echo ...
+  fi
+fi
+
+echo ... post-update
