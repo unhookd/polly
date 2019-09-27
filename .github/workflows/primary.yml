@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: primary
 
 on: [push]
 
@@ -11,4 +11,4 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: bootstrap build
-      run: bash bin/bootstrap.sh
+      run: sudo bash bin/bootstrap.sh
