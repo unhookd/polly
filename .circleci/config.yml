@@ -31,7 +31,7 @@ defaults: &defaults
   environment: &environment_defaults
     CUSTOM: "settings"
   docker:
-    - image: &build_image polly:latest
+    - image: &build_image ubuntu:bionic-20180526
 
 version: 2
 jobs:
@@ -46,6 +46,8 @@ jobs:
           name: bundle and test
           command: |
             set -e
+
+            bash bin/bootstrap.sh
 
             bundle install --path=vendor/bundle
 
