@@ -24,7 +24,7 @@ class PollyTasks < Thor
     end
   end
 
-  desc "version", ""
+  desc "version", "Print version"
   def version
     obv = ::Polly::Observe.new
     obv.register_channels([::Polly::POLLY])
@@ -32,18 +32,18 @@ class PollyTasks < Thor
     obv.flush($stdout, $stderr)
   end
 
-  desc "test [PIPELINE]", ""
-  option "concurrency", :type => :numeric, :default => Polly::Plan::DEFAULT_CONCURRENCY
-  option "idle-timeout", :type => :numeric, :default => Polly::Execute::DEFAULT_IDLE_TIMEOUT
-  option "with-bootstrap", :type => :string, :default => nil
-  option "dry-run", :type => :boolean, :default => false
-  option "keep-completed", :type => :boolean, :default => false
-  option "detached-failed", :type => :boolean, :default => false
-  option "debug", :type => :boolean, :default => false
-  option "short-circuit", :type => :boolean, :default => false
-  option "skip", :type => :string, :default => nil
-  option "only", :type => :string, :default => nil
-  option "init", :type => :boolean, :default => true
+  desc "test [PIPELINE]", "Run the CI pipeline"
+  option "concurrency", :type => :numeric, :default => Polly::Plan::DEFAULT_CONCURRENCY, :desc => "Number of divergent paths to process simultaneously"
+  # option "idle-timeout", :type => :numeric, :default => Polly::Execute::DEFAULT_IDLE_TIMEOUT, :desc => "Short-circuit and fail job if it doesn't finish within this timeframe"
+  option "with-bootstrap", :type => :string, :default => nil, :desc => "Docker image to use as the build context"
+  option "dry-run", :type => :boolean, :default => false, :desc => "Emit the plan but do not run the pipeline"
+  option "keep-completed", :type => :boolean, :default => false, :desc => "Retain completed pods in kubectl get pods list"
+  option "detached-failed", :type => :boolean, :default => false, :desc => "Keep failed pods running"
+  option "debug", :type => :boolean, :default => false, :desc => "Show debug output"
+  option "short-circuit", :type => :boolean, :default => false, :desc => "Halt workflow on first failure"
+  option "skip", :type => :string, :default => nil, :desc => "Don't run specified jobs (comma-separated list)"
+  option "only", :type => :string, :default => nil, :desc => "Only run specified jobs (comma-separated list)"
+  option "no-init", :type => :boolean, :default => true, :desc => "Do not run pod initialization (eg git-checkout container) before each job (this can speed up debug looping)"
   def test(run_pipeline_upto_these_jobs = nil)
     start_time = Time.now
 
@@ -104,7 +104,7 @@ class PollyTasks < Thor
     obv.flush($stdout, $stderr)
   end
 
-  desc "push [BRANCH]", ""
+  desc "push [BRANCH]", "Push the latest commit into the Polly container"
   def push(branch = nil)
     exe = ::Polly::Execute.new
 
@@ -129,7 +129,16 @@ class PollyTasks < Thor
     exec(*cmd)
   end
 
-  desc "receive-pack [ORIGIN]", ""
+  desc "receive-pack [ORIGIN]", "(internal) receive incoming git send-pack"
+  long_desc <<-LONGDESC
+    Internal command, invoked via polly push.
+
+    Polly hosts an internal git repo, in a persistent volume mounted to the running polly container.
+
+    This is essentially a git remote that receives the incoming git send-pack, which is forwarded on by polly receive-pack.
+
+    For more information, see https://git-scm.com/docs/git-receive-pack
+  LONGDESC
   def receive_pack(origin = nil)
     exe = ::Polly::Execute.new
 
@@ -143,7 +152,7 @@ class PollyTasks < Thor
     exec(*git_push_cmd)
   end
 
-  desc "build", ""
+  desc "build", "Build the current working directory's Dockerfile"
   #? option "run", :type => :string, :default => nil
   #? option "push", :type => :string, :default => nil
   option "cache", :type => :boolean, :default => true
