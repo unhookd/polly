@@ -22,6 +22,7 @@ class PollyTasks < Thor
 
       sleep delay.to_i
     end
+  rescue Interrupt
   end
 
   desc "version", "Print version"
