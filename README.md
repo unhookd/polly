@@ -6,40 +6,41 @@ polly can be used to debug several types of ci platforms
 
 polly understands circleci config and is able to plan and execute workflows on a local or remote kubernetes cluster
 
+# installation
+
+    cd ~/workspace
+    git clone git@github.com:unhookd/polly.git
+    sudo ln -s $HOME/workspace/polly/bin/polly /usr/local/bin/polly
+
 # general workflow
 
-        cd ~
-        polly init # install polly controller into desired kubernetes context
+    cd ~
+    polly init # install polly controller into desired kubernetes context
 
-        cd ~/workspace/myproj
-        git status # polly requires a valid git repo to work
+    cd ~/workspace/myproj
+    git status # polly requires a valid git repo to work
 
-        polly push # install current PWD as a project in the deployed polly controller
+    polly push # install current PWD as a project in the deployed polly controller
 
-        polly test --dry-run # emit plan for execution for detected ci workflow
+    polly test --dry-run # emit plan for execution for detected ci workflow
 
-        polly test # execute detected ci workflows
+    polly test # execute detected ci workflows
 
-        # iterate on your project by creation new commit shas
+    # iterate on your project by creating new commit SHAs
 
-        polly push && polly test
+    polly push && polly test
 
-        # TODO: bonus
+    # TODO: bonus
 
-        polly watch
+    polly watch
 
 # development workflow
 
-        cd ~/workspace/myproj
-        cat Procfile # ensure you have a Procfile present, see below for example
-          # example Procfile
-          one: sleep 5 && echo true
-          two: sleep 2 && echo false
+    cd ~/workspace/myproj
+    cat Procfile # ensure you have a Procfile present, see below for example
 
-        polly dev # will run commands in Procfile
+      # example Procfile
+      one: sleep 5 && echo true
+      two: sleep 2 && echo false
 
-# internal mechanisms
-
-    polly push             # `git push` to cluster
-    polly receive-pack     #
-    polly rcp              #
+    polly dev # will run commands in Procfile
