@@ -122,13 +122,6 @@ class PollyTasks < Thor
     exe.systemx("git", "push", "-f", "polly", branch, "--exec=#{$polly_dir}/bin/polly receive-pack")
   end
 
-  desc "rcp [APP] [ORIGIN]", ""
-  def rcp(app, origin)
-    #TODO: getpty fix??? for --test --build support?
-    cmd = ["git", "receive-pack", "/var/tmp/git/#{app}"]
-    exec(*cmd)
-  end
-
   desc "receive-pack [ORIGIN]", ""
   def receive_pack(origin = nil)
     exe = ::Polly::Execute.new
@@ -137,7 +130,7 @@ class PollyTasks < Thor
                      "kubectl", "exec", exe.polly_pod,
                      "-i",
                      "--",
-                     "polly", "rcp", exe.current_app, origin 
+                     "git", "receive-pack", "/var/tmp/git/#{exe.current_app}"
                    ].compact
 
     exec(*git_push_cmd)

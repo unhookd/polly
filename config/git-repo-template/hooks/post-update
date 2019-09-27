@@ -3,7 +3,7 @@
 # processes and installs git repo in polygond controller
 
 set -e
-set -x
+#set -x
 
 echo post-update... "${1}"
 
