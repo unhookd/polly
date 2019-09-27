@@ -252,15 +252,14 @@ describe Polly::Plan do
 
       expect(plan.has_unfinished_jobs?).to eq(true)
 
-      expect(plan.all_jobs.count).to eq(6)
+      expect(plan.all_jobs.count).to eq(1)
 
       ready_to_start_jobs = plan.jobs_ready_to_start
-      expect(ready_to_start_jobs).to eq([plan.all_jobs["tests"]])
+      expect(ready_to_start_jobs).to eq([plan.all_jobs["primary"]])
 
-      plan.complete_job!(plan.all_jobs["tests"])
+      plan.complete_job!(plan.all_jobs["primary"])
 
-      ready_to_start_jobs = plan.jobs_ready_to_start
-      expect(ready_to_start_jobs).to eq([plan.all_jobs["one"]])
+      expect(plan.has_unfinished_jobs?).to eq(false)
     end
   end
 
