@@ -10,5 +10,18 @@ jobs:
  
     steps:
     - uses: actions/checkout@v1
-    - name: bootstrap build
-      run: sudo bash bin/bootstrap.sh
+    - name: bootstrap
+      run: |
+        set -e
+
+        sudo bash bin/bootstrap.sh
+
+    - name: rspec
+      run: |
+        set -e
+
+        bundle install --path=vendor/bundle
+
+        bundle exec rspec
+
+        ./bin/polly version
