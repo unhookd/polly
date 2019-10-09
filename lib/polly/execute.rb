@@ -12,7 +12,7 @@ module Polly
       @detached_failed = options["detached-failed"]
       @short_circuit = options["short-circuit"]
       @debug = options["debug"]
-      @init = options["init"]
+      @init = !options["no-init"]
 
       @running_jobs = {}
       @runners = []

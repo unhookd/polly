@@ -44,7 +44,7 @@ class PollyTasks < Thor
   option "short-circuit", :type => :boolean, :default => false, :desc => "Halt workflow on first failure"
   option "skip", :type => :string, :default => nil, :desc => "Don't run specified jobs (comma-separated list)"
   option "only", :type => :string, :default => nil, :desc => "Only run specified jobs (comma-separated list)"
-  option "no-init", :type => :boolean, :default => true, :desc => "Do not run pod initialization (eg git-checkout container) before each job (this can speed up debug looping)"
+  option "no-init", :type => :boolean, :default => false, :desc => "Do not run pod initialization (eg git-checkout container) before each job (this can speed up debug looping)"
   def test(run_pipeline_upto_these_jobs = nil)
     start_time = Time.now
 
