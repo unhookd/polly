@@ -15,6 +15,7 @@ polly understands circleci config and is able to plan and execute workflows on a
 # general workflow
 
     cd ~
+    polly build # build polly controller Dockerfile
     polly init # install polly controller into desired kubernetes context
 
     cd ~/workspace/myproj

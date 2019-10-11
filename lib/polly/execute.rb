@@ -38,6 +38,12 @@ module Polly
       end
     end
 
+    def check_current_kube_context_is_safe!
+      current_kube_context = IO.popen("kubectl config current-context").read.strip
+      wait_child
+      raise "unsafe kubernetes context" unless current_kube_context == "kubernetes-admin@kubernetes"
+    end
+
     def current_revision
       @revision ||= begin
         #TODO: handle error cases
@@ -224,6 +230,9 @@ module Polly
 
       #TODO
       #puts YAML.dump(configmap_manifest) if @debug
+
+      #TODO: better safety checks
+      check_current_kube_context_is_safe!
 
       apply_configmap = ["kubectl", "apply", "-f", "-"]
       apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}
@@ -599,6 +608,8 @@ module Polly
 
       # ensure nothing is left around
       wait_child
+
+      obv.flush($stdout, $stderr, true)
 
       $stdout.write(" ... exiting")
       $stdout.write($/)
