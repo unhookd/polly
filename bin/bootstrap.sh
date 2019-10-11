@@ -6,6 +6,8 @@ export DEBIAN_FRONTEND=noninteractive
 export LC_ALL=C.UTF-8
 export LANG=en_US.UTF-8
 export LANGUAGE=en_US.UTF-8
+#NOTE: this is here for msodbcsql17 package
+export ACCEPT_EULA=y
 
 apt-get update && \
   apt install -y locales locales-all
