@@ -12,15 +12,26 @@ require 'polly'
 
 class PollyTasks < Thor
   desc "debug-io", ""
+  option "newlines", :type => :boolean, :default => true
+  option "stdout-chunk", :type => :string, :default => "example msg"
+  option "stderr-chunk", :type => :string, :default => "example err"
+  option "chunk-count", :type => :numeric, :default => 3
   def debug_io(delay = 1)
     $stdout.sync = true
     $stderr.sync = true
 
     while true
-      $stdout.puts("stdout" * 3)
-      $stderr.puts("stderr" * 3)
+      $stdout.write(options["stdout-chunk"] * options["chunk-count"])
+      if options["newlines"]
+        $stdout.write($/)
+      end
 
-      sleep delay.to_i
+      $stderr.write(options["stderr-chunk"] * options["chunk-count"])
+      if options["newlines"]
+        $stderr.write($/)
+      end
+
+      sleep delay.to_f
     end
   rescue Interrupt
   end
@@ -30,7 +41,7 @@ class PollyTasks < Thor
     obv = ::Polly::Observe.new
     obv.register_channels([::Polly::POLLY])
     obv.report_stdout(::Polly::POLLY, ::Polly::VERSION)
-    obv.flush($stdout, $stderr)
+    obv.flush($stdout, $stderr, true)
   end
 
   desc "test [PIPELINE]", "Run the CI pipeline"
@@ -102,7 +113,7 @@ class PollyTasks < Thor
       obv.report_stdout("plan", "some jobs failed... #{duration}s")
     end
 
-    obv.flush($stdout, $stderr)
+    obv.flush($stdout, $stderr, true)
   end
 
   desc "push [BRANCH]", "Push the latest commit into the Polly container"

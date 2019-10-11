@@ -7,6 +7,8 @@ module Polly
       @channels = {}
       @err_color = "\x1b[38;2;255;0;0m"
       @out_color = "\x1b[38;2;0;255;0m"
+      @newline_regex = Regexp.new($/)
+      @nol_chunk_size = 64
     end
 
     def rainbow(freq, i)
@@ -47,11 +49,11 @@ module Polly
     end
 
     def report_stdout(channel, bytes)
-      stack_stdout(channel, bytes + "\n")
+      stack_stdout(channel, bytes + $/)
     end
 
     def report_stderr(channel, bytes)
-      stack_stderr(channel, bytes + "\n")
+      stack_stderr(channel, bytes + $/)
     end
 
     def report_io(channel, stdout_bytes, stderr_bytes)
@@ -59,17 +61,43 @@ module Polly
       stack_stderr(channel, stderr_bytes)
     end
 
-    def flush(stdout_io, stderr_io)
+    def flush(stdout_io, stderr_io, final_flush = false)
       @channels.each { |channel, color_and_scanners|
         color, stdout_scanner, stderr_scanner = *color_and_scanners
-        while stdout_scanner.check_until(/\n/)
+        while stdout_scanner.check_until(@newline_regex)
+          found_line = stdout_scanner.scan_until(@newline_regex)
+          #puts [channel, found_line].inspect
           stdout_io.write(colorize(color, channel.ljust(@max_channel_length)) + " " + colorize(@out_color, "OUT: "))
-          stdout_io.write(stdout_scanner.scan_until(/\n/))
+          stdout_io.write(found_line)
         end
 
-        while stderr_scanner.check_until(/\n/)
+        while stderr_scanner.check_until(@newline_regex)
+          found_line = stderr_scanner.scan_until(@newline_regex)
+          #puts [channel, found_line].inspect
           stderr_io.write(colorize(color, channel.ljust(@max_channel_length)) + " " + colorize(@err_color, "ERR: "))
-          stderr_io.write(stderr_scanner.scan_until(/\n/))
+          stderr_io.write(found_line)
+        end
+
+        if stdout_scanner.rest_size > 0 || final_flush
+          while true
+            fetched_chunk = stdout_scanner.peek(@nol_chunk_size)
+            break if fetched_chunk.empty?
+            stdout_scanner.pos = stdout_scanner.pos + fetched_chunk.length
+            stdout_io.write(colorize(color, channel.ljust(@max_channel_length)) + " " + colorize(@out_color, "OUT: "))
+            stdout_io.write(fetched_chunk)
+            stdout_io.write($/)
+          end
+        end
+
+        if stderr_scanner.rest_size > 0 || final_flush
+          while true
+            fetched_chunk = stderr_scanner.peek(@nol_chunk_size)
+            break if fetched_chunk.empty?
+            stderr_scanner.pos = stderr_scanner.pos + fetched_chunk.length
+            stderr_io.write(colorize(color, channel.ljust(@max_channel_length)) + " " + colorize(@err_color, "ERR: "))
+            stderr_io.write(fetched_chunk)
+            stderr_io.write($/)
+          end
         end
       }
     end
