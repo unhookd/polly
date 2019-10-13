@@ -14,6 +14,9 @@ jobs:
       run: |
         set -e
 
+        #TODO: remove this hack when github actions virtual-environment is fixed
+        sudo apt remove -y -f php7.3-fpm php7.2-fpm msodbcsql17
+
         sudo bash bin/bootstrap.sh
 
     - name: rspec
