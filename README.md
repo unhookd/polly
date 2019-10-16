@@ -10,11 +10,12 @@ polly understands circleci config and is able to plan and execute workflows on a
 
     cd ~/workspace
     git clone git@github.com:unhookd/polly.git
-    sudo ln -s $HOME/workspace/polly/bin/polly /usr/local/bin/polly
+    cd polly
+    make install #NOTE: will prompt for sudo password
 
 # general workflow
 
-    cd ~
+    cd ~/workspace/myproj
     polly build # build polly controller Dockerfile
     polly init # install polly controller into desired kubernetes context
 
