@@ -50,7 +50,7 @@ class PollyTasks < Thor
   option "with-bootstrap", :type => :string, :default => nil, :desc => "Docker image to use as the build context"
   option "dry-run", :type => :boolean, :default => false, :desc => "Emit the plan but do not run the pipeline"
   option "keep-completed", :type => :boolean, :default => false, :desc => "Retain completed pods in kubectl get pods list"
-  option "detached-failed", :type => :boolean, :default => false, :desc => "Keep failed pods running"
+  option "detach-failed", :type => :boolean, :default => false, :desc => "Keep failed pods running"
   option "debug", :type => :boolean, :default => false, :desc => "Show debug output"
   option "short-circuit", :type => :boolean, :default => false, :desc => "Halt workflow on first failure"
   option "skip", :type => :string, :default => nil, :desc => "Don't run specified jobs (comma-separated list)"
