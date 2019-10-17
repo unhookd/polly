@@ -21,15 +21,11 @@ jobs:
       - run:
           name: bootstrap
           command: |
-            set -e
-
             bash bin/bootstrap.sh
 
       - run:
           name: rspec
           command: |
-            set -e
-
             bundle install --path=vendor/bundle
 
             bundle exec rspec

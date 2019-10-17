@@ -255,9 +255,9 @@ module Polly
         if run = step["run"]
           name = run["name"]
 
-          pro_fd.write("\n#BEGIN #{name}\n")
+          pro_fd.write("\necho BEGIN #{name}\n")
           pro_fd.write(run["command"])
-          pro_fd.write("\n#END #{name}\n")
+          pro_fd.write("\necho END #{name}\n")
 
           count_of_steps += 1
 

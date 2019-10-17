@@ -97,125 +97,147 @@ module Polly
       build_manifest_dir = File.join(build_run_dir, clean_name, current_revision)
       run_shell_path = File.join(build_manifest_dir, "run.sh")
 
-      if @dry_run
-        cmd_args = ["cat", run_shell_path]
-      elsif executor_hints[:detach]
-        cmd_args = ["sleep", "infinity"]
-      else
-        cmd_args = ["bash", "-e", "-o", "pipefail", run_shell_path]
-      end
+      sleep_cmd_args = ["sleep", "infinity"]
+      #TODO: figure out fail modes run_cmd_args = ["bash", "-x", "-e", "-o", "pipefail", run_shell_path]
+      run_cmd_args = ["bash", run_shell_path]
+      debug_cmd_args = ["cat", run_shell_path]
 
-      container_specs = {
-        "apiVersion" => "v1",
+      #if @dry_run
+      #elsif executor_hints[:detach]
+      #else
+      #end
+
+      deployment_spec = {
+        "apiVersion" => "extensions/v1beta1",
+        "kind" => "Deployment",
+        "metadata" => {
+          "name" => clean_name,
+          "labels" => {
+            "app" => clean_name
+          }
+        },
         "spec" => {
-          "securityContext" => {
-            "privileged" => true #TODO: figure out un-privd case, use kaniko???
+          "revisionHistoryLimit" => 1,
+          "strategy" => {
+            "type" => "Recreate"
           },
-          "initContainers" => [
-            {
-              "terminationGracePeriodSeconds" => 5,
-              "name" => "git-clone",
-              "image" => "polly:latest",
-              "imagePullPolicy" => "IfNotPresent",
-              "args" => [
-                "polly", "checkout", "http://polly-app:8080/#{current_app}", current_revision, "/home/app/current"
-              ],
-              "env" => { "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
-              "securityContext" => {
-                "runAsUser" => 0,
-                "allowPrivilegeEscalation" => false,
-                "readOnlyRootFilesystem" => true
+          "replicas" => 1,
+          "template" => {
+            "metadata" => {
+              "labels" => {
+                "name" => clean_name
               },
-              "volumeMounts" => [
-                {
-                  "mountPath" => "/home/app",
-                  "name" => "scratch-dir"
-                }
-              ]
+              "annotations" => {}
             }
-          ],
-          "containers" => [
-            {
-              "terminationGracePeriodSeconds" => 5,
-              "ttlSecondsAfterFinished" => 1,
-              "name" => clean_name,
-              "image" => run_image,
-              "imagePullPolicy" => "IfNotPresent",
-              "workingDir" => job.parameters[:working_directory] || "/home/app/current", #TODO: local executor support
-              "args" => cmd_args,
-              "volumeMounts" => [
-                {
-                  "mountPath" => "/var/run/docker.sock",
-                  "name" => "dood"
-                },
-                {
-                  "mountPath" => build_manifest_dir,
-                  "name" => "fd-config-volume"
-                },
-                {
-                  "mountPath" => "/home/app",
-                  "name" => "scratch-dir"
-                },
-                {
-                  "mountPath" => "/var/tmp/artifacts",
-                  "name" => "build-artifacts"
-                },
-                {
-                  "mountPath" => "/home/app/.ssh",
-                  "name" => "ssh-key"
-                },
-              ],
-              "env" => job.parameters[:environment].collect { |k,v| {"name" => k, "value" => v } }
-            }
-          ],
-          "volumes" => [
-            {
-              "name" => "dood",
-              "hostPath" => {
-                "path" => "/var/run/docker.sock"
-              }
-            },
-            {
-              "name" => "fd-config-volume",
-              "configMap" => {
-                "name" => "fd-#{clean_name}-#{current_revision}"
-              }
-            },
-            {
-              "name" => "git-repo",
-              #TODO: bundle cache bits!! "emptyDir" => {} ????
-              "hostPath" => {
-                "path" => "/var/tmp/polly-safe/git/#{current_app}"
-              }
-            },
-            {
-              "name" => "scratch-dir",
-              "hostPath" => {
-                "path" => "/var/tmp/polly-safe/scratch/#{current_app}"
-              }
-            },
-            {
-              "name" => "build-artifacts",
-              "hostPath" => {
-                "path" => "/var/tmp/polly-safe/artifacts/#{current_app}"
-              }
-            },
-            {
-              "name" => "ssh-key",
-              "hostPath" => {
-                "path" => "#{ENV['HOME']}/.ssh"
-              }
-            }
-          ]
+          }
         }
       }
 
-      unless @init
-        container_specs["spec"].delete("initContainers")
-      end
+      container_spec = {
+        "initContainers" => [
+          {
+            #"terminationGracePeriodSeconds" => 5,
+            "name" => "git-clone",
+            "image" => "polly:latest",
+            "imagePullPolicy" => "IfNotPresent",
+            "args" => [
+              "polly", "checkout", "http://polly-app:8080/#{current_app}", current_revision, "/home/app/current"
+            ],
+            "env" => { "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
+            "securityContext" => {
+              "runAsUser" => 0,
+              "allowPrivilegeEscalation" => false,
+              "readOnlyRootFilesystem" => true
+            },
+            "volumeMounts" => [
+              {
+                "mountPath" => "/home/app",
+                "name" => "scratch-dir"
+              }
+            ]
+          }
+        ],
+        "containers" => [
+          {
+            #"terminationGracePeriodSeconds" => 5,
+            #"ttlSecondsAfterFinished" => 1,
+            "securityContext" => {
+              "privileged" => true #TODO: figure out un-privd case, use kaniko???
+            },
+            "name" => clean_name,
+            "image" => run_image,
+            "imagePullPolicy" => "IfNotPresent",
+            "workingDir" => job.parameters[:working_directory] || "/home/app/current", #TODO: local executor support
+            "args" => sleep_cmd_args,
+            "volumeMounts" => [
+              {
+                "mountPath" => "/var/run/docker.sock",
+                "name" => "dood"
+              },
+              {
+                "mountPath" => build_manifest_dir,
+                "name" => "fd-config-volume"
+              },
+              {
+                "mountPath" => "/home/app",
+                "name" => "scratch-dir"
+              },
+              {
+                "mountPath" => "/var/tmp/artifacts",
+                "name" => "build-artifacts"
+              },
+              {
+                "mountPath" => "/home/app/.ssh",
+                "name" => "ssh-key"
+              },
+            ],
+            "env" => job.parameters[:environment].collect { |k,v| {"name" => k, "value" => v } }
+          }
+        ],
+        "volumes" => [
+          {
+            "name" => "dood",
+            "hostPath" => {
+              "path" => "/var/run/docker.sock"
+            }
+          },
+          {
+            "name" => "fd-config-volume",
+            "configMap" => {
+              "name" => "fd-#{clean_name}-#{current_revision}"
+            }
+          },
+          {
+            "name" => "git-repo",
+            #TODO: bundle cache bits!! "emptyDir" => {} ????
+            "hostPath" => {
+              "path" => "/var/tmp/polly-safe/git/#{current_app}"
+            }
+          },
+          {
+            "name" => "scratch-dir",
+            "hostPath" => {
+              "path" => "/var/tmp/polly-safe/scratch/#{current_app}"
+            }
+          },
+          {
+            "name" => "build-artifacts",
+            "hostPath" => {
+              "path" => "/var/tmp/polly-safe/artifacts/#{current_app}"
+            }
+          },
+          {
+            "name" => "ssh-key",
+            "hostPath" => {
+              "path" => "#{ENV['HOME']}/.ssh"
+            }
+          }
+        ]
+      }
 
-      #TODO
-      #puts YAML.dump(container_specs) if @debug
+      unless @init
+        container_spec.delete("initContainers")
+      end
 
       configmap_manifest = {
         "apiVersion" => "v1",
@@ -234,31 +256,62 @@ module Polly
       #TODO: better safety checks
       check_current_kube_context_is_safe!
 
-      apply_configmap = ["kubectl", "apply", "-f", "-"]
+      kubectl_apply = ["kubectl", "apply", "-f", "-"]
       apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}
-      execute_simple(:silentx, apply_configmap, apply_configmap_options)
+      execute_simple(:silentx, kubectl_apply, apply_configmap_options)
 
-      execute_simple(:silent, ["kubectl", "delete", "pod/#{clean_name}", "--grace-period=1"], {})
+      execute_simple(:silent, ["kubectl", "delete", "deployment/#{clean_name}", "--grace-period=1"], {})
+      execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{clean_name}"], {})
 
+      deployment_spec["spec"]["template"]["spec"] = container_spec
+
+      apply_deployment_options = {:stdin_data => deployment_spec.to_yaml}
+      execute_simple(:silentx, kubectl_apply, apply_deployment_options)
+
+      #ci_run_cmd = [
+      #               "kubectl", "run",
+      #               clean_name,
+      #               "--image", run_image,
+      #               "--restart", "Never",
+      #               "--generator", "run-pod/v1",
+      #               "--pod-running-timeout=1m0s", #TODO: adjust timeout
+      #               "--quiet", "true",
+      #               "--overrides", container_specs.to_json
+      #             ]
+
+      execute_simple(:silent, ["kubectl", "wait", "--for=condition=available", "deployment/#{clean_name}"], {})
+
+      find_all_pods = "kubectl get pods -l name=#{clean_name} -o name | cut -d/ -f2"
+      a = IO.popen(find_all_pods).read.strip
+      wait_child
+      all_pods = a.split("\n")
+
+      puts all_pods.inspect
+
+      pod_index = 0
       ci_run_cmd = [
-                     "kubectl", "run",
-                     clean_name,
-                     "--image", run_image,
-                     "--restart", "Never",
-                     "--generator", "run-pod/v1",
-                     "--pod-running-timeout=1m0s", #TODO: adjust timeout
-                     "--quiet", "true",
-                     "--overrides", container_specs.to_json
+                     "kubectl", "exec",
+                     all_pods[pod_index],
+                     "--"
                    ]
 
-      unless @keep_completed
-        ci_run_cmd += ["--rm", "true"]
+      if executor_hints[:detach]
+        ci_run_cmd += sleep_cmd_args
+      else
+        ci_run_cmd += run_cmd_args
       end
 
-      if executor_hints[:detach]
-        ci_run_cmd += ["--attach", "false"]
-      else
-        ci_run_cmd += ["--attach", "true"]
+      #unless @keep_completed
+      #  ci_run_cmd += ["--rm", "true"]
+      #end
+      #if executor_hints[:detach]
+      #  ci_run_cmd += ["--attach", "false"]
+      #else
+      #  ci_run_cmd += ["--attach", "true"]
+      #end
+
+      if @debug
+        puts ci_run_cmd.inspect
       end
 
       @runners << [job.run_name, clean_name, execute_simple(:async, ci_run_cmd, {})]
@@ -377,7 +430,7 @@ module Polly
 
         #TODO: handle better --wait-for flags
         unless (@keep_completed || @detach_failed)
-          @runners.collect { |job_run_name, pod_name, cmd_io| execute_simple(:silent, ["kubectl", "delete", "pod/#{pod_name}"], {}) }
+          @runners.collect { |job_run_name, pod_name, cmd_io| execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {}) }
         end
 
         return false if @all_exited
@@ -392,8 +445,8 @@ module Polly
       all_ok = @runners.all? { |job_run_name, pod_name, cmd_io| cmd_io.empty? || (!cmd_io[3].alive? && cmd_io[3].value.success?) }
 
       unless (@keep_completed || @detach_failed)
-        $stderr.write("deleting jobs...")
-        @runners.collect { |job_run_name, pod_name, cmd_io| execute_simple(:silent, ["kubectl", "delete", "pod/#{pod_name}"], {}) }
+        $stderr.write("deleting deployment...")
+        @runners.collect { |job_run_name, pod_name, cmd_io| execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {}) }
       end
 
       while (!@detach_failed && !@keep_completed && @runners.any? { |job_run_name, pod_name, cmd_io|
@@ -401,7 +454,7 @@ module Polly
         #TODO:
         #execute_simple(:silent, ["kubectl", "get", "pod/#{pod_name}"], {})
         #execute_simple(:silent, ["kubectl", "wait", "pod/#{pod_name}"], {})
-        execute_simple(:silent, ["kubectl", "wait", "--for=delete", "pod/#{pod_name}"], {})
+        execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{pod_name}"], {})
       }) do
         $stderr.write(".")
         sleep 0.1
@@ -419,6 +472,10 @@ module Polly
     def execute_simple(mode, cmd, options)
       exit_proc = lambda { |stdout, stderr, wait_thr_value, exit_or_not, silent=false|
         if !wait_thr_value.success?
+          #TODO: integrate Observe here for fatal halt error log
+          puts caller
+          puts stdout
+          puts stderr
           if exit_or_not
             Kernel.exit(1)
           end
