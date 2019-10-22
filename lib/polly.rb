@@ -3,6 +3,7 @@ require 'open3'
 require 'json'
 require 'tempfile'
 require 'strscan'
+require 'date'
 
 module Polly
   POLLY = "polly"
