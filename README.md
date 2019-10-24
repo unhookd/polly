@@ -1,6 +1,12 @@
 # polly - a gitops native, single tenant, micro ci laboratory
 
-polly can be used to debug several types of ci platforms
+A choose your own adventure git+ops authenticated journaled deployment controller development pipeline kubernetes utility test service.
+
+`polly` uses the basename of the current "working directory" ($PWD) as a source of information on conventional pipelines.
+
+There are also the notion of the `polly` deployment "itself", known as `$POLLY`.
+
+polly can be used to debug several types of ci platforms, to facilitate local CI, and as a general purpose dev tool.
 
 # .circleci/config.yml
 
@@ -79,11 +85,11 @@ exec's into the polly controller deployement to provide a debugging interactive 
 
 prints logs of polly controller deployement for debugging
 
-# wkndr key
+# polly key
 
 TBD: manages authentication
 
-# wkndr gitch
+# polly gitch
 
 TBD: useful gitflow utilities
 
@@ -96,3 +102,14 @@ TBD: internal process for looping
 the `watch` command facilitates local CI workfow or C.T.R. style development practices
 
     #TODO polly watch
+
+# safety instructions
+
+do not expose or use polly unless you have thoroughly understood the risk.
+
+# notes
+
+* https://github.com/FiloSottile/mkcert
+* https://www.atlassian.com/git/tutorials/setting-up-a-repository/git-init
+* https://github.com/GoogleContainerTools/kaniko
+* https://github.com/erikhuda/thor
