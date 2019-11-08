@@ -110,7 +110,6 @@ class PollyTasks < Thor
     obv.register_channels(["plan"] + plan.all_jobs.collect { |key, _| key } + ["exe"])
 
     obv.report_stdout("plan", plan.description)
-    obv.report_stderr("plan", "debug")
 
     obv.report_stdout("exe", exe.description)
 
