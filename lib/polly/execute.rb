@@ -99,7 +99,7 @@ module Polly
 
       sleep_cmd_args = ["sleep", "infinity"]
       #TODO: figure out fail modes run_cmd_args = ["bash", "-x", "-e", "-o", "pipefail", run_shell_path]
-      run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
+      run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash -e -o pipefail #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
 
       #debug_cmd_args = ["cat", run_shell_path]
       #if @dry_run
@@ -360,7 +360,8 @@ module Polly
           io_this_loop << [this_job, stdout, stderr]
         else
           if this_job
-            aok = cmd_io[3].value.success?
+            proc_wait_value = process_waiter.value
+            aok = proc_wait_value.success?
             jobs_to_mark_as_completed << this_job
             if !aok
               this_job.fail!
@@ -402,7 +403,7 @@ module Polly
             end
 
             exit_proc = cmd_io[4]
-            exit_proc.call(stdout, stderr, process_waiter.value, false)
+            exit_proc.call(stdout, stderr, proc_wait_value, false)
 
             io_this_loop << [this_job, stdout, stderr]
           end
@@ -481,9 +482,9 @@ module Polly
       exit_proc = lambda { |stdout, stderr, wait_thr_value, exit_or_not, silent=false|
         if !wait_thr_value.success?
           #TODO: integrate Observe here for fatal halt error log
-          puts caller
-          puts stdout
-          puts stderr
+          #puts caller
+          #puts stdout
+          #puts stderr
           if exit_or_not
             Kernel.exit(1)
           end
@@ -508,7 +509,6 @@ module Polly
 
         when :async
           stdin, stdout, stderr, wait_thr = Open3.popen3(*cmd, options)
-          #stdout.sync
           return [stdin, stdout, stderr, wait_thr, exit_proc]
 
       end

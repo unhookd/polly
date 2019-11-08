@@ -212,6 +212,8 @@ module Polly
           if exe_name
             image = circle_yaml["executors"][exe_name]["docker"]
           end
+        else
+          image = circleci_like_parameters["docker"]
         end
 
         add_circleci_job(job_run_name, image, circleci_like_parameters["steps"], circleci_like_parameters["environment"], circleci_like_parameters["working_directory"])
