@@ -279,6 +279,8 @@ module Polly
         "SSH_ASKPASS" => "false",
         "CIRCLE_WORKING_DIRECTORY" => "/home/app/current",
         "PATH" => "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games",
+        #TODO: parse all of the executor models
+        "TZ" => "Etc/UCT",
         #TODO: "HTTP_PROXY_HOST" => "#{http_proxy_service_ip}:8111"
       }
 

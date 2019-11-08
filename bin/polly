@@ -251,7 +251,7 @@ class PollyTasks < Thor
         #systemx("git", "clean", "-f", "-d", "-x")
         exe.systemx("git", "checkout", "-m", version)
 
-        exe.systemx("chmod", "-Rv", "777", destination)
+        exe.systemx("chmod", "-Rv", "777", File.dirname(destination))
         #exe.systemx("chown", "-R", "1000", File.dirname(destination))
       end
     }

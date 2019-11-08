@@ -99,7 +99,7 @@ module Polly
 
       sleep_cmd_args = ["sleep", "infinity"]
       #TODO: figure out fail modes run_cmd_args = ["bash", "-x", "-e", "-o", "pipefail", run_shell_path]
-      run_cmd_args = ["bash", run_shell_path]
+      run_cmd_args = ["bash", "-c", "bash #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
       debug_cmd_args = ["cat", run_shell_path]
 
       #if @dry_run
@@ -286,7 +286,7 @@ module Polly
       wait_child
       all_pods = a.split("\n")
 
-      puts all_pods.inspect
+      #puts all_pods.inspect
 
       pod_index = 0
       ci_run_cmd = [
