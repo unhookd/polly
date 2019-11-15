@@ -242,19 +242,20 @@ class PollyTasks < Thor
     File.open(polly_lock, File::RDWR|File::CREAT, 0644) { |f|
       f.flock(File::LOCK_EX)
       if Dir.chdir(destination)
-        if exe.system("git", "status")
-        else
+        unless exe.execute_simple(:silentx, ["git", "status"], {})
           exe.systemx("git", "init")
         end
 
         exe.system("git", "remote", "add", "origin", repo)
-        exe.systemx("git","fetch", "origin")
+        exe.execute_simple(:silentx, ["git","fetch", "origin"], {})
 
         #TODO: implement caching option/flag
-        #systemx("git", "clean", "-f", "-d", "-x")
-        exe.systemx("git", "checkout", "-m", version)
+        exe.execute_simple(:silentx, ["git", "clean", "-f"], {})
+        #exe.systemx("git", "reset")
+        #exe.systemx("git", "checkout", "--", ".")
+        exe.execute_simple(:silentx, ["git", "checkout", "-m", version], {})
 
-        exe.systemx("chmod", "-Rv", "777", File.dirname(destination))
+        exe.systemx("chmod", "-R", "777", File.dirname(destination))
         #exe.systemx("chown", "-R", "1000", File.dirname(destination))
       end
     }
