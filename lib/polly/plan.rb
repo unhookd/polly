@@ -211,6 +211,8 @@ module Polly
           exe_name = exe_found["name"]
           if exe_name
             image = circle_yaml["executors"][exe_name]["docker"]
+          else
+            image = circle_yaml["executors"][exe_found]["docker"]
           end
         else
           image = circleci_like_parameters["docker"]
