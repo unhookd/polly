@@ -110,7 +110,6 @@ class PollyTasks < Thor
     obv.register_channels(["plan"] + plan.all_jobs.collect { |key, _| key } + ["exe"])
 
     obv.report_stdout("plan", plan.description)
-    obv.report_stderr("plan", "debug")
 
     obv.report_stdout("exe", exe.description)
 
@@ -135,7 +134,9 @@ class PollyTasks < Thor
       end
 
       unless finished_this_loop.empty?
-        obv.report_stdout("plan", "finished #{finished_this_loop.collect(&:run_name)}")
+        ran_failed, ran_ok = finished_this_loop.partition { |j| j.failed? }
+        obv.report_stdout("plan", "finished #{ran_ok.collect(&:run_name)}") unless ran_ok.empty?
+        obv.report_stderr("plan", "failed #{ran_failed.collect(&:run_name)}") unless ran_failed.empty?
       end
 
       obv.flush($stdout, $stderr)
@@ -146,12 +147,14 @@ class PollyTasks < Thor
     duration = Time.now - start_time
 
     if cleanup_all_ok
-      obv.report_stdout("plan", "all jobs completed... #{duration}s")
+      obv.report_stdout("plan", "all jobs ok... #{duration}s")
     else
       obv.report_stdout("plan", "some jobs failed... #{duration}s")
     end
 
     obv.flush($stdout, $stderr, true)
+
+    exit cleanup_all_ok
   end
 
   desc "push [BRANCH]", "Push the latest commit into the Polly container"
@@ -251,7 +254,7 @@ class PollyTasks < Thor
         #systemx("git", "clean", "-f", "-d", "-x")
         exe.systemx("git", "checkout", "-m", version)
 
-        exe.systemx("chmod", "-Rv", "777", destination)
+        exe.systemx("chmod", "-Rv", "777", File.dirname(destination))
         #exe.systemx("chown", "-R", "1000", File.dirname(destination))
       end
     }

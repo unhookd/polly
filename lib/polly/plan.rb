@@ -205,7 +205,20 @@ module Polly
 
       add_job_to_stack = lambda { |job_run_name|
         circleci_like_parameters = circle_yaml["jobs"][job_run_name]
-        add_circleci_job(job_run_name, circleci_like_parameters)
+        image = nil
+
+        if exe_found = circleci_like_parameters["executor"]
+          exe_name = exe_found["name"]
+          if exe_name
+            image = circle_yaml["executors"][exe_name]["docker"]
+          else
+            image = circle_yaml["executors"][exe_found]["docker"]
+          end
+        else
+          image = circleci_like_parameters["docker"]
+        end
+
+        add_circleci_job(job_run_name, image, circleci_like_parameters["steps"], circleci_like_parameters["environment"], circleci_like_parameters["working_directory"])
       }
 
       circle_yaml["workflows"].each do |workflow_key, workflow|
@@ -230,12 +243,12 @@ module Polly
       end
     end
 
-    def add_circleci_job(job_run_name, circleci_like_parameters)
+    def add_circleci_job(job_run_name, docker_image, steps, job_env, working_directory)
       executor_hints = {
-        :docker => circleci_like_parameters["docker"]
+        :docker => docker_image
       }
 
-      steps = circleci_like_parameters["steps"]
+      #steps = circleci_like_parameters["steps"]
 
       pro_fd = StringIO.new
 
@@ -248,7 +261,7 @@ module Polly
         end
 
         if step == "setup-remote-docker"
-          executor_hints[:setup_remot_docker] = true
+          executor_hints[:setup_remote_docker] = true
           next
         end
 
@@ -279,17 +292,19 @@ module Polly
         "SSH_ASKPASS" => "false",
         "CIRCLE_WORKING_DIRECTORY" => "/home/app/current",
         "PATH" => "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games",
+        #TODO: parse all of the executor models
+        "TZ" => "Etc/UCT",
         #TODO: "HTTP_PROXY_HOST" => "#{http_proxy_service_ip}:8111"
       }
 
-      if job_env = circleci_like_parameters["environment"]
+      if job_env
         circleci_env.merge!(job_env)
       end
 
       valid_parameters = {
         :environment => circleci_env,
         :command => pro_fd.read,
-        :working_directory => circleci_like_parameters["working_directory"],
+        :working_directory => working_directory,
         :executor_hints => executor_hints
       }
 
