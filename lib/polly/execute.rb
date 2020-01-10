@@ -55,7 +55,7 @@ module Polly
 
     def current_app
       @current_app ||= begin
-        File.basename(Dir.pwd).gsub(/[^a-z0-9\-]/, "") #TODO: better dirname support??
+        File.basename(Dir.pwd).gsub(/[^a-z0-9\-\.]/, "") #TODO: better dirname support??
       end
     end
 
@@ -99,9 +99,9 @@ module Polly
 
       sleep_cmd_args = ["sleep", "infinity"]
       #TODO: figure out fail modes run_cmd_args = ["bash", "-x", "-e", "-o", "pipefail", run_shell_path]
-      run_cmd_args = ["bash", run_shell_path]
-      debug_cmd_args = ["cat", run_shell_path]
+      run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash -e -o pipefail #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
 
+      #debug_cmd_args = ["cat", run_shell_path]
       #if @dry_run
       #elsif executor_hints[:detach]
       #else
@@ -268,25 +268,12 @@ module Polly
       apply_deployment_options = {:stdin_data => deployment_spec.to_yaml}
       execute_simple(:silentx, kubectl_apply, apply_deployment_options)
 
-      #ci_run_cmd = [
-      #               "kubectl", "run",
-      #               clean_name,
-      #               "--image", run_image,
-      #               "--restart", "Never",
-      #               "--generator", "run-pod/v1",
-      #               "--pod-running-timeout=1m0s", #TODO: adjust timeout
-      #               "--quiet", "true",
-      #               "--overrides", container_specs.to_json
-      #             ]
-
       execute_simple(:silent, ["kubectl", "wait", "--for=condition=available", "deployment/#{clean_name}"], {})
 
       find_all_pods = "kubectl get pods -l name=#{clean_name} -o name | cut -d/ -f2"
       a = IO.popen(find_all_pods).read.strip
       wait_child
       all_pods = a.split("\n")
-
-      puts all_pods.inspect
 
       pod_index = 0
       ci_run_cmd = [
@@ -337,6 +324,8 @@ module Polly
 
       jobs_to_detach = []
 
+      jobs_to_keep_completed = []
+
       @runners.each do |job_run_name, pod_name, cmd_io|
         next if cmd_io.empty?
 
@@ -371,7 +360,8 @@ module Polly
           io_this_loop << [this_job, stdout, stderr]
         else
           if this_job
-            aok = cmd_io[3].value.success?
+            proc_wait_value = process_waiter.value
+            aok = proc_wait_value.success?
             jobs_to_mark_as_completed << this_job
             if !aok
               this_job.fail!
@@ -384,6 +374,11 @@ module Polly
                 jobs_to_detach << this_job
               end
             end
+
+            if @keep_completed
+              jobs_to_keep_completed << this_job
+            end
+
             @running_jobs.delete(job_run_name)
 
             chunk = 65432
@@ -408,7 +403,7 @@ module Polly
             end
 
             exit_proc = cmd_io[4]
-            exit_proc.call(stdout, stderr, process_waiter.value, false)
+            exit_proc.call(stdout, stderr, proc_wait_value, false)
 
             io_this_loop << [this_job, stdout, stderr]
           end
@@ -416,9 +411,23 @@ module Polly
       end
 
       jobs_to_detach.each do |failed_job|
-        failed_job.parameters[:executor_hints][:detach] = true
-        start_job!(failed_job)
+        #failed_job.parameters[:executor_hints][:detach] = true
+        #start_job!(failed_job)
       end
+
+      jobs_to_mark_as_completed.each { |job_thang|
+        #unless job_thang.parameters[:executor_hints][:detach]
+          @runners.each { |job_namish, pod_name, cmd_io|
+            if job_thang.run_name == job_namish
+        #  #if jobs_to_mark_as_completed.include?(job_namish)
+              unless jobs_to_keep_completed.include?(job_thang) || jobs_to_detach.include?(job_thang)
+                #puts [jobs_to_mark_as_completed, jobs_to_detach, job_namish, pod_name].inspect
+                execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {})
+              end
+            end
+          }
+        #end
+      }
 
       return jobs_to_mark_as_completed, io_this_loop
     end
@@ -473,9 +482,9 @@ module Polly
       exit_proc = lambda { |stdout, stderr, wait_thr_value, exit_or_not, silent=false|
         if !wait_thr_value.success?
           #TODO: integrate Observe here for fatal halt error log
-          puts caller
-          puts stdout
-          puts stderr
+          #puts caller
+          #puts stdout
+          #puts stderr
           if exit_or_not
             Kernel.exit(1)
           end
@@ -500,7 +509,6 @@ module Polly
 
         when :async
           stdin, stdout, stderr, wait_thr = Open3.popen3(*cmd, options)
-          #stdout.sync
           return [stdin, stdout, stderr, wait_thr, exit_proc]
 
       end
