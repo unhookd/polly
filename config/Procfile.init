@@ -1,2 +1,3 @@
 apache2: /usr/sbin/apache2 -D FOREGROUND
 nginx-apt-proxy: /usr/sbin/nginx -g 'daemon off;'
+docker-registry: /usr/bin/docker-registry serve /etc/docker/registry/config.yml

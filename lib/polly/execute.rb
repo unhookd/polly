@@ -488,9 +488,9 @@ module Polly
           if exit_or_not
             Kernel.exit(1)
           end
-        else
-          return stdout, stderr, wait_thr_value.success?
         end
+
+        return stdout, stderr, wait_thr_value.success?
       }
 
       case mode
@@ -503,9 +503,14 @@ module Polly
           s.success?
           return exit_proc.call(o, e, s, true, true)
 
+        #TODO: rename to critical_or_fail
         when :blocking
           o, e, s = Open3.capture3(*cmd, options)
           return exit_proc.call(o, e, s, true)
+
+        when :output
+          o, e, s = Open3.capture3(*cmd, options)
+          return exit_proc.call(o, e, s, false)
 
         when :async
           stdin, stdout, stderr, wait_thr = Open3.popen3(*cmd, options)

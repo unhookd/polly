@@ -4,6 +4,8 @@ require 'json'
 require 'tempfile'
 require 'strscan'
 require 'date'
+require 'openssl'
+require 'base64'
 
 module Polly
   POLLY = "polly"
