@@ -232,33 +232,59 @@ class PollyTasks < Thor
 
   desc "checkout [REPO] [VERSION] [DESTINATION]", ""
   def checkout(repo, version, destination)
+    obv = ::Polly::Observe.new
+    obv.register_channels(["checkout"])
+
     exe = ::Polly::Execute.new
 
     exe.systemx("mkdir", "-p", destination)
+    obv.report_stdout("checkout", "mkdir #{destination}")
+    obv.flush($stdout, $stderr, true)
 
     #TODO: implement locking as an option
     polly_lock = "#{File.dirname(destination)}/.polly.lock"
 
     File.open(polly_lock, File::RDWR|File::CREAT, 0644) { |f|
+      obv.report_stdout("checkout", "aquired lock")
+      obv.flush($stdout, $stderr, true)
+
       f.flock(File::LOCK_EX)
       if Dir.chdir(destination)
-        unless exe.execute_simple(:silentx, ["git", "status"], {})
+        obv.report_stdout("checkout", "checking for repo")
+        obv.flush($stdout, $stderr, true)
+
+        if exe.execute_simple(:silent, ["git", "status"], {})
+          obv.report_stdout("checkout", "found repo")
+          obv.flush($stdout, $stderr, true)
+        else
+          obv.report_stdout("checkout", "... not found, creating now")
+          obv.flush($stdout, $stderr, true)
           exe.systemx("git", "init")
         end
 
-        exe.system("git", "remote", "add", "origin", repo)
+        exe.execute_simple(:silent, ["git", "remote", "add", "origin", repo], {})
+        obv.report_stdout("checkout", "installed remote")
+        obv.flush($stdout, $stderr, true)
+
         exe.execute_simple(:silentx, ["git","fetch", "origin"], {})
+        obv.report_stdout("checkout", "fetched origin")
 
         #TODO: implement caching option/flag
         exe.execute_simple(:silentx, ["git", "clean", "-f"], {})
+        obv.report_stdout("checkout", "cleaned repo")
+
         #exe.systemx("git", "reset")
         #exe.systemx("git", "checkout", "--", ".")
         exe.execute_simple(:silentx, ["git", "checkout", "-m", version], {})
+        obv.report_stdout("checkout", "checkedout #{version}")
 
         exe.systemx("chmod", "-R", "777", File.dirname(destination))
         #exe.systemx("chown", "-R", "1000", File.dirname(destination))
+        obv.report_stdout("checkout", "chowned #{destination}")
       end
     }
+
+    obv.flush($stdout, $stderr, true)
   end
 
   desc "init", ""
