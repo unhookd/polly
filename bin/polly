@@ -577,6 +577,58 @@ HEREDOC
     exe.execute_procfile(ENV['PWD'], "Prepfile") if (options["prepare"] || options["only-prepare"])
     exe.execute_procfile(ENV['PWD'], procfile) unless options["only-prepare"]
   end
+
+  ##TODO: --in-vivo split
+  #desc "repositories", ""
+  #def repositories
+  #  catalog_json = fetch_from_registry("v2/_catalog")
+  #  catalog = JSON.load(catalog_json)
+  #  puts catalog["repositories"]
+  #end
+
+  #desc "tags", ""
+  #def tags
+  #  catalog_json = fetch_from_registry("v2/#{APP}/tags/list")
+  #  catalog = JSON.load(catalog_json)
+  #  if catalog
+  #    puts catalog["tags"]
+  #  end
+  #end
+
+  #def name_of_wkndr_pod
+  #  IO.popen("kubectl get pods -l name=wkndr-app -o name | cut -d/ -f2").read.strip
+  #end
+
+  #def fetch_from_registry(path)
+  #  ssl_cert_file = "ca.wkndr.crt"
+
+  #  kubectl_port_forward_cmd = [
+  #                               "kubectl",
+  #                               "port-forward",
+  #                               name_of_wkndr_pod,
+  #                               "5000"
+  #                             ]
+
+  #  options = {}
+  #  process_stdin, process_stdout, process_stderr, process_waiter = execute_simple(:async, kubectl_port_forward_cmd, options)
+
+  #  process_stdout.expect("-> 5000")
+
+  #  curl_cmd = [
+  #                       "curl",
+  #                       "-s",
+  #                       "--cacert",
+  #                       ssl_cert_file,
+  #                       "--resolve",
+  #                       "wkndr-app:5000:127.0.0.1",
+  #                       "https://wkndr-app:5000/#{path}"
+  #                     ]
+
+  #  result = IO.popen(curl_cmd).read.strip
+  #  process_waiter.kill
+  #  process_waiter.join
+  #  result
+  #end
 end
 
 case $executing_as
@@ -585,3 +637,70 @@ case $executing_as
   when Polly::POLLY, "Thorfile"
     PollyTasks.start(ARGV)
 end
+
+#TODO: kaniko build step
+=begin
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kaniko
+spec:
+  containers:
+  - name: kaniko
+    imagePullPolicy: IfNotPresent
+    #image: polly:latest
+    #command: ["sleep", "infinity"]
+    image: gcr.io/kaniko-project/executor:latest
+    args: ["--dockerfile", "Dockerfile",
+           "--context", "/var/polly/scratch/polly/current",
+           "--destination", "polly-app:5000/polly:kaniko-latest",
+           "--cache",
+           "--cache-dir=/var/polly/cache"]
+    volumeMounts:
+      - name: polly-sandbox
+        mountPath: /var/polly
+      - name: ca-certificates
+        mountPath: /kaniko/ssl/certs
+    env:
+      #- name:
+      #  value:
+  restartPolicy: Never
+  volumes:
+    - name: ca-certificates
+      secret:
+        secretName: ca-certificates
+    - name: polly-sandbox
+      persistentVolumeClaim:
+        claimName: polly-sandbox-claim
+...
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: polly-sandbox-claim
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  #storageClassName: local-storage
+...
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: polly-sandbox
+#  labels:
+#    type: local
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  #storageClassName: local-storage
+  hostPath:
+    path: /var/tmp/polly-safe
+...
+=end
