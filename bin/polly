@@ -289,6 +289,8 @@ class PollyTasks < Thor
 
   desc "certificates", ""
   def certificates
+    workstation_ca_certificates = "/etc/ssl/certs/ca-certificates.crt"
+
     exe = ::Polly::Execute.new
 
     root_key = OpenSSL::PKey::RSA.new 2048 # the CA's public/private key
@@ -313,7 +315,7 @@ class PollyTasks < Thor
     cert = OpenSSL::X509::Certificate.new
     cert.version = 2
     cert.serial = 2
-    cert.subject = OpenSSL::X509::Name.parse "/DC=org/DC=unhookd/CN=POLLY"
+    cert.subject = OpenSSL::X509::Name.parse "/DC=org/DC=unhookd/CN=polly-app"
     cert.issuer = root_ca.subject # root CA is the issuer
     cert.public_key = key.public_key
     cert.not_before = Time.now
@@ -330,10 +332,11 @@ class PollyTasks < Thor
 apiVersion: v1
 kind: Secret
 metadata:
-  name: "ca-certificate"
+  name: "ca-certificates"
 type: Opaque
 data:
-  ca.polly.crt: #{Base64.strict_encode64(key.to_pem)}
+  ca.workstation.crt: #{Base64.strict_encode64(File.read(workstation_ca_certificates))}
+  ca.polly.crt: #{Base64.strict_encode64(root_ca.to_pem)}
 ...
 ---
 apiVersion: v1
@@ -457,9 +460,12 @@ spec:
         - name: tmp
           hostPath:
             path: /var/tmp/polly-safe
-        - name: ca-certificate
+        #- name: ca-certificates
+        #  secret:
+        #    secretName: ca-certificates
+        - name: registry-certificates
           secret:
-            secretName: ca-certificate
+            secretName: registry-certificates
       initContainers:
       - name: app-init
         image: polly:latest
@@ -480,8 +486,11 @@ spec:
         volumeMounts:
           - mountPath: /var/tmp
             name: tmp
-          - mountPath: /etc/ssl/certs
-            name: ca-certificate
+          #- mountPath: /etc/ssl/certs
+          #  name: ca-certificates
+          #  readOnly: true
+          - mountPath: /etc/ssl/private
+            name: registry-certificates
             readOnly: true
         image: #{exe.current_app}:#{exe.current_revision}
         imagePullPolicy: IfNotPresent
@@ -530,7 +539,8 @@ HEREDOC
 
     deploy_polly_app = ["kubectl", "apply", "-f", "-"]
     options = {:stdin_data => polly_run}
-    exe.execute_simple(:blocking, deploy_polly_app, options)
+    o,e,s = exe.execute_simple(:output, deploy_polly_app, options)
+    puts [o, e, s]
 
     wait_polly_app = ["kubectl", "wait", "--for=condition=available", "deployment/polly-app"]
     exe.execute_simple(:blocking, wait_polly_app, {})
