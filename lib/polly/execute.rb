@@ -55,7 +55,7 @@ module Polly
 
     def current_app
       @current_app ||= begin
-        File.basename(Dir.pwd).gsub(/[^a-z0-9\-]/, "") #TODO: better dirname support??
+        File.basename(Dir.pwd).gsub(/[^a-z0-9\-\.]/, "") #TODO: better dirname support??
       end
     end
 
