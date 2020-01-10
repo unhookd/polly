@@ -6,24 +6,28 @@ COPY bin/bootstrap.sh /var/tmp/bootstrap.sh
 
 RUN /var/tmp/bootstrap.sh
 
-COPY Gemfile Gemfile.lock polly.gemspec /var/tmp/polly/
-COPY lib/polly.rb /var/tmp/polly/lib/polly.rb
-
-RUN chown -R app. /var/tmp/polly
-
 USER app
-WORKDIR /var/tmp/polly
+
+COPY Gemfile Gemfile.lock polly.gemspec /home/app/current/
+COPY lib/polly.rb /home/app/current/lib/polly.rb
+
+#RUN chown -R app. /var/tmp/polly
+
+WORKDIR /home/app/current
 
 RUN bundle install --path=vendor/bundle
 
-COPY . /var/tmp/polly/
+COPY . /home/app/current
 
 RUN bundle exec rake build
 
 USER root
 
-RUN gem install pkg/*gem && \
-    gem list && \
+#RUN gem install pkg/*gem && \
+#    gem list && \
+#    which polly && polly help
+
+RUN ln -fs /home/app/current/bin/polly /usr/local/bin/polly && \
     which polly && polly help
 
 COPY config/apache.conf /etc/apache2/sites-available/000-default.conf
