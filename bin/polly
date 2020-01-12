@@ -629,6 +629,20 @@ HEREDOC
   #  process_waiter.join
   #  result
   #end
+
+  desc "generate", ""
+  #option "pipeline-fu", :type => :string, :default => "circleci"
+  #option "image-fu", :type => :string, :default => "buildkit"
+  def generate(pollyfile = "Pollyfile")
+    obv = ::Polly::Observe.new
+    exe = ::Polly::Execute.new(options)
+
+    pollyfile_ruby = File.read(pollyfile)
+
+    #Polly::Generate.options = options
+
+    Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, pollyfile)
+  end
 end
 
 case $executing_as

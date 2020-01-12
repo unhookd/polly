@@ -2,7 +2,10 @@ source 'https://rubygems.org'
 
 gemspec
 
-group :development, :test do
+# https://github.com/rubygems/rubygems/issues/1104
+group "development" do
   gem "guard"
   gem "guard-rspec"
+  gem "rake"
+  gem "rspec"
 end

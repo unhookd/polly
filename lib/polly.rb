@@ -9,7 +9,6 @@ require 'base64'
 
 module Polly
   POLLY = "polly"
-  VERSION = "0.1.0"
 
   class Error < StandardError; end
 
@@ -17,4 +16,5 @@ module Polly
   autoload 'Execute', 'polly/execute'
   autoload 'Job', 'polly/job'
   autoload 'Observe', 'polly/observe'
+  autoload 'Generate', 'polly/generate'
 end

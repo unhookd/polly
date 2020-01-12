@@ -1,13 +1,8 @@
 #
 
-lib = File.expand_path("../lib", __FILE__)
-$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-
-require "polly"
-
 Gem::Specification.new do |spec|
   spec.name          = "polly"
-  spec.version       = Polly::VERSION
+  spec.version       = "1.0.0"
   spec.authors       = ["Jon Bardin", "Jack Senechal"]
   spec.email         = ["diclophis@gmail.com", "jacksenechal@gmail.com"]
 
@@ -20,9 +15,6 @@ Gem::Specification.new do |spec|
   spec.bindir        = ["bin"]
   spec.executables   = ["polly"]
   spec.require_paths = ["lib"]
-
-  spec.add_development_dependency "rake", "~> 10.0"
-  spec.add_development_dependency "rspec", "~> 3.8"
 
   spec.add_dependency "thor", "~> 0.20"
 
