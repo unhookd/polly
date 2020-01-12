@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.0.0-experimental
+
 FROM ubuntu:bionic-20180526
 
 USER root
@@ -35,5 +37,7 @@ COPY config/nginx-apt-proxy.conf /etc/nginx/conf.d/
 COPY config/etc-docker-registry-config.yml /etc/docker/registry/config.yml
 COPY config/git-repo-template /usr/share/git-core/templates/
 COPY config/Procfile.init /var/lib/polly/
+
+RUN --mount=type=ssh true
 
 USER app

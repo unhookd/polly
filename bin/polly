@@ -208,7 +208,7 @@ class PollyTasks < Thor
     version = exe.current_revision
     app = exe.current_app
 
-    build_dockerfile = ["docker", "build", "-f", container_definition, options["cache"] ? nil : "--no-cache", "-t", app + ":" + version, "."].compact
+    build_dockerfile = [{"DOCKER_BUILDKIT" => "1"}, "docker", "build", "-f", container_definition, options["cache"] ? nil : "--no-cache", "-t", app + ":" + version, "."].compact
     exe.systemx(*build_dockerfile)
 
     tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":latest"]
