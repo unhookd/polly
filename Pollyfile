@@ -110,18 +110,22 @@ development_loop {
     with rakefile_code.build_exe
   }
 
-  follow.application_code {
+  follow application_code {
     signal procfile
     with rakefile_code.build_exe
   }
 
-  follow.spec_code {
+  follow spec_code {
   }
 
   #TODO: produce_commits!!!
 }
-#
-#workstation = Polly::Generate::System.new {
+
+#_image declares container artifacts
+base_image {
+  #create. blocks are context aware and decorate with RUN commands...
+  #possibly somehow also detect current localhost bits?
+  create application_context
 #  app {
 #    #useradd module
 #    run %q{useradd --home-dir /home/app --create-home --shell /bin/bash app}
