@@ -7,7 +7,7 @@ storage:
   cache:
     blobdescriptor: inmemory
   filesystem:
-    rootdirectory: /var/lib/docker-registry
+    rootdirectory: /polly-safe/docker-registry
   delete:
     enabled: true
 http:

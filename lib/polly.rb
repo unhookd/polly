@@ -17,4 +17,5 @@ module Polly
   autoload 'Job', 'polly/job'
   autoload 'Observe', 'polly/observe'
   autoload 'Generate', 'polly/generate'
+  autoload 'Config', 'polly/config'
 end

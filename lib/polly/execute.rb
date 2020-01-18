@@ -18,6 +18,9 @@ module Polly
       @runners = []
       @iteration = 0
 
+      #TODO: better safety checks
+      check_current_kube_context_is_safe!
+
       @exiting = false
       trap 'INT' do
         @exiting = true
@@ -41,7 +44,7 @@ module Polly
     def check_current_kube_context_is_safe!
       current_kube_context = IO.popen("kubectl config current-context").read.strip
       wait_child
-      raise "unsafe kubernetes context" unless current_kube_context == "kubernetes-admin@kubernetes"
+      raise "unsafe kubernetes context" unless Polly::Config.allowed_contexts.include?(current_kube_context)
     end
 
     def current_revision
@@ -252,9 +255,6 @@ module Polly
 
       #TODO
       #puts YAML.dump(configmap_manifest) if @debug
-
-      #TODO: better safety checks
-      check_current_kube_context_is_safe!
 
       kubectl_apply = ["kubectl", "apply", "-f", "-"]
       apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}

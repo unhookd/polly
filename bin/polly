@@ -163,11 +163,36 @@ class PollyTasks < Thor
 
     branch ||= exe.current_branch
 
+    #override_json = Proc.new { |args|
+    #  json = JSON.parse(File.read("config/polly-bootstrap.json"))
+    #  json["spec"]["containers"][0]["args"] = args
+    #  JSON.dump(json)
+    #}
+
+    #bootstrap_init_cmd = [
+    #  "kubectl", "run", "-i", "--rm", "polly-bootstrap",
+    #  "--image=alpine/git:latest",
+    #  #"--overrides", override_json.call(["init", "--bare", "/polly-safe/git/#{exe.current_app}"]), 
+    #  "--overrides", override_json.call(["-c", "git init --bare /polly-safe/git/#{exe.current_app}"]),
+    #  "--restart=Never"
+    #]
+    #
+    ##"init", "--bare", "/polly-safe/git/#{exe.current_app}"
+    ##]
+
+    #exe.systemx(*bootstrap_init_cmd)
+    #
+    #bootstrap_recv_pack = [
+    #  "git", "push", "-f", "polly", branch, "--exec=#{$polly_dir}/bin/polly receive-pack"
+    #]
+
+    #exe.systemx(*bootstrap_recv_pack)
+
     git_init_cmd = [
                      "kubectl", "exec", exe.polly_pod,
                      "-i",
                      "--",
-                     "git", "init", "--bare", "/var/tmp/git/#{exe.current_app}"
+                     "git", "init", "--bare", "/polly-safe/git/#{exe.current_app}"
                    ]
 
     exe.systemx(*git_init_cmd)
@@ -176,6 +201,7 @@ class PollyTasks < Thor
   end
 
   desc "receive-pack [ORIGIN]", "(internal) receive incoming git send-pack"
+  option "bootstrap", :type => :boolean, :default => false
   long_desc <<-LONGDESC
     Internal command, invoked via polly push.
 
@@ -192,8 +218,30 @@ class PollyTasks < Thor
                      "kubectl", "exec", exe.polly_pod,
                      "-i",
                      "--",
-                     "git", "receive-pack", "/var/tmp/git/#{exe.current_app}"
-                   ].compact
+                     "git", "receive-pack", "/polly-safe/git/#{exe.current_app}"
+                   ]
+
+    #git_push_cmd = [
+    #  "kubectl", "run", "-i", "--rm", "polly-bootstrap",
+    #  "--overrides", File.read("config/polly-bootstrap.json"), "--image=alpine/git:latest",
+    #  "--restart=Never", "--",
+    #  "receive-pack", "/polly-safe/git/#{exe.current_app}"
+    #]
+
+    #override_json = Proc.new { |args|
+    #  json = JSON.parse(File.read("config/polly-bootstrap.json"))
+    #  json["spec"]["containers"][0]["args"] = args
+    #  JSON.dump(json)
+    #}
+
+    #git_push_cmd = [
+    #  "kubectl", "run", "--quiet", "-i", "--rm", "polly-bootstrap",
+    #  "--image=alpine/git:latest",
+    #  "--overrides", override_json.call(["-I", "-c", "sleep 10 && exec git receive-pack /polly-safe/git/#{exe.current_app}"]),
+    #  "--restart=Never"
+    #]
+    #
+    ##"--env=GIT_TRACE_PACKET=true",
 
     exec(*git_push_cmd)
   end
@@ -315,7 +363,7 @@ class PollyTasks < Thor
     cert = OpenSSL::X509::Certificate.new
     cert.version = 2
     cert.serial = 2
-    cert.subject = OpenSSL::X509::Name.parse "/DC=org/DC=unhookd/CN=polly-app"
+    cert.subject = OpenSSL::X509::Name.parse "/DC=org/DC=unhookd/CN=polly-registry"
     cert.issuer = root_ca.subject # root CA is the issuer
     cert.public_key = key.public_key
     cert.not_before = Time.now
@@ -327,6 +375,11 @@ class PollyTasks < Thor
     cert.add_extension(ef.create_extension("subjectKeyIdentifier","hash",false))
     cert.sign(root_key, OpenSSL::Digest::SHA256.new)
 
+    wca = File.read(workstation_ca_certificates)
+    a = Base64.strict_encode64(wca)
+    b = Base64.strict_encode64(root_ca.to_pem)
+    c = Base64.strict_encode64(wca + root_ca.to_pem)
+
     polly_certificates = <<-HEREDOC
 ---
 apiVersion: v1
@@ -335,8 +388,9 @@ metadata:
   name: "ca-certificates"
 type: Opaque
 data:
-  ca.workstation.crt: #{Base64.strict_encode64(File.read(workstation_ca_certificates))}
-  ca.polly.crt: #{Base64.strict_encode64(root_ca.to_pem)}
+  ca.workstation.crt: #{a}
+  ca.polly.crt: #{b}
+  ca-certificates.crt: #{c}
 ...
 ---
 apiVersion: v1
@@ -370,6 +424,7 @@ HEREDOC
 
   desc "init", ""
   option "re-init", :type => :boolean, :default => false
+  option "bootstrap", :type => :boolean, :default => false
   def init
     exe = ::Polly::Execute.new
 
@@ -378,27 +433,43 @@ HEREDOC
       Kernel.exit(1)
     end
 
-    polly_run=<<-HEREDOC
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: "polly-headless"
-spec:
-  clusterIP: "None"
-  ports:
-  - port: 8111
-    name: nginx-apt-proxy
-    protocol: TCP
-  - port: 8080
-    name: apache2
-    protocol: TCP
-  - port: 5000
-    name: docker-registry
-    protocol: TCP
-  selector:
-    name: "polly-app"
-...
+    polly_resources = []
+    polly_services = []
+    polly_deployments = []
+
+    image = "#{exe.current_app}:#{exe.current_revision}"
+
+    command = ["polly", "dev", "/var/lib/polly/Procfile.init", "--rename=polly-init"].to_json
+
+    if options["bootstrap"]
+      image = "alpine/git:latest"
+      command = ["sleep", "2147483647"].to_json
+    end
+
+#    polly_services << <<-HEREDOC
+#---
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: "polly-headless"
+#spec:
+#  clusterIP: "None"
+#  ports:
+#  - port: 8111
+#    name: nginx-apt-proxy
+#    protocol: TCP
+#  - port: 8080
+#    name: apache2
+#    protocol: TCP
+#  - port: 5000
+#    name: docker-registry
+#    protocol: TCP
+#  selector:
+#    name: "polly-app"
+#...
+#HEREDOC
+
+    polly_services << <<-HEREDOC
 ---
 apiVersion: v1
 kind: Service
@@ -412,27 +483,46 @@ spec:
   - port: 8080
     name: apache2
     protocol: TCP
-  - port: 5000
-    name: docker-registry
-    protocol: TCP
   selector:
     name: "polly-app"
 ...
+HEREDOC
+
+    polly_services << <<-HEREDOC
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: "polly-app-node"
+  name: "polly-registry"
 spec:
-  type: NodePort
   ports:
-  - port: 5000
-    nodePort: 31500
-    name: docker-registry-node
+  - port: 443
+    name: docker-registry
     protocol: TCP
   selector:
-    name: "polly-app"
+    name: "polly-registry"
 ...
+HEREDOC
+
+#    polly_services << <<-HEREDOC
+#---
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: "polly-app-node"
+#spec:
+#  type: NodePort
+#  ports:
+#  - port: 5000
+#    nodePort: 31500
+#    name: docker-registry-node
+#    protocol: TCP
+#  selector:
+#    name: "polly-app"
+#...
+#HEREDOC
+
+    polly_deployments << <<-HEREDOC
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -457,42 +547,24 @@ spec:
         "ops.v2.rutty/bash": bash
     spec:
       volumes:
-        - name: tmp
-          hostPath:
-            path: /var/tmp/polly-safe
-        #- name: ca-certificates
-        #  secret:
-        #    secretName: ca-certificates
+        - name: polly-mount
+          persistentVolumeClaim:
+            claimName: polly-mount
         - name: registry-certificates
           secret:
             secretName: registry-certificates
       initContainers:
-      - name: app-init
-        image: polly:latest
-        imagePullPolicy: IfNotPresent
-        args: ["bash", "-ex", "-c", "mkdir -p /var/tmp/git"]
-        securityContext:
-          runAsUser: 0
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-        volumeMounts:
-          - mountPath: /var/tmp
-            name: tmp
       containers:
       - name: polly-app
         securityContext:
-          privileged: true
           runAsUser: 0
         volumeMounts:
-          - mountPath: /var/tmp
-            name: tmp
-          #- mountPath: /etc/ssl/certs
-          #  name: ca-certificates
-          #  readOnly: true
+          - mountPath: /polly-safe
+            name: polly-mount
           - mountPath: /etc/ssl/private
             name: registry-certificates
             readOnly: true
-        image: #{exe.current_app}:#{exe.current_revision}
+        image: #{image}
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -504,13 +576,8 @@ spec:
         ports:
         - containerPort: 8111
         - containerPort: 8080
-        - containerPort: 5000
-        command: ["polly", "dev", "/var/lib/polly/Procfile.init", "--rename=polly-init"]
+        command: #{command}
         env:
-        #- name: GIT_TRACE_PACKET
-        #  value: "/var/log/git.trace"
-        #- name: GIT_FLUSH
-        #  value: "1"
         - name: REGISTRY_HTTP_SECRET
           value: polly
         - name: APACHE_RUN_USER
@@ -527,6 +594,92 @@ spec:
           value: /var/run/apache2
 ...
 HEREDOC
+
+    polly_deployments << <<-HEREDOC
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: registry-config
+data:
+  registry.conf: |
+    version: 0.1
+    storage:
+      filesystem:
+        rootdirectory: /polly-safe/registry
+...
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: polly-registry
+  labels:
+    app: polly-registry
+spec:
+  revisionHistoryLimit: 1
+  strategy:
+    type: Recreate
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: polly-registry
+    spec:
+      volumes:
+        - name: registry-config
+          configMap:
+            name: registry-config
+        - name: polly-mount
+          persistentVolumeClaim:
+            claimName: polly-mount
+        - name: registry-certificates
+          secret:
+            secretName: registry-certificates
+      initContainers:
+      containers:
+      - name: polly-registry
+        volumeMounts:
+          - mountPath: /polly-safe
+            name: polly-mount
+          - mountPath: /etc/ssl/private
+            name: registry-certificates
+            readOnly: true
+          - mountPath: /registry.conf
+            subPath: registry.conf
+            name: registry-config
+        image: registry:2
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            memory: 500Mi
+            cpu: 500m
+          limits:
+            memory: 1000Mi
+            cpu: 2000m
+        ports:
+        - containerPort: 443
+        command:
+        - /bin/registry
+        args:
+        #- serve
+        #- -v
+        #- /polly-safe/registry:/var/lib/registry
+        #- help
+        - serve
+        - /registry.conf
+        env:
+        #- name: REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY
+        #  value: /polly-safe/registry
+        - name: REGISTRY_HTTP_TLS_CERTIFICATE
+          value: /etc/ssl/private/registry.polly.pem
+        - name: REGISTRY_HTTP_TLS_KEY
+          value: /etc/ssl/private/registry.polly.key
+        - name: REGISTRY_HTTP_ADDR
+          value: 0.0.0.0:443
+...
+HEREDOC
+
+    polly_run = polly_services.join + polly_deployments.join
 
     if options["re-init"]
       deploy_polly_app = ["kubectl", "delete", "-f", "-"]
