@@ -40,4 +40,6 @@ COPY config/Procfile.init /var/lib/polly/
 
 RUN --mount=type=ssh true
 
+RUN --mount=type=ssh echo true
+
 USER app
