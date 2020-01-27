@@ -188,6 +188,14 @@ class PollyTasks < Thor
 
     #exe.systemx(*bootstrap_recv_pack)
 
+    git_repo_template_install_cmd = [
+                     "kubectl", "cp", 
+                     "config/git-repo/templates",
+                     "#{exe.polly_pod}:/usr/share/git-core/"
+                   ]
+
+    exe.systemx(*git_repo_template_install_cmd)
+
     git_init_cmd = [
                      "kubectl", "exec", exe.polly_pod,
                      "-i",
@@ -197,7 +205,7 @@ class PollyTasks < Thor
 
     exe.systemx(*git_init_cmd)
 
-    exe.systemx("git", "push", "-f", "polly", branch, "--exec=#{$polly_dir}/bin/polly receive-pack")
+    exe.systemx("git", "push", "-f", "polly", branch, "HEAD:#{branch}-#{Time.now.to_i}", "--exec=polly receive-pack")
   end
 
   desc "receive-pack [ORIGIN]", "(internal) receive incoming git send-pack"
@@ -278,62 +286,62 @@ class PollyTasks < Thor
     end
   end
 
-  desc "checkout [REPO] [VERSION] [DESTINATION]", ""
-  def checkout(repo, version, destination)
-    obv = ::Polly::Observe.new
-    obv.register_channels(["checkout"])
-
-    exe = ::Polly::Execute.new
-
-    exe.systemx("mkdir", "-p", destination)
-    obv.report_stdout("checkout", "mkdir #{destination}")
-    obv.flush($stdout, $stderr, true)
-
-    #TODO: implement locking as an option
-    polly_lock = "#{File.dirname(destination)}/.polly.lock"
-
-    File.open(polly_lock, File::RDWR|File::CREAT, 0644) { |f|
-      obv.report_stdout("checkout", "aquired lock")
-      obv.flush($stdout, $stderr, true)
-
-      f.flock(File::LOCK_EX)
-      if Dir.chdir(destination)
-        obv.report_stdout("checkout", "checking for repo")
-        obv.flush($stdout, $stderr, true)
-
-        if exe.execute_simple(:silent, ["git", "status"], {})
-          obv.report_stdout("checkout", "found repo")
-          obv.flush($stdout, $stderr, true)
-        else
-          obv.report_stdout("checkout", "... not found, creating now")
-          obv.flush($stdout, $stderr, true)
-          exe.systemx("git", "init")
-        end
-
-        exe.execute_simple(:silent, ["git", "remote", "add", "origin", repo], {})
-        obv.report_stdout("checkout", "installed remote")
-        obv.flush($stdout, $stderr, true)
-
-        exe.execute_simple(:silentx, ["git","fetch", "origin"], {})
-        obv.report_stdout("checkout", "fetched origin")
-
-        #TODO: implement caching option/flag
-        exe.execute_simple(:silentx, ["git", "clean", "-f"], {})
-        obv.report_stdout("checkout", "cleaned repo")
-
-        #exe.systemx("git", "reset")
-        #exe.systemx("git", "checkout", "--", ".")
-        exe.execute_simple(:silentx, ["git", "checkout", "-m", version], {})
-        obv.report_stdout("checkout", "checkedout #{version}")
-
-        exe.systemx("chmod", "-R", "777", File.dirname(destination))
-        #exe.systemx("chown", "-R", "1000", File.dirname(destination))
-        obv.report_stdout("checkout", "chowned #{destination}")
-      end
-    }
-
-    obv.flush($stdout, $stderr, true)
-  end
+#  desc "checkout [REPO] [VERSION] [DESTINATION]", ""
+#  def checkout(repo, version, destination)
+#    obv = ::Polly::Observe.new
+#    obv.register_channels(["checkout"])
+#
+#    exe = ::Polly::Execute.new
+#
+#    exe.systemx("mkdir", "-p", destination)
+#    obv.report_stdout("checkout", "mkdir #{destination}")
+#    obv.flush($stdout, $stderr, true)
+#
+#    #TODO: implement locking as an option
+#    polly_lock = "#{File.dirname(destination)}/.polly.lock"
+#
+#    File.open(polly_lock, File::RDWR|File::CREAT, 0644) { |f|
+#      obv.report_stdout("checkout", "aquired lock")
+#      obv.flush($stdout, $stderr, true)
+#
+#      f.flock(File::LOCK_EX)
+#      if Dir.chdir(destination)
+#        obv.report_stdout("checkout", "checking for repo")
+#        obv.flush($stdout, $stderr, true)
+#
+#        if exe.execute_simple(:silent, ["git", "status"], {})
+#          obv.report_stdout("checkout", "found repo")
+#          obv.flush($stdout, $stderr, true)
+#        else
+#          obv.report_stdout("checkout", "... not found, creating now")
+#          obv.flush($stdout, $stderr, true)
+#          exe.systemx("git", "init")
+#        end
+#
+#        exe.execute_simple(:silent, ["git", "remote", "add", "origin", repo], {})
+#        obv.report_stdout("checkout", "installed remote")
+#        obv.flush($stdout, $stderr, true)
+#
+#        exe.execute_simple(:silentx, ["git","fetch", "origin"], {})
+#        obv.report_stdout("checkout", "fetched origin")
+#
+#        #TODO: implement caching option/flag
+#        exe.execute_simple(:silentx, ["git", "clean", "-f"], {})
+#        obv.report_stdout("checkout", "cleaned repo")
+#
+#        #exe.systemx("git", "reset")
+#        #exe.systemx("git", "checkout", "--", ".")
+#        exe.execute_simple(:silentx, ["git", "checkout", "-m", version], {})
+#        obv.report_stdout("checkout", "checkedout #{version}")
+#
+#        exe.systemx("chmod", "-R", "777", File.dirname(destination))
+#        #exe.systemx("chown", "-R", "1000", File.dirname(destination))
+#        obv.report_stdout("checkout", "chowned #{destination}")
+#      end
+#    }
+#
+#    obv.flush($stdout, $stderr, true)
+#  end
 
   desc "certificates", ""
   def certificates
@@ -705,9 +713,9 @@ HEREDOC
   end
 
   desc "sh", ""
-  def sh
+  def sh(sh_cmd = "sh")
     exe = ::Polly::Execute.new
-    exec(*["kubectl", "exec", exe.polly_pod, "-i", $stdin.tty? ? "-t" : nil, "--", "bash"].compact)
+    exec(*["kubectl", "exec", exe.polly_pod, "-i", $stdin.tty? ? "-t" : nil, "--", sh_cmd].compact)
   end
 
   desc "logs", ""
@@ -889,13 +897,13 @@ spec:
     spec:
       restartPolicy: Never
       initContainers:
-      - name: prepare
+      - name: git-clone
         image: alpine/git:latest
         command:
         - git
         - clone
         - -b
-        - wip-docker-reg
+        - wip-docker-reg #TODO: current_branch
         - /polly-safe/git/polly
         - .
         workingDir: /workspace

@@ -137,29 +137,30 @@ module Polly
       }
 
       container_spec = {
-        "initContainers" => [
-          {
-            #"terminationGracePeriodSeconds" => 5,
-            "name" => "git-clone",
-            "image" => "polly:latest",
-            "imagePullPolicy" => "IfNotPresent",
-            "args" => [
-              "polly", "checkout", "http://polly-app:8080/#{current_app}", current_revision, "/home/app/current"
-            ],
-            "env" => { "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
-            "securityContext" => {
-              "runAsUser" => 0,
-              "allowPrivilegeEscalation" => false,
-              "readOnlyRootFilesystem" => true
-            },
-            "volumeMounts" => [
-              {
-                "mountPath" => "/home/app",
-                "name" => "scratch-dir"
-              }
-            ]
-          }
-        ],
+        ##TODO: converge this with workstion git context
+        #"initContainers" => [
+        #  {
+        #    #"terminationGracePeriodSeconds" => 5,
+        #    "name" => "git-clone",
+        #    "image" => "polly:latest",
+        #    "imagePullPolicy" => "IfNotPresent",
+        #    "args" => [
+        #      "polly", "checkout", "http://polly-app:8080/#{current_app}", current_revision, "/home/app/current"
+        #    ],
+        #    "env" => { "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
+        #    "securityContext" => {
+        #      "runAsUser" => 0,
+        #      "allowPrivilegeEscalation" => false,
+        #      "readOnlyRootFilesystem" => true
+        #    },
+        #    "volumeMounts" => [
+        #      {
+        #        "mountPath" => "/home/app",
+        #        "name" => "scratch-dir"
+        #      }
+        #    ]
+        #  }
+        #],
         "containers" => [
           {
             #"terminationGracePeriodSeconds" => 5,
