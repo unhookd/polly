@@ -124,17 +124,97 @@
 #_image declares container artifacts
 build = image {
   stage "build", "ubuntu:bionic-20180526"
+
+  env "DEBIAN_FRONTEND" => "noninteractive",
+      "LC_ALL" => "C.UTF-8",
+      "LANG" => "en_US.UTF-8",
+      "LANGUAGE" => "en_US.UTF-8",
+      "ACCEPT_EULA" => "y"
+
+  apt %w{locales locales-all}
+
+  run %q{locale-gen --purge en_US.UTF-8}
+  run %q{/bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale}
+  run %q{locale-gen $LANGUAGE}
+  run %q{dpkg-reconfigure locales}
+
+  apt %w{git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common}
+
   run %q{touch /a}
 }
 
 deploy = image {
   stage "deploy", build
-  run %q{touch /b}
+
+  run %q{useradd --home-dir /home/app --create-home --shell /bin/bash app}
+
+  ppa "brightbox/ruby-ng"
+
+  apt %w{
+    build-essential
+    libyaml-dev
+    ruby2.6*-dev
+    libruby2*
+    ruby-bundler rubygems-integration
+    ruby2.6*
+    rake
+  }
+
+  command("COPY") {
+    "--chown=app . /home/app/current"
+  }
+
+  #TODO: user module
+  command("USER") {
+    "app"
+  }
+
+  #TODO: workdir module
+  command("WORKDIR") {
+    "/home/app/current"
+  }
+
+  run %q{bundle install --path=vendor/bundle --jobs=4 --retry=3 --deployment --without "development"}
+
+  run %q{bundle exec rake build}
+
+  #TODO: user module
+  command("USER") {
+    "root"
+  }
+
+  run %q{ln -fs /home/app/current/bin/polly /usr/local/bin/polly}
 }
 
 test = image {
   stage "test", deploy
-  run %q{touch /c}
+
+  #TODO: user module
+  command("USER") {
+    "app"
+  }
+
+  #TODO: workdir module
+  command("WORKDIR") {
+    "/home/app/current"
+  }
+
+  run %q{bundle install --path=vendor/bundle --jobs=4 --retry=3 --deployment --with "development"}
+
+  #TODO: user module
+  command("USER") {
+    "root"
+  }
+
+  #TODO: user module
+  command("USER") {
+    "app"
+  }
+
+  #TODO: workdir module
+  command("WORKDIR") {
+    "/home/app/current"
+  }
 }
 
 #    #switch root_context

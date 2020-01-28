@@ -338,7 +338,8 @@ spec:
           readOnly: true
       containers:
       - name: buildkit
-        image: moby/buildkit:master-rootless
+        #image: moby/buildkit:master-rootless
+        image: moby/buildkit:v0.6.3-rootless
         env:
         - name: BUILDKITD_FLAGS
           value: --oci-worker-no-process-sandbox
@@ -360,19 +361,19 @@ spec:
         - type=inline
 
         - --import-cache
-        - type=registry,ref=polly-registry:443/#{app}
+        - type=registry,ref=10.32.0.8:443/#{app}
 
-        - --opt
-        - push=true
+        #- --opt
+        #- push=true
 
-        - --opt
-        - name=polly-registry:443/#{app}
+        #- --opt
+        #- name=polly-registry:443/#{app}
 
-        - --opt
-        - target=test
+        #- --opt
+        #- target=test
 
         - --output
-        - type=image
+        - type=image,name=10.32.0.8:443/#{app},push=true
 
         resources:
           requests:
@@ -554,7 +555,8 @@ HEREDOC
     ef.subject_certificate = cert
     ef.issuer_certificate = root_ca
     cert.add_extension(ef.create_extension("keyUsage","digitalSignature", true))
-    cert.add_extension(ef.create_extension("subjectKeyIdentifier","hash",false))
+    cert.add_extension(ef.create_extension("subjectKeyIdentifier","hash", false))
+    cert.add_extension(ef.create_extension("subjectAltName", "IP:10.32.0.8", false))
     cert.sign(root_key, OpenSSL::Digest::SHA256.new)
 
     wca = File.read(workstation_ca_certificates)
