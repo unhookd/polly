@@ -205,6 +205,36 @@ class PollyTasks < Thor
 
     exe.systemx(*git_init_cmd)
 
+    #mkdir_buildkit_cmd = [
+    #                 "kubectl", "exec", exe.polly_pod,
+    #                 "-i",
+    #                 "--",
+    #                 "mkdir", "-p", "/polly-safe/buildkit/#{exe.current_app}"
+    #               ]
+
+    #exe.systemx(*mkdir_buildkit_cmd)
+
+    #chmod_buildkit_cmd = [
+    #                 "kubectl", "exec", exe.polly_pod,
+    #                 "-i",
+    #                 "--",
+    #                 "chmod", "-R", "777", "/polly-safe/buildkit/#{exe.current_app}"
+    #               ]
+
+    #exe.systemx(*chmod_buildkit_cmd)
+
+    #chown_buildkit_cmd = [
+    #                 "kubectl", "exec", exe.polly_pod,
+    #                 "-i",
+    #                 "--",
+    #                 "chown", "-R", "1000", "/polly-safe/buildkit/#{exe.current_app}"
+    #               ]
+
+    #exe.systemx(*chown_buildkit_cmd)
+
+#        exe.systemx("chmod", "-R", "777", File.dirname(destination))
+#        #exe.systemx("chown", "-R", "1000", File.dirname(destination))
+
     exe.systemx("git", "push", "-f", "polly", branch, "HEAD:#{branch}-#{Time.now.to_i}", "--exec=polly receive-pack")
   end
 
@@ -274,7 +304,7 @@ class PollyTasks < Thor
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: polly-buildkit-#{version}
+  name: polly-buildkit
 spec:
   backoffLimit: 0
   template:
@@ -302,7 +332,6 @@ spec:
         - name: workspace
           mountPath: /workspace
         - name: polly-mount
-          readOnly: true
           mountPath: /polly-safe
         - mountPath: /etc/ssl/certs
           name: ca-certificates
@@ -317,18 +346,25 @@ spec:
         - buildctl-daemonless.sh
         args:
         - build
+
         - --frontend
         - dockerfile.v0
+
         - --local
         - context=/workspace
+
         - --local
         - dockerfile=/workspace
-        - --output
-        - type=image,name=polly-registry:443/#{app},push=true
+
         - --export-cache
         - type=inline
+
         - --import-cache
         - type=registry,ref=polly-registry:443/#{app}
+
+        - --output
+        - type=image,name=polly-registry:443/#{app},push=true
+
         resources:
           requests:
             memory: 500Mi
@@ -341,10 +377,11 @@ spec:
           runAsGroup: 1000
         volumeMounts:
         - name: workspace
-          readOnly: true
           mountPath: /workspace
+          readOnly: true
         - name: polly-mount
           mountPath: /polly-safe
+          readOnly: true
         - mountPath: /etc/ssl/certs
           name: ca-certificates
           readOnly: true
@@ -363,22 +400,21 @@ spec:
 ...
 HEREDOC
 
+    build_pod_label = "job-name=polly-buildkit"
+
     delete_job = ["kubectl", "delete", "-f", "-"]
     options = {:stdin_data => build_jobs}
     o,e,s = exe.execute_simple(:output, delete_job, options)
-    puts [o, e]
 
-    wait_build_pod_deleted = ["kubectl", "wait", "--for=delete", "pod", "-l", "job-name=polly-buildkit-#{version}"]
+    wait_build_pod_deleted = ["kubectl", "wait", "--for=delete", "pod", "-l", "job-name=polly-buildkit"]
     o,e,s = exe.execute_simple(:output, wait_build_pod_deleted, {})
-    #puts [o, e, s]
 
     build_job_apply = ["kubectl", "apply", "-f", "-"]
     options = {:stdin_data => build_jobs}
     o,e,s = exe.execute_simple(:output, build_job_apply, options)
     puts [o, e]
 
-    build_pod_label = "job-name=polly-buildkit-#{version}"
-    wait_build_job = ["kubectl", "get", "pods", "-l", "job-name=polly-buildkit-#{version}", "-o", "jsonpath={..status.conditions[?(@.type=='Ready')].status}"]
+    wait_build_job = ["kubectl", "get", "pods", "-l", build_pod_label, "-o", "jsonpath={..status.conditions[?(@.type=='Ready')].status}"]
     o,e,s = "False"
 
     while o != "True" && exe.running?
@@ -390,7 +426,7 @@ HEREDOC
       end
     end
 
-    build_pod = exe.polly_pod("job-name=polly-buildkit-#{version}")
+    build_pod = exe.polly_pod("job-name=polly-buildkit")
     exec(*["kubectl", "logs", build_pod, "-f"].compact)
 
     #build_dockerfile = [{"DOCKER_BUILDKIT" => "1"}, "docker", "build", "-f", container_definition, options["cache"] ? nil : "--no-cache", "-t", app + ":" + version, "."].compact
@@ -672,10 +708,6 @@ spec:
   revisionHistoryLimit: 1
   strategy:
     type: Recreate
-    #type: RollingUpdate
-    #rollingUpdate:
-    #  maxUnavailable: 1
-    #  maxSurge: 0
   replicas: 1
   template:
     metadata:
@@ -706,10 +738,10 @@ spec:
         resources:
           requests:
             memory: 500Mi
-            cpu: 500m
+            cpu: 1000m
           limits:
-            memory: 1000Mi
-            cpu: 2000m
+            memory: 8000Mi
+            cpu: 5000m
         command: #{git_command}
 ...
 HEREDOC
