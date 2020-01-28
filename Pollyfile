@@ -33,15 +33,15 @@ development_install {
   #_install blocks
 }
 
-development_procfile {
-#TODO: what type of special module indicates should run Procfile, reload on change????
-#TODO: how to signal reload... SIGUSRX ?????
-#TODO: obv. the Procfile ITSELF is generated?!?!?!?!?
-# nol: polly debug-io 1.1 --no-newlines --stdout-chunk=o --stderr-chunk=e --chunk-count=128
-# abc: polly debug-io 1.3
-# efgh: polly debug-io 1.5
-# ijklm: polly debug-io 1.7
-}
+#development_procfile {
+##TODO: what type of special module indicates should run Procfile, reload on change????
+##TODO: how to signal reload... SIGUSRX ?????
+##TODO: obv. the Procfile ITSELF is generated?!?!?!?!?
+## nol: polly debug-io 1.1 --no-newlines --stdout-chunk=o --stderr-chunk=e --chunk-count=128
+## abc: polly debug-io 1.3
+## efgh: polly debug-io 1.5
+## ijklm: polly debug-io 1.7
+#}
 
 rakefile_code {
   #_exe maybe is run commands???
@@ -111,7 +111,7 @@ development_loop {
   }
 
   follow application_code {
-    signal procfile
+    #signal procfile
     with rakefile_code.build_exe
   }
 

@@ -686,9 +686,10 @@ module Polly
       $stdout.write($/)
     end
 
-    def polly_pod
-      @polly_pod ||= begin
-        cmd = "kubectl get pods -l name=#{POLLY}-app -o name | cut -d/ -f2"
+    def polly_pod(label = "name=#{POLLY}-git")
+      @polly_pods ||= {}
+      @polly_pods[label] ||= begin
+        cmd = "kubectl get pods -l #{label} -o name | cut -d/ -f2"
         a = IO.popen(cmd).read.strip
         wait_child
         a
