@@ -947,7 +947,6 @@ HEREDOC
 
     Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, pollyfile)
   end
-
 end
 
 case $executing_as
