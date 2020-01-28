@@ -276,6 +276,7 @@ kind: Job
 metadata:
   name: polly-buildkit-#{version}
 spec:
+  backoffLimit: 0
   template:
     metadata:
       annotations:
@@ -362,16 +363,34 @@ spec:
 ...
 HEREDOC
 
+    delete_job = ["kubectl", "delete", "-f", "-"]
+    options = {:stdin_data => build_jobs}
+    o,e,s = exe.execute_simple(:output, delete_job, options)
+    puts [o, e]
+
+    wait_build_pod_deleted = ["kubectl", "wait", "--for=delete", "pod", "-l", "job-name=polly-buildkit-#{version}"]
+    o,e,s = exe.execute_simple(:output, wait_build_pod_deleted, {})
+    #puts [o, e, s]
+
     build_job_apply = ["kubectl", "apply", "-f", "-"]
     options = {:stdin_data => build_jobs}
     o,e,s = exe.execute_simple(:output, build_job_apply, options)
-    puts [o, e, s]
+    puts [o, e]
 
-    wait_build_job = ["kubectl", "rollout", "status", "job/polly-buildkit-#{version}"]
-    exe.execute_simple(:blocking, wait_build_job, {})
+    build_pod_label = "job-name=polly-buildkit-#{version}"
+    wait_build_job = ["kubectl", "get", "pods", "-l", "job-name=polly-buildkit-#{version}", "-o", "jsonpath={..status.conditions[?(@.type=='Ready')].status}"]
+    o,e,s = "False"
 
-    puts build_pod = exe.polly_pod("job-name=polly-buildkit-#{version}")
+    while o != "True" && exe.running?
+      sleep 1
+      o,e,s = exe.execute_simple(:output, ["kubectl", "logs", "-l", build_pod_label, "-c", "git-clone"], {})
+      if s
+        puts [o, e] 
+        o,e,s = exe.execute_simple(:output, wait_build_job, {})
+      end
+    end
 
+    build_pod = exe.polly_pod("job-name=polly-buildkit-#{version}")
     exec(*["kubectl", "logs", build_pod, "-f"].compact)
 
     #build_dockerfile = [{"DOCKER_BUILDKIT" => "1"}, "docker", "build", "-f", container_definition, options["cache"] ? nil : "--no-cache", "-t", app + ":" + version, "."].compact
@@ -780,10 +799,12 @@ HEREDOC
     if options["re-init"]
       deploy_polly_app = ["kubectl", "delete", "-f", "-"]
       options = {:stdin_data => polly_run}
-      exe.execute_simple(:blocking, deploy_polly_app, options)
+      o,e,s = exe.execute_simple(:output, deploy_polly_app, options)
+      puts [o, e, s]
 
       wait_polly_app_deleted = ["kubectl", "wait", "--for=delete", "pod", "-l", "stack=polly"]
-      exe.execute_simple(:blocking, wait_polly_app_deleted, {})
+      o,e,s = exe.execute_simple(:output, wait_polly_app_deleted, {})
+      puts [o, e, s]
     end
 
     deploy_polly_app = ["kubectl", "apply", "-f", "-"]
@@ -792,10 +813,12 @@ HEREDOC
     puts [o, e, s]
 
     wait_polly_app = ["kubectl", "wait", "--for=condition=available", "deployment/polly-git"]
-    exe.execute_simple(:blocking, wait_polly_app, {})
+    o,e,s = exe.execute_simple(:output, wait_polly_app, {})
+    puts [o, e, s]
 
     wait_polly_app = ["kubectl", "rollout", "status", "deployment/polly-git"]
-    exe.execute_simple(:blocking, wait_polly_app, {})
+    o,e,s = exe.execute_simple(:output, wait_polly_app, {})
+    puts [o, e, s]
 
     puts exe.polly_pod
   end

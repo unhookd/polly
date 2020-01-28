@@ -482,11 +482,11 @@ module Polly
     def execute_simple(mode, cmd, options)
       exit_proc = lambda { |stdout, stderr, wait_thr_value, exit_or_not, silent=false|
         if !wait_thr_value.success?
-          #TODO: integrate Observe here for fatal halt error log
-          #puts caller
-          #puts stdout
-          #puts stderr
           if exit_or_not
+            #TODO: integrate Observe here for fatal halt error log
+            puts caller
+            puts stdout
+            puts stderr
             Kernel.exit(1)
           end
         end
@@ -505,7 +505,7 @@ module Polly
           return exit_proc.call(o, e, s, true, true)
 
         #TODO: rename to critical_or_fail
-        when :blocking
+        when :critical_or_fail
           o, e, s = Open3.capture3(*cmd, options)
           return exit_proc.call(o, e, s, true)
 

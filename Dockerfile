@@ -32,14 +32,14 @@ USER root
 RUN ln -fs /home/app/current/bin/polly /usr/local/bin/polly && \
     which polly && polly help
 
-COPY config/apache.conf /etc/apache2/sites-available/000-default.conf
-COPY config/nginx-apt-proxy.conf /etc/nginx/conf.d/
-COPY config/etc-docker-registry-config.yml /etc/docker/registry/config.yml
-COPY config/git-repo-template /usr/share/git-core/templates/
-COPY config/Procfile.init /var/lib/polly/
-
-RUN --mount=type=ssh true
-
-RUN --mount=type=ssh echo true
+#COPY config/apache.conf /etc/apache2/sites-available/000-default.conf
+#COPY config/nginx-apt-proxy.conf /etc/nginx/conf.d/
+#COPY config/etc-docker-registry-config.yml /etc/docker/registry/config.yml
+#COPY config/git-repo-template /usr/share/git-core/templates/
+#COPY config/Procfile.init /var/lib/polly/
+#
+#RUN --mount=type=ssh true
+#
+#RUN --mount=type=ssh echo true
 
 USER app
