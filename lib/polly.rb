@@ -6,6 +6,7 @@ require 'strscan'
 require 'date'
 require 'openssl'
 require 'base64'
+require 'expect'
 
 module Polly
   POLLY = "polly"

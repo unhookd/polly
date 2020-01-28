@@ -124,14 +124,17 @@
 #_image declares container artifacts
 build = image {
   stage "build", "ubuntu:bionic-20180526"
+  run %q{touch /a}
 }
 
 deploy = image {
   stage "deploy", build
+  run %q{touch /b}
 }
 
 test = image {
   stage "test", deploy
+  run %q{touch /c}
 }
 
 #    #switch root_context
