@@ -205,36 +205,6 @@ class PollyTasks < Thor
 
     exe.systemx(*git_init_cmd)
 
-    #mkdir_buildkit_cmd = [
-    #                 "kubectl", "exec", exe.polly_pod,
-    #                 "-i",
-    #                 "--",
-    #                 "mkdir", "-p", "/polly-safe/buildkit/#{exe.current_app}"
-    #               ]
-
-    #exe.systemx(*mkdir_buildkit_cmd)
-
-    #chmod_buildkit_cmd = [
-    #                 "kubectl", "exec", exe.polly_pod,
-    #                 "-i",
-    #                 "--",
-    #                 "chmod", "-R", "777", "/polly-safe/buildkit/#{exe.current_app}"
-    #               ]
-
-    #exe.systemx(*chmod_buildkit_cmd)
-
-    #chown_buildkit_cmd = [
-    #                 "kubectl", "exec", exe.polly_pod,
-    #                 "-i",
-    #                 "--",
-    #                 "chown", "-R", "1000", "/polly-safe/buildkit/#{exe.current_app}"
-    #               ]
-
-    #exe.systemx(*chown_buildkit_cmd)
-
-#        exe.systemx("chmod", "-R", "777", File.dirname(destination))
-#        #exe.systemx("chown", "-R", "1000", File.dirname(destination))
-
     exe.systemx("git", "push", "-f", "polly", branch, "HEAD:#{branch}-#{Time.now.to_i}", "--exec=polly receive-pack")
   end
 
@@ -395,8 +365,8 @@ spec:
         - build
         #- --import-cache
         #- type=registry,ref=polly-registry:443/#{app}
-        - --import-cache
-        - type=local,src=/polly-safe/buildkit,mode=max
+        #- --import-cache
+        #- type=local,src=/polly-safe/buildkit,mode=max
         - --frontend
         - dockerfile.v0
         - --local
@@ -406,10 +376,10 @@ spec:
         #- --output
         #- type=image,name=polly-registry:443/#{app}:#{version},push=true
         #- --export-cache
-        ##- type=inline
+        #- type=inline
         #- type=registry,ref=polly-registry:443/#{app}
-        - --export-cache
-        - type=local,dest=/polly-safe/buildkit,mode=max
+        #- --export-cache
+        #- type=local,dest=/polly-safe/buildkit,mode=max
         - --output
         - type=image,name=#{image_repo}/#{app}:#{version},push=true
         resources:
