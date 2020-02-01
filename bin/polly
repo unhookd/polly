@@ -294,6 +294,7 @@ class PollyTasks < Thor
     version = exe.current_revision
     branch = exe.current_branch
     app = exe.current_app
+    image_repo = Polly::Config.image_repo
 
     origin = "/polly-safe/git/#{app}"
 
@@ -361,19 +362,10 @@ spec:
         - type=inline
 
         - --import-cache
-        - type=registry,ref=10.32.0.8:443/#{app}
-
-        #- --opt
-        #- push=true
-
-        #- --opt
-        #- name=polly-registry:443/#{app}
-
-        #- --opt
-        #- target=test
+        - type=registry,ref=#{image_repo}/#{app}
 
         - --output
-        - type=image,name=10.32.0.8:443/#{app},push=true
+        - type=image,name=#{image_repo}/#{app}:#{version},push=true
 
         resources:
           requests:
