@@ -359,10 +359,11 @@ spec:
         - dockerfile=/workspace
 
         - --export-cache
-        - type=inline
+        #- type=inline
+        - type=registry,ref=polly-app/#{app}
 
         - --import-cache
-        - type=registry,ref=#{image_repo}/#{app}
+        - type=registry,ref=polly-app/#{app}
 
         - --output
         - type=image,name=#{image_repo}/#{app}:#{version},push=true
@@ -611,6 +612,7 @@ HEREDOC
     polly_resources = []
     polly_services = []
     polly_deployments = []
+    polly_pvcs = []
 
     #polly_image = "#{exe.current_app}:#{exe.current_revision}"
     #polly_command = ["polly", "dev", "/var/lib/polly/Procfile.init", "--rename=polly-init"].to_json
@@ -621,6 +623,40 @@ HEREDOC
     git_image = "alpine/git:latest"
     git_command = ["sleep", "2147483647"].to_json
 
+    polly_pvcs << <<-HEREDOC
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+  labels:
+    app: polly
+  name: polly-mount
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  #storageClassName: local-storage
+...
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: polly-mount
+#  labels:
+#    type: local
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  #storageClassName: local-storage
+  hostPath:
+    path: /var/tmp/polly-safe
+...
+HEREDOC
 
 #    polly_services << <<-HEREDOC
 #---
@@ -829,7 +865,7 @@ spec:
 ...
 HEREDOC
 
-    polly_run = polly_services.join + polly_deployments.join
+    polly_run = polly_pvcs.join + polly_services.join + polly_deployments.join
 
     if options["re-init"]
       deploy_polly_app = ["kubectl", "delete", "-f", "-"]
