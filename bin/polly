@@ -393,17 +393,19 @@ spec:
         - buildctl-daemonless.sh
         args:
         - build
+        - --import-cache
+        - type=registry,ref=polly-registry:443/#{app}
         - --frontend
         - dockerfile.v0
         - --local
         - context=/workspace
         - --local
         - dockerfile=/workspace
+        - --output
+        - type=image,name=polly-registry:443/#{app}:#{version},push=true
         - --export-cache
         #- type=inline
-        - type=registry,ref=polly-registry/#{app}
-        - --import-cache
-        - type=registry,ref=polly-registry/#{app}
+        - type=registry,ref=polly-registry:443/#{app}
         - --output
         - type=image,name=#{image_repo}/#{app}:#{version},push=true
         resources:
@@ -593,7 +595,8 @@ HEREDOC
     ef.issuer_certificate = root_ca
     cert.add_extension(ef.create_extension("keyUsage","digitalSignature", true))
     cert.add_extension(ef.create_extension("subjectKeyIdentifier","hash", false))
-    cert.add_extension(ef.create_extension("subjectAltName", "IP:10.32.0.8", false))
+    #cert.add_extension(ef.create_extension("subjectAltName", "IP:10.32.0.8", false))
+    cert.add_extension(ef.create_extension("subjectAltName", "DNS:polly-registry", false))
     cert.sign(root_key, OpenSSL::Digest::SHA256.new)
 
     wca = File.read(workstation_ca_certificates)
