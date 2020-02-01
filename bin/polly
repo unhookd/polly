@@ -393,19 +393,23 @@ spec:
         - buildctl-daemonless.sh
         args:
         - build
+        #- --import-cache
+        #- type=registry,ref=polly-registry:443/#{app}
         - --import-cache
-        - type=registry,ref=polly-registry:443/#{app}
+        - type=local,src=/polly-safe/buildkit,mode=max
         - --frontend
         - dockerfile.v0
         - --local
         - context=/workspace
         - --local
         - dockerfile=/workspace
-        - --output
-        - type=image,name=polly-registry:443/#{app}:#{version},push=true
+        #- --output
+        #- type=image,name=polly-registry:443/#{app}:#{version},push=true
+        #- --export-cache
+        ##- type=inline
+        #- type=registry,ref=polly-registry:443/#{app}
         - --export-cache
-        #- type=inline
-        - type=registry,ref=polly-registry:443/#{app}
+        - type=local,dest=/polly-safe/buildkit,mode=max
         - --output
         - type=image,name=#{image_repo}/#{app}:#{version},push=true
         resources:
@@ -427,7 +431,7 @@ spec:
           readOnly: true
         - name: polly-mount
           mountPath: /polly-safe
-          readOnly: true
+          #readOnly: true
         - mountPath: /etc/ssl/certs
           name: ca-certificates
           readOnly: true
