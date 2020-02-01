@@ -284,10 +284,34 @@ class PollyTasks < Thor
     exec(*git_push_cmd)
   end
 
+  desc "docker-config", "installs docker-config-json secret"
+  def docker_config
+    exe = ::Polly::Execute.new
+
+    docker_config_secret = []
+    docker_config_secret << <<-HEREDOC
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: docker-config
+type: Opaque
+data:
+  config.json: #{Base64.strict_encode64($stdin.read)}
+...
+HEREDOC
+
+    apply_job = ["kubectl", "apply", "-f", "-"]
+    options = {:stdin_data => docker_config_secret.join}
+    o,e,s = exe.execute_simple(:output, apply_job, options)
+    puts [o, e]
+  end
+
   desc "build", "Build the current working directory's Dockerfile"
   #? option "run", :type => :string, :default => nil
   #? option "push", :type => :string, :default => nil
   #? option "cache", :type => :boolean, :default => true
+  #option "docker-config-json", :type => :string, :default => nil
   def build(container_definition="Dockerfile")
     exe = ::Polly::Execute.new
 
@@ -297,6 +321,8 @@ class PollyTasks < Thor
     image_repo = Polly::Config.image_repo
 
     origin = "/polly-safe/git/#{app}"
+
+    #docker_config_json = options["docker-config-json"] || "{}"
 
     build_jobs = ""
 
@@ -315,7 +341,20 @@ spec:
         container.seccomp.security.alpha.kubernetes.io/buildkit: unconfined
     spec:
       restartPolicy: Never
+
       initContainers:
+      #- name: amazon-ecr-credential-helper-build
+      #  image: golang:1.9.1-alpine3.6
+      #  command:
+      #  - sh
+      #  - -c
+      #  - "test -e /polly-safe/bin/docker-credential-ecr-login || (apk --no-cache add git && go get -u github.com/awslabs/amazon-ecr-credential-helper/ecr-login/cli/docker-credential-ecr-login && mkdir /polly-safe/bin && mv /go/bin/docker-credential-ecr-login /polly-safe/bin)"
+      #  securityContext:
+      #    runAsUser: 0
+      #    runAsGroup: 0
+      #  volumeMounts:
+      #  - name: polly-mount
+      #    mountPath: /polly-safe
       - name: git-clone
         image: alpine/git:latest
         command:
@@ -344,30 +383,29 @@ spec:
         env:
         - name: BUILDKITD_FLAGS
           value: --oci-worker-no-process-sandbox
+        #- name: PATH
+        #  value: /bin:/sbin:/usr/bin:/usr/sbin:/polly-safe/bin
+        #- name: AWS_REGION
+        #  value: us-west-2
         command:
+        #- sleep
+        #- "9999"
         - buildctl-daemonless.sh
         args:
         - build
-
         - --frontend
         - dockerfile.v0
-
         - --local
         - context=/workspace
-
         - --local
         - dockerfile=/workspace
-
         - --export-cache
         #- type=inline
-        - type=registry,ref=polly-app/#{app}
-
+        - type=registry,ref=polly-registry/#{app}
         - --import-cache
-        - type=registry,ref=polly-app/#{app}
-
+        - type=registry,ref=polly-registry/#{app}
         - --output
         - type=image,name=#{image_repo}/#{app}:#{version},push=true
-
         resources:
           requests:
             memory: 500Mi
@@ -379,6 +417,9 @@ spec:
           runAsUser: 1000
           runAsGroup: 1000
         volumeMounts:
+        - mountPath: /home/user/.docker/config.json
+          subPath: config.json
+          name: docker-config
         - name: workspace
           mountPath: /workspace
           readOnly: true
@@ -392,6 +433,9 @@ spec:
           subPath: ca-certificates.crt
           name: ca-certificates
       volumes:
+      - name: docker-config
+        secret:
+          secretName: docker-config
       - name: ca-certificates
         secret:
           secretName: ca-certificates
