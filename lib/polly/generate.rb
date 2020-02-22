@@ -29,7 +29,7 @@ module Polly
 
       def run(s)
         command("RUN") {
-          "set -ex; " + s
+          "--mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; " + s
         }
       end
 
@@ -45,7 +45,7 @@ module Polly
       end
 
       def image(type = :dockerfile)
-        comment "syntax=docker/dockerfile:1.0.0-experimental"
+        comment "syntax=docker/dockerfile-upstream:master-experimental"
 
         yield
 

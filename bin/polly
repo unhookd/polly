@@ -290,13 +290,14 @@ HEREDOC
     app = exe.current_app
     image_repo = Polly::Config.image_repo
 
-    origin = "/polly-safe/git/#{app}"
+    if options["in-cluster"]
+      origin = "/polly-safe/git/#{app}"
 
-    #docker_config_json = options["docker-config-json"] || "{}"
+      #docker_config_json = options["docker-config-json"] || "{}"
 
-    build_jobs = ""
+      build_jobs = ""
 
-    build_jobs << <<-HEREDOC
+      build_jobs << <<-HEREDOC
 ---
 apiVersion: batch/v1
 kind: Job
@@ -423,46 +424,47 @@ spec:
 ...
 HEREDOC
 
-    build_pod_label = "job-name=polly-buildkit"
+      build_pod_label = "job-name=polly-buildkit"
 
-    delete_job = ["kubectl", "delete", "-f", "-"]
-    options = {:stdin_data => build_jobs}
-    o,e,s = exe.execute_simple(:output, delete_job, options)
+      delete_job = ["kubectl", "delete", "-f", "-"]
+      io_options = {:stdin_data => build_jobs}
+      o,e,s = exe.execute_simple(:output, delete_job, io_options)
 
-    wait_build_pod_deleted = ["kubectl", "wait", "--for=delete", "pod", "-l", "job-name=polly-buildkit"]
-    o,e,s = exe.execute_simple(:output, wait_build_pod_deleted, {})
+      wait_build_pod_deleted = ["kubectl", "wait", "--for=delete", "pod", "-l", "job-name=polly-buildkit"]
+      o,e,s = exe.execute_simple(:output, wait_build_pod_deleted, {})
 
-    build_job_apply = ["kubectl", "apply", "-f", "-"]
-    options = {:stdin_data => build_jobs}
-    o,e,s = exe.execute_simple(:output, build_job_apply, options)
-    puts [o, e]
+      build_job_apply = ["kubectl", "apply", "-f", "-"]
+      io_options = {:stdin_data => build_jobs}
+      o,e,s = exe.execute_simple(:output, build_job_apply, io_options)
+      puts [o, e]
 
-    wait_build_job = ["kubectl", "get", "pods", "-l", build_pod_label, "-o", "jsonpath={..status.conditions[?(@.type=='Ready')].status}"]
-    o,e,s = "False"
+      wait_build_job = ["kubectl", "get", "pods", "-l", build_pod_label, "-o", "jsonpath={..status.conditions[?(@.type=='Ready')].status}"]
+      o,e,s = "False"
 
-    while o != "True" && exe.running?
-      sleep 1
-      o,e,s = exe.execute_simple(:output, ["kubectl", "logs", "-l", build_pod_label, "-c", "git-clone"], {})
-      if s
-        puts [o, e] 
-        o,e,s = exe.execute_simple(:output, wait_build_job, {})
+      while o != "True" && exe.running?
+        sleep 1
+        o,e,s = exe.execute_simple(:output, ["kubectl", "logs", "-l", build_pod_label, "-c", "git-clone"], {})
+        if s
+          puts [o, e]
+          o,e,s = exe.execute_simple(:output, wait_build_job, {})
+        end
       end
+
+      build_pod = exe.polly_pod("job-name=polly-buildkit")
+      exec(*["kubectl", "logs", build_pod, "-f"].compact)
+    else
+      build_dockerfile = [{"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]}, "docker", "build", "--ssh", "default", options["no-cache"] ? "--no-cache" : nil, "-f", container_definition, "-t", app + ":" + version, "."].compact
+      exe.systemx(*build_dockerfile)
+
+      tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":latest"]
+      exe.systemx(*tag_dockerfile)
+
+      tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":git-latest"]
+      exe.systemx(*tag_dockerfile)
+
+      tag_dockerfile = ["docker", "tag", app + ":" + version, "localhost/" + app + ":git-latest"]
+      exe.systemx(*tag_dockerfile)
     end
-
-    build_pod = exe.polly_pod("job-name=polly-buildkit")
-    exec(*["kubectl", "logs", build_pod, "-f"].compact)
-
-    #build_dockerfile = [{"DOCKER_BUILDKIT" => "1"}, "docker", "build", "-f", container_definition, options["cache"] ? nil : "--no-cache", "-t", app + ":" + version, "."].compact
-    #exe.systemx(*build_dockerfile)
-
-    #tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":latest"]
-    #exe.systemx(*tag_dockerfile)
-
-    #tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":git-latest"]
-    #exe.systemx(*tag_dockerfile)
-
-    #tag_dockerfile = ["docker", "tag", app + ":" + version, "localhost/" + app + ":git-latest"]
-    #exe.systemx(*tag_dockerfile)
 
     #if options["push"]
     #  tag_dockerfile = ["docker", "tag", app + ":" + version, options["push"] + "/" + app + ":" + version]
