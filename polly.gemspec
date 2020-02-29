@@ -21,7 +21,7 @@ Gem::Specification.new do |spec|
   spec.executables   = ["polly"]
   spec.require_paths = ["lib"]
 
-  spec.add_development_dependency "rake", "~> 10.0"
+  spec.add_development_dependency "rake", "~> 13.0"
   spec.add_development_dependency "rspec", "~> 3.8"
 
   spec.add_dependency "thor", "~> 0.20"
