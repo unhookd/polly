@@ -30,6 +30,7 @@ apt-get update \
        nginx \
        jq \
        strace \
+       docker-registry \
        ruby2* ruby2*-dev libruby2* ruby-bundler rubygems-integration build-essential \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 

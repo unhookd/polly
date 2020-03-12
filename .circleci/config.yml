@@ -16,18 +16,7 @@ jobs:
   primary:
     <<: *defaults
     steps:
-      - checkout
-
-      - run:
-          name: bootstrap
-          command: |
-            bash bin/bootstrap.sh
-
       - run:
           name: rspec
           command: |
-            bundle install --path=vendor/bundle
-
             bundle exec rspec
-
-            ./bin/polly version

@@ -1,0 +1,544 @@
+#!/usr/bin/env ruby
+
+#  application_code { # /home/app/current OR ~/workspace/<repo> conventional
+#  #  copy {
+#  #    #command("COPY") {
+#  #    #  "--chown=app . /home/app/current"
+#  #    #}
+#  #    ###
+#  #    ### TODO: build this from gemspec bits?????
+#  #    ### gemspec reads from this???
+#  #    #
+#  #    "Thorfile lib /home/app/current"
+#  #  }
+#  
+#    #_code blocks work with copy. or follow.
+#    ["Thorfile"] + Dir.glob("lib/**/*")
+#  }
+#  
+#  spec_code {
+#  #  copy {
+#  #    #command("COPY") {
+#  #    #}
+#  #    "spec /home/app/current"
+#  #  }
+#  #  "--chown=app spec /home/app/current"
+#    ["spec"] # TODO: use Dir.glob?????
+#  }
+#  
+#  development_install {
+#  #  #helm fetch --untar --untardir . 'stable/chart'
+#  #  #helm template --output-dir './chart-final' './chart'
+#  #  kube.helm_chart "stable/redis" # should emit into .polly/kubernetes/<normalized-chart>/*yaml from the chart
+#    #_install blocks
+#  }
+#  
+#  #development_procfile {
+#  ##TODO: what type of special module indicates should run Procfile, reload on change????
+#  ##TODO: how to signal reload... SIGUSRX ?????
+#  ##TODO: obv. the Procfile ITSELF is generated?!?!?!?!?
+#  ## nol: polly debug-io 1.1 --no-newlines --stdout-chunk=o --stderr-chunk=e --chunk-count=128
+#  ## abc: polly debug-io 1.3
+#  ## efgh: polly debug-io 1.5
+#  ## ijklm: polly debug-io 1.7
+#  #}
+#  
+#  rakefile_code {
+#    #_exe maybe is run commands???
+#    build_exe {
+#    }
+#  }
+#  
+#  gemfile_code {
+#    #"--chown=app Gemfile Gemfile.lock polly.gemspec /home/app/current/"
+#    ["Gemfile", "Gemfile.lock", "polly.gemspec"] #TODO: use Dir.glob ?????
+#  
+#    #_install / _with / _exec / _provide?? blocks exec commands, work with _image
+#    full_install {
+#      "vendor/bundle"
+#    }
+#  
+#    stripped_install {
+#      "vendor/bundle", %w{"development selenium test"}
+#    }
+#  ##command: bundle install --path=vendor/bundle --jobs=4 --retry=3 --deployment --without "development selenium test"
+#  #  ##copy module
+#  #  #command("COPY") {
+#  #  #}
+#  #  ###ruby_bundle module
+#  #  ##run %q{bundle install --path=vendor/bundle}
+#  #  ##asdasdasd("--w
+#  #  ##command: bundle install --path=vendor/bundle --jobs=4 --retry=3 --deployment --without "development selenium test"
+#  }
+#  
+#  #_context declares user and working directory
+#  root_context {
+#    #su module
+#    command("USER") {
+#      "root"
+#    }
+#  
+#    #workdir module
+#    command("WORKDIR") {
+#      "/"
+#    }
+#  }
+#  
+#  #_contexts can be for different users and directories
+#  #_contexts work in _image_ blocks
+#  application_context {
+#  #  #su module
+#  #  command("USER") {
+#  #    "app"
+#  #  }
+#  #
+#  #  #workdir module
+#  #  command("WORKDIR") {
+#  #    "/home/app/current"
+#  #  }
+#  }
+#  
+#  #_loop declares intent for given workflows
+#  development_loop {
+#  
+#    #with. modules are kubectl applied / cmd exe'd ????
+#    with development_depedencies
+#  
+#    #follow. modules use guard to detect file changes and yield on change
+#    follow gemfile_code {
+#      with gemfile_code.full_install
+#      with rakefile_code.build_exe
+#    }
+#  
+#    follow application_code {
+#      #signal procfile
+#      with rakefile_code.build_exe
+#    }
+#  
+#    follow spec_code {
+#    }
+#  
+#    #TODO: produce_commits!!!
+#  }
+
+#_image declares container artifacts
+build = image {
+  stage "build", "ubuntu:bionic-20180526"
+
+  env "DEBIAN_FRONTEND" => "noninteractive",
+      "LC_ALL" => "C.UTF-8",
+      "LANG" => "en_US.UTF-8",
+      "LANGUAGE" => "en_US.UTF-8",
+      "ACCEPT_EULA" => "y"
+
+  apt %w{locales locales-all}
+
+  run %q{locale-gen --purge en_US.UTF-8}
+  run %q{/bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale}
+  run %q{locale-gen $LANGUAGE}
+  run %q{dpkg-reconfigure locales}
+
+  apt %w{git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common}
+
+  run %q{touch /a}
+}
+
+deploy = image {
+  stage "deploy", build
+
+  run %q{useradd --home-dir /home/app --create-home --shell /bin/bash app}
+
+  ppa "brightbox/ruby-ng"
+
+  apt %w{
+    build-essential
+    libyaml-dev
+    ruby2.6*-dev
+    libruby2*
+    ruby-bundler rubygems-integration
+    ruby2.6*
+    rake
+  }
+
+  command("COPY") {
+    "--chown=app . /home/app/current"
+  }
+
+  #TODO: user module
+  command("USER") {
+    "app"
+  }
+
+  #TODO: workdir module
+  command("WORKDIR") {
+    "/home/app/current"
+  }
+
+  run %q{bundle install --path=vendor/bundle --jobs=4 --retry=3 --deployment --without "development"}
+
+  run %q{bundle exec rake build}
+
+  #TODO: user module
+  command("USER") {
+    "root"
+  }
+
+  run %q{ln -fs /home/app/current/bin/polly /usr/local/bin/polly}
+}
+
+test = image {
+  stage "test", deploy
+
+  #TODO: user module
+  command("USER") {
+    "app"
+  }
+
+  #TODO: workdir module
+  command("WORKDIR") {
+    "/home/app/current"
+  }
+
+  run %q{bundle install --path=vendor/bundle --jobs=4 --retry=3 --deployment --with "development"}
+
+  #TODO: user module
+  command("USER") {
+    "root"
+  }
+
+  #TODO: user module
+  command("USER") {
+    "app"
+  }
+
+  #TODO: workdir module
+  command("WORKDIR") {
+    "/home/app/current"
+  }
+}
+
+#    #switch root_context
+#  
+#  #  root_context.system {
+#  #    workstation.locales
+#  #    workstation.build
+#  #    workstation.user
+#  #  }
+#  
+#    #create. blocks are context aware and decorate with RUN commands...
+#    #possibly somehow also detect current localhost bits?
+#    create application_context
+#  #  app {
+#  #    #useradd module
+#  #    run %q{useradd --home-dir /home/app --create-home --shell /bin/bash app}
+#  #  }
+#  #
+#  #  ppa "brightbox/ruby-ng"
+#  #
+#  #  build {
+#  #    apt %w{
+#  #      ca-certificates 
+#  #      build-essential
+#  #      libyaml-dev
+#  #      ruby2*-dev 
+#  #      libruby2* 
+#  #    }
+#  #
+#  #    apt %w{
+#  #      libyaml
+#  #      ruby-bundler rubygems-integration
+#  #      ruby2* 
+#  #    }
+#  #  }
+#  #
+#  #  locales {
+#  #    #env "DEBIAN_FRONTEND" => "noninteractive",
+#  #    #    "LC_ALL" => "C.UTF-8",
+#  #    #    "LANG" => "en_US.UTF-8",
+#  #    #    "LANGUAGE" => "en_US.UTF-8",
+#  #    #    "ACCEPT_EULA" => "y"
+#  #
+#  #    #apt %w{locales locales-all}
+#  #
+#  #    #run %q{locale-gen --purge en_US.UTF-8}
+#  #    #run %q{/bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale}
+#  #    #run %q{locale-gen $LANGUAGE}
+#  #    #run %q{dpkg-reconfigure locales}
+#  #  }
+#  #}
+#  #
+#  #Polly::Generate.artifacts {
+#  #  # basic ubuntu bionic
+#  #  #FROM golang:1.7.3 AS builder
+#  #  #FROM builder as build2
+#  #  stage "building", "ubuntu:bionic-20180526"
+#  #
+#  #  root_context.system {
+#  #    workstation.locales
+#  #    workstation.build
+#  #    workstation.user
+#  #  }
+#  #
+#  #  application_context.user {
+#  #    follow_gemfile.production
+#  #
+#  #    application_code.copy
+#  #
+#  #    ##ruby_rake module
+#  #    #run %q{bundle exec rake build}
+#  #    rake.build
+#  #  }
+#  #
+#  #  stage "deploying", "building"
+#  #
+#  #  #TODO: build in bits to warn on duplicated input, and already detected packages
+#  #  apt %w{
+#  #    git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common libyaml-dev
+#  #    apache2 apache2-utils
+#  #    vim vim-common vim-runtime vim-tiny
+#  #    nginx
+#  #    jq
+#  #    strace
+#  #    docker-registry
+#  #    ruby2* ruby2*-dev libruby2* ruby-bundler rubygems-integration build-essential
+#  #    apache2 apache2-utils
+#  #    vim vim-common vim-runtime vim-tiny
+#  #    nginx
+#  #    jq
+#  #    strace
+#  #    docker-registry
+#  #  }
+#  #
+#  #  run %q{a2enmod dav dav_fs headers rewrite}
+#  #
+#  #  #htpasswd module
+#  #  run %q{htpasswd -cb /etc/apache2/webdav.password guest guest}
+#  #
+#  #  #command("USER") {
+#  #  #  "root"
+#  #  #}
+#  #  ##TODO???
+#  #  #run %q{ln -fs /home/app/current/bin/polly /usr/local/bin/polly}
+#  #
+#  #  command("COPY") {
+#  #    "config/apache.conf /etc/apache2/sites-available/000-default.conf"
+#  #  }
+#  #
+#  #  command("COPY") {
+#  #    "config/nginx-apt-proxy.conf /etc/nginx/conf.d/"
+#  #  }
+#  #
+#  #  command("COPY") {
+#  #    "config/etc-docker-registry-config.yml /etc/docker/registry/config.yml"
+#  #  }
+#  #
+#  #  command("COPY") {
+#  #    "config/git-repo-template /usr/share/git-core/templates/"
+#  #  }
+#  #
+#  #  command("COPY") {
+#  #    "config/Procfile.init /var/lib/polly/"
+#  #  }
+#  #
+#  #  run %q{mkdir -p /var/run/apache2; chown www-data /var/run/apache2}
+#  #  run %q{mkdir -p /usr/local/apache; chown www-data /usr/local/apache}
+#  #  run %q{mkdir -p /var/lock/apache2; chown www-data /var/lock/apache2}
+#  #  run %q{mkdir -p /var/log/apache2; chown www-data /var/log/apache2}
+#  #
+#  #  run %q{echo "Listen 8080" | tee /etc/apache2/ports.conf}
+#  #
+#  #  deployment {
+#  #    command("USER") {
+#  #      "app"
+#  #    }
+#  #
+#  #    #### emits kubernetes yaml
+#  #  }
+#  #
+#  #  #TODO: parallel builds!!!???
+#  #  stage "testing", "build"
+#  #
+#  #  application_context.user {
+#  #    follow_gemfile.development
+#  #
+#  #    follow_spec
+#  #    spec_code.copy
+#  #
+#  #    ##ruby_rake module
+#  #    #run %q{bundle exec rake build}
+#  #    #rake.test
+#  #    #bundle.rake
+#  #  }
+#  #}
+#  #
+#  ## commit test revert
+#  ## where does publish CDN occur?????????????
+#  ##    are these sub-generics of the publish-package(gem,dev,oci,cnd-custom, OR cdn a special type of deployment?!!????)
+#  #
+#  #system {
+#  #
+#  #  immediate_deployment_loop {
+#  #    gitchmode # runs on localhost, launches kube processes reachable by current kube context
+#  #
+#  #    follow_gemfile.development
+#  #    follow_application_code
+#  #
+#  #    follow_spec_code
+#  #    follow_rspec
+#  #
+#  #    #edit mode dispatch here...
+#  #
+#  #    deploy_to_target(development_dependencies)
+#  #
+#  #    pushbits "trigger-point-feature"
+#  #  }
+#  #
+#  #  remote_loop {
+#  #    othermode
+#  #    cloudmode
+#  #    asyncmode
+#  #    pullmode
+#  #
+#  #    pullbits "trigger-point-feature" {
+#  #      qa_loop
+#  #      testing_loop
+#  #    }
+#  #
+#  #    #build_images????
+#  #  }
+#  #
+#  #  qa_loop {
+#  #    pipelinemode
+#  #
+#  #    when build_deployment_image_completed { |qa_image|
+#  #      promote_deployment_image(qa_image)
+#  #      
+#  #      deploy_to_target(team_staging_dependencies)
+#  #
+#  #      collect_feedback
+#  #    }
+#  #  }
+#  #
+#  #  # development charts bits become the local dev loop as much as the remote far side cloud-deploy
+#  #
+#  #  production_loop {
+#  #    pipelinemode
+#  #
+#  #    when testing_loop_completed, qa_loop_completed { |tested_image, qaed_image|
+#  #      # do more generation
+#  #      promote_deployment_image(qaed_image)
+#  #
+#  #      #deploy_to_target(production_dependencies)
+#  #    }
+#  #  }
+#  #
+#  #  testing_loop {
+#  #    when build_test_image_completed { |test_image|
+#  #      bundle_exec.rspec
+#  #    }
+#  #  }
+#  #}
+#  #
+#  ##Polly::Generate.pipeline {
+#  ##  follow_rspec
+#  ##}
+#  ##
+#  ##Polly::Generate.gitch {
+#  ##  follow_gemfile
+#  ##}
+#  ##}
+#  #
+#  
+#  #workflows :test do
+#  #  job :prepare_checkout do
+#  #    run "make the code ready after a checkout", <<~SH
+#  #      echo $CIRCLE_SHA1 > version.txt
+#  #    SH
+#  #  end
+#  #
+#  #  :prepare_database => [:gem] do
+#  #    run "install stuff for mysql testing database", <<~SH
+#  #      mysql -uroot -e "GRANT ALL PRIVILEGES ON *.* to 'ubuntu'@'%';FLUSH PRIVILEGES;"
+#  #    SH
+#  #  end
+#  #
+#  #  :verify_node => [:node] do
+#  #    run "node installation verification", <<~SH
+#  #    SH
+#  #  end
+#  #
+#  #  :lint_client_side_code => [:node] do
+#  #    run "lint es", <<~SH
+#  #    SH
+#  #
+#  #    run "lint images", <<~SH
+#  #    SH
+#  #  end
+#  #
+#  #  :lint_server_side_code => [:gem] do
+#  #    run "run extra bundle exec verifications", <<~SH
+#  #    SH
+#  #
+#  #    run "lint ruby", <<~SH
+#  #    SH
+#  #  end
+#  #
+#  #  :test_react => [:lint_client_side_code] do
+#  #    run "run react tests", <<~SH
+#  #    SH
+#  #  end
+#  #
+#  #  :test_other_js => [:lint_client_side_code] do
+#  #    run "Run Ext Specs", <<~SH
+#  #      yarn ci:extjs
+#  #    SH
+#  #  end
+#  #
+#  #  :ruby_specs => [:prepare_database, :lint_server_side_code] do
+#  #    run "Run Rspec", <<~SH
+#  #      TESTFILES=$(polly tests glob "{spec}/**/*_spec.rb") # TODO: implement globbing strategy
+#  #      echo $TESTFILES
+#  #      bundle exec rspec --color --format progress -- $TESTFILES
+#  #    SH
+#  #  end
+#  #end
+#  #
+#  #trigger({
+#  #  "CIRCLECI_SHA1" => "abc123"
+#  #})
+#  #=end
+#  #
+#  #  immediate_development_loop {
+#  #    with_development_depedencies
+#  #
+#  #    follow_gemfile.development
+#  #    follow_application_code
+#  #
+#  #    follow_procfile
+#  #
+#  #    follow_spec_code
+#  #    follow_rspec
+#  #
+#  #    produce_commits!!!
+#  #  }
+#  #application_code = Polly::Generate.new {
+#  #  copy {
+#  #    #command("COPY") {
+#  #    #  "--chown=app . /home/app/current"
+#  #    #}
+#  #    ###
+#  #    ### TODO: build this from gemspec bits?????
+#  #    ### gemspec reads from this???
+#  #    #["Thorfile"] + Dir.glob("lib/**/*")
+#  #    "Thorfile lib /home/app/current"
+#  #  }
+#  #}
+#    #TODO: solve this chicken-egg
+#    #follow.procfile {
+#    #}
+#  #
+#  #
+#  #
+#  #follow_rakefile = Polly::Generate::RubyRake.new
+#  #
+#  #follow_rspec = Polly::Generate::RubyRspec.new

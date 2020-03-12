@@ -18,6 +18,9 @@ module Polly
       @runners = []
       @iteration = 0
 
+      #TODO: better safety checks
+      check_current_kube_context_is_safe!
+
       @exiting = false
       trap 'INT' do
         @exiting = true
@@ -41,7 +44,7 @@ module Polly
     def check_current_kube_context_is_safe!
       current_kube_context = IO.popen("kubectl config current-context").read.strip
       wait_child
-      raise "unsafe kubernetes context" unless current_kube_context == "kubernetes-admin@kubernetes"
+      raise "unsafe kubernetes context" unless Polly::Config.allowed_contexts.include?(current_kube_context)
     end
 
     def current_revision
@@ -134,29 +137,30 @@ module Polly
       }
 
       container_spec = {
-        "initContainers" => [
-          {
-            #"terminationGracePeriodSeconds" => 5,
-            "name" => "git-clone",
-            "image" => "polly:latest",
-            "imagePullPolicy" => "IfNotPresent",
-            "args" => [
-              "polly", "checkout", "http://polly-app:8080/#{current_app}", current_revision, "/home/app/current"
-            ],
-            "env" => { "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
-            "securityContext" => {
-              "runAsUser" => 0,
-              "allowPrivilegeEscalation" => false,
-              "readOnlyRootFilesystem" => true
-            },
-            "volumeMounts" => [
-              {
-                "mountPath" => "/home/app",
-                "name" => "scratch-dir"
-              }
-            ]
-          }
-        ],
+        ##TODO: converge this with workstion git context
+        #"initContainers" => [
+        #  {
+        #    #"terminationGracePeriodSeconds" => 5,
+        #    "name" => "git-clone",
+        #    "image" => "polly:latest",
+        #    "imagePullPolicy" => "IfNotPresent",
+        #    "args" => [
+        #      "polly", "checkout", "http://polly-app:8080/#{current_app}", current_revision, "/home/app/current"
+        #    ],
+        #    "env" => { "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
+        #    "securityContext" => {
+        #      "runAsUser" => 0,
+        #      "allowPrivilegeEscalation" => false,
+        #      "readOnlyRootFilesystem" => true
+        #    },
+        #    "volumeMounts" => [
+        #      {
+        #        "mountPath" => "/home/app",
+        #        "name" => "scratch-dir"
+        #      }
+        #    ]
+        #  }
+        #],
         "containers" => [
           {
             #"terminationGracePeriodSeconds" => 5,
@@ -252,9 +256,6 @@ module Polly
 
       #TODO
       #puts YAML.dump(configmap_manifest) if @debug
-
-      #TODO: better safety checks
-      check_current_kube_context_is_safe!
 
       kubectl_apply = ["kubectl", "apply", "-f", "-"]
       apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}
@@ -481,16 +482,16 @@ module Polly
     def execute_simple(mode, cmd, options)
       exit_proc = lambda { |stdout, stderr, wait_thr_value, exit_or_not, silent=false|
         if !wait_thr_value.success?
-          #TODO: integrate Observe here for fatal halt error log
-          #puts caller
-          #puts stdout
-          #puts stderr
           if exit_or_not
+            #TODO: integrate Observe here for fatal halt error log
+            puts caller
+            puts stdout
+            puts stderr
             Kernel.exit(1)
           end
-        else
-          return stdout, stderr, wait_thr_value.success?
         end
+
+        return stdout, stderr, wait_thr_value.success?
       }
 
       case mode
@@ -503,9 +504,14 @@ module Polly
           s.success?
           return exit_proc.call(o, e, s, true, true)
 
-        when :blocking
+        #TODO: rename to critical_or_fail
+        when :critical_or_fail
           o, e, s = Open3.capture3(*cmd, options)
           return exit_proc.call(o, e, s, true)
+
+        when :output
+          o, e, s = Open3.capture3(*cmd, options)
+          return exit_proc.call(o, e, s, false)
 
         when :async
           stdin, stdout, stderr, wait_thr = Open3.popen3(*cmd, options)
@@ -680,9 +686,10 @@ module Polly
       $stdout.write($/)
     end
 
-    def polly_pod
-      @polly_pod ||= begin
-        cmd = "kubectl get pods -l name=#{POLLY}-app -o name | cut -d/ -f2"
+    def polly_pod(label = "name=#{POLLY}-git")
+      @polly_pods ||= {}
+      @polly_pods[label] ||= begin
+        cmd = "kubectl get pods -l #{label} -o name | cut -d/ -f2"
         a = IO.popen(cmd).read.strip
         wait_child
         a

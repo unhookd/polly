@@ -1,0 +1,24 @@
+{
+  "spec": {
+    "containers": [
+      {
+        "name": "polly-bootstrap",
+        "image": "alpine/git:latest",
+        "command": ["/bin/sh"],
+        "stdin": true,
+        "stdinOnce": true,
+        "tty": false,
+        "volumeMounts": [{
+          "mountPath": "/polly-safe",
+          "name": "polly-mount"
+        }]
+      }
+    ],
+    "volumes": [{
+      "name":"polly-mount",
+      "persistentVolumeClaim": {
+        "claimName": "polly-mount"
+      }
+    }]
+  }
+}

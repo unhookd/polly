@@ -163,19 +163,53 @@ class PollyTasks < Thor
 
     branch ||= exe.current_branch
 
+    #override_json = Proc.new { |args|
+    #  json = JSON.parse(File.read("config/polly-bootstrap.json"))
+    #  json["spec"]["containers"][0]["args"] = args
+    #  JSON.dump(json)
+    #}
+
+    #bootstrap_init_cmd = [
+    #  "kubectl", "run", "-i", "--rm", "polly-bootstrap",
+    #  "--image=alpine/git:latest",
+    #  #"--overrides", override_json.call(["init", "--bare", "/polly-safe/git/#{exe.current_app}"]), 
+    #  "--overrides", override_json.call(["-c", "git init --bare /polly-safe/git/#{exe.current_app}"]),
+    #  "--restart=Never"
+    #]
+    #
+    ##"init", "--bare", "/polly-safe/git/#{exe.current_app}"
+    ##]
+
+    #exe.systemx(*bootstrap_init_cmd)
+    #
+    #bootstrap_recv_pack = [
+    #  "git", "push", "-f", "polly", branch, "--exec=#{$polly_dir}/bin/polly receive-pack"
+    #]
+
+    #exe.systemx(*bootstrap_recv_pack)
+
+    git_repo_template_install_cmd = [
+                     "kubectl", "cp", 
+                     "config/git-repo/templates",
+                     "#{exe.polly_pod}:/usr/share/git-core/"
+                   ]
+
+    exe.systemx(*git_repo_template_install_cmd)
+
     git_init_cmd = [
                      "kubectl", "exec", exe.polly_pod,
                      "-i",
                      "--",
-                     "git", "init", "--bare", "/var/tmp/git/#{exe.current_app}"
+                     "git", "init", "--bare", "/polly-safe/git/#{exe.current_app}"
                    ]
 
     exe.systemx(*git_init_cmd)
 
-    exe.systemx("git", "push", "-f", "polly", branch, "--exec=#{$polly_dir}/bin/polly receive-pack")
+    exe.systemx("git", "push", "-f", "polly", branch, "HEAD:#{branch}-#{Time.now.to_i}", "--exec=polly receive-pack")
   end
 
   desc "receive-pack [ORIGIN]", "(internal) receive incoming git send-pack"
+  option "bootstrap", :type => :boolean, :default => false
   long_desc <<-LONGDESC
     Internal command, invoked via polly push.
 
@@ -192,72 +226,400 @@ class PollyTasks < Thor
                      "kubectl", "exec", exe.polly_pod,
                      "-i",
                      "--",
-                     "git", "receive-pack", "/var/tmp/git/#{exe.current_app}"
-                   ].compact
+                     "git", "receive-pack", "/polly-safe/git/#{exe.current_app}"
+                   ]
+
+    #git_push_cmd = [
+    #  "kubectl", "run", "-i", "--rm", "polly-bootstrap",
+    #  "--overrides", File.read("config/polly-bootstrap.json"), "--image=alpine/git:latest",
+    #  "--restart=Never", "--",
+    #  "receive-pack", "/polly-safe/git/#{exe.current_app}"
+    #]
+
+    #override_json = Proc.new { |args|
+    #  json = JSON.parse(File.read("config/polly-bootstrap.json"))
+    #  json["spec"]["containers"][0]["args"] = args
+    #  JSON.dump(json)
+    #}
+
+    #git_push_cmd = [
+    #  "kubectl", "run", "--quiet", "-i", "--rm", "polly-bootstrap",
+    #  "--image=alpine/git:latest",
+    #  "--overrides", override_json.call(["-I", "-c", "sleep 10 && exec git receive-pack /polly-safe/git/#{exe.current_app}"]),
+    #  "--restart=Never"
+    #]
+    #
+    ##"--env=GIT_TRACE_PACKET=true",
 
     exec(*git_push_cmd)
+  end
+
+  desc "docker-config", "installs docker-config-json secret"
+  def docker_config
+    exe = ::Polly::Execute.new
+
+    docker_config_secret = []
+    docker_config_secret << <<-HEREDOC
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: docker-config
+type: Opaque
+data:
+  config.json: #{Base64.strict_encode64($stdin.read)}
+...
+HEREDOC
+
+    apply_job = ["kubectl", "apply", "-f", "-"]
+    options = {:stdin_data => docker_config_secret.join}
+    o,e,s = exe.execute_simple(:output, apply_job, options)
+    puts [o, e]
   end
 
   desc "build", "Build the current working directory's Dockerfile"
   #? option "run", :type => :string, :default => nil
   #? option "push", :type => :string, :default => nil
-  option "cache", :type => :boolean, :default => true
+  #? option "cache", :type => :boolean, :default => true
+  #option "docker-config-json", :type => :string, :default => nil
   def build(container_definition="Dockerfile")
     exe = ::Polly::Execute.new
 
     version = exe.current_revision
+    branch = exe.current_branch
     app = exe.current_app
+    image_repo = Polly::Config.image_repo
 
-    build_dockerfile = ["docker", "build", "-f", container_definition, options["cache"] ? nil : "--no-cache", "-t", app + ":" + version, "."].compact
-    exe.systemx(*build_dockerfile)
+    if options["in-cluster"]
+      origin = "/polly-safe/git/#{app}"
 
-    tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":latest"]
-    exe.systemx(*tag_dockerfile)
+      #docker_config_json = options["docker-config-json"] || "{}"
 
-    tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":git-latest"]
-    exe.systemx(*tag_dockerfile)
+      build_jobs = ""
 
-    tag_dockerfile = ["docker", "tag", app + ":" + version, "localhost/" + app + ":git-latest"]
-    exe.systemx(*tag_dockerfile)
+      build_jobs << <<-HEREDOC
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: polly-buildkit
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/buildkit: unconfined
+        container.seccomp.security.alpha.kubernetes.io/buildkit: unconfined
+    spec:
+      restartPolicy: Never
 
-    if options["push"]
-      tag_dockerfile = ["docker", "tag", app + ":" + version, options["push"] + "/" + app + ":" + version]
-      puts tag_dockerfile
+      initContainers:
+      #- name: amazon-ecr-credential-helper-build
+      #  image: golang:1.9.1-alpine3.6
+      #  command:
+      #  - sh
+      #  - -c
+      #  - "test -e /polly-safe/bin/docker-credential-ecr-login || (apk --no-cache add git && go get -u github.com/awslabs/amazon-ecr-credential-helper/ecr-login/cli/docker-credential-ecr-login && mkdir /polly-safe/bin && mv /go/bin/docker-credential-ecr-login /polly-safe/bin)"
+      #  securityContext:
+      #    runAsUser: 0
+      #    runAsGroup: 0
+      #  volumeMounts:
+      #  - name: polly-mount
+      #    mountPath: /polly-safe
+      - name: git-clone
+        image: alpine/git:latest
+        command:
+        - git
+        - clone
+        - -b
+        - #{branch}
+        - #{origin}
+        - .
+        workingDir: /workspace
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+        volumeMounts:
+        - name: workspace
+          mountPath: /workspace
+        - name: polly-mount
+          mountPath: /polly-safe
+        - mountPath: /etc/ssl/certs
+          name: ca-certificates
+          readOnly: true
+      containers:
+      - name: buildkit
+        #image: moby/buildkit:master-rootless
+        image: moby/buildkit:v0.6.3-rootless
+        env:
+        - name: BUILDKITD_FLAGS
+          value: --oci-worker-no-process-sandbox
+        #- name: PATH
+        #  value: /bin:/sbin:/usr/bin:/usr/sbin:/polly-safe/bin
+        #- name: AWS_REGION
+        #  value: us-west-2
+        command:
+        #- sleep
+        #- "9999"
+        - buildctl-daemonless.sh
+        args:
+        - build
+        #- --import-cache
+        #- type=registry,ref=polly-registry:443/#{app}
+        #- --import-cache
+        #- type=local,src=/polly-safe/buildkit,mode=max
+        - --frontend
+        - dockerfile.v0
+        - --local
+        - context=/workspace
+        - --local
+        - dockerfile=/workspace
+        #- --output
+        #- type=image,name=polly-registry:443/#{app}:#{version},push=true
+        #- --export-cache
+        #- type=inline
+        #- type=registry,ref=polly-registry:443/#{app}
+        #- --export-cache
+        #- type=local,dest=/polly-safe/buildkit,mode=max
+        - --output
+        - type=image,name=#{image_repo}/#{app}:#{version},push=true
+        resources:
+          requests:
+            memory: 500Mi
+            cpu: 500m
+          limits:
+            memory: 500Mi
+            cpu: 4000m
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+        volumeMounts:
+        - mountPath: /home/user/.docker/config.json
+          subPath: config.json
+          name: docker-config
+        - name: workspace
+          mountPath: /workspace
+          readOnly: true
+        - name: polly-mount
+          mountPath: /polly-safe
+          #readOnly: true
+        - mountPath: /etc/ssl/certs
+          name: ca-certificates
+          readOnly: true
+        - mountPath: /etc/ssl/cert.pem
+          subPath: ca-certificates.crt
+          name: ca-certificates
+      volumes:
+      - name: docker-config
+        secret:
+          secretName: docker-config
+      - name: ca-certificates
+        secret:
+          secretName: ca-certificates
+      - name: polly-mount
+        persistentVolumeClaim:
+          claimName: polly-mount
+      - name: workspace
+        emptyDir: {}
+...
+HEREDOC
+
+      build_pod_label = "job-name=polly-buildkit"
+
+      delete_job = ["kubectl", "delete", "-f", "-"]
+      io_options = {:stdin_data => build_jobs}
+      o,e,s = exe.execute_simple(:output, delete_job, io_options)
+
+      wait_build_pod_deleted = ["kubectl", "wait", "--for=delete", "pod", "-l", "job-name=polly-buildkit"]
+      o,e,s = exe.execute_simple(:output, wait_build_pod_deleted, {})
+
+      build_job_apply = ["kubectl", "apply", "-f", "-"]
+      io_options = {:stdin_data => build_jobs}
+      o,e,s = exe.execute_simple(:output, build_job_apply, io_options)
+      puts [o, e]
+
+      wait_build_job = ["kubectl", "get", "pods", "-l", build_pod_label, "-o", "jsonpath={..status.conditions[?(@.type=='Ready')].status}"]
+      o,e,s = "False"
+
+      while o != "True" && exe.running?
+        sleep 1
+        o,e,s = exe.execute_simple(:output, ["kubectl", "logs", "-l", build_pod_label, "-c", "git-clone"], {})
+        if s
+          puts [o, e]
+          o,e,s = exe.execute_simple(:output, wait_build_job, {})
+        end
+      end
+
+      build_pod = exe.polly_pod("job-name=polly-buildkit")
+      exec(*["kubectl", "logs", build_pod, "-f"].compact)
+    else
+      build_dockerfile = [{"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]}, "docker", "build", "--ssh", "default", options["no-cache"] ? "--no-cache" : nil, "-f", container_definition, "-t", app + ":" + version, "."].compact
+      exe.systemx(*build_dockerfile)
+
+      tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":latest"]
       exe.systemx(*tag_dockerfile)
 
-      push_dockerfile = ["docker", "push", options["push"] + "/" + app + ":" + version]
-      exe.systemx(*push_dockerfile)
+      tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":git-latest"]
+      exe.systemx(*tag_dockerfile)
+
+      tag_dockerfile = ["docker", "tag", app + ":" + version, "localhost/" + app + ":git-latest"]
+      exe.systemx(*tag_dockerfile)
     end
+
+    #if options["push"]
+    #  tag_dockerfile = ["docker", "tag", app + ":" + version, options["push"] + "/" + app + ":" + version]
+    #  puts tag_dockerfile
+    #  exe.systemx(*tag_dockerfile)
+
+    #  push_dockerfile = ["docker", "push", options["push"] + "/" + app + ":" + version]
+    #  exe.systemx(*push_dockerfile)
+    #end
   end
 
-  desc "checkout [REPO] [VERSION] [DESTINATION]", ""
-  def checkout(repo, version, destination)
+#  desc "checkout [REPO] [VERSION] [DESTINATION]", ""
+#  def checkout(repo, version, destination)
+#    obv = ::Polly::Observe.new
+#    obv.register_channels(["checkout"])
+#
+#    exe = ::Polly::Execute.new
+#
+#    exe.systemx("mkdir", "-p", destination)
+#    obv.report_stdout("checkout", "mkdir #{destination}")
+#    obv.flush($stdout, $stderr, true)
+#
+#    #TODO: implement locking as an option
+#    polly_lock = "#{File.dirname(destination)}/.polly.lock"
+#
+#    File.open(polly_lock, File::RDWR|File::CREAT, 0644) { |f|
+#      obv.report_stdout("checkout", "aquired lock")
+#      obv.flush($stdout, $stderr, true)
+#
+#      f.flock(File::LOCK_EX)
+#      if Dir.chdir(destination)
+#        obv.report_stdout("checkout", "checking for repo")
+#        obv.flush($stdout, $stderr, true)
+#
+#        if exe.execute_simple(:silent, ["git", "status"], {})
+#          obv.report_stdout("checkout", "found repo")
+#          obv.flush($stdout, $stderr, true)
+#        else
+#          obv.report_stdout("checkout", "... not found, creating now")
+#          obv.flush($stdout, $stderr, true)
+#          exe.systemx("git", "init")
+#        end
+#
+#        exe.execute_simple(:silent, ["git", "remote", "add", "origin", repo], {})
+#        obv.report_stdout("checkout", "installed remote")
+#        obv.flush($stdout, $stderr, true)
+#
+#        exe.execute_simple(:silentx, ["git","fetch", "origin"], {})
+#        obv.report_stdout("checkout", "fetched origin")
+#
+#        #TODO: implement caching option/flag
+#        exe.execute_simple(:silentx, ["git", "clean", "-f"], {})
+#        obv.report_stdout("checkout", "cleaned repo")
+#
+#        #exe.systemx("git", "reset")
+#        #exe.systemx("git", "checkout", "--", ".")
+#        exe.execute_simple(:silentx, ["git", "checkout", "-m", version], {})
+#        obv.report_stdout("checkout", "checkedout #{version}")
+#
+#        exe.systemx("chmod", "-R", "777", File.dirname(destination))
+#        #exe.systemx("chown", "-R", "1000", File.dirname(destination))
+#        obv.report_stdout("checkout", "chowned #{destination}")
+#      end
+#    }
+#
+#    obv.flush($stdout, $stderr, true)
+#  end
+
+  desc "certificates", ""
+  def certificates
+    workstation_ca_certificates = "/etc/ssl/certs/ca-certificates.crt"
+
     exe = ::Polly::Execute.new
 
-    exe.systemx("mkdir", "-p", destination)
+    root_key = OpenSSL::PKey::RSA.new 2048 # the CA's public/private key
+    root_ca = OpenSSL::X509::Certificate.new
+    root_ca.version = 2 # cf. RFC 5280 - to make it a "v3" certificate
+    root_ca.serial = 1
+    root_ca.subject = OpenSSL::X509::Name.parse "/DC=org/DC=unhookd/CN=POLLYCA"
+    root_ca.issuer = root_ca.subject # root CA's are "self-signed"
+    root_ca.public_key = root_key.public_key
+    root_ca.not_before = Time.now
+    root_ca.not_after = root_ca.not_before + 2 * 365 * 24 * 60 * 60 # 2 years validity
+    ef = OpenSSL::X509::ExtensionFactory.new
+    ef.subject_certificate = root_ca
+    ef.issuer_certificate = root_ca
+    root_ca.add_extension(ef.create_extension("basicConstraints","CA:TRUE",true))
+    root_ca.add_extension(ef.create_extension("keyUsage","keyCertSign, cRLSign", true))
+    root_ca.add_extension(ef.create_extension("subjectKeyIdentifier","hash",false))
+    root_ca.add_extension(ef.create_extension("authorityKeyIdentifier","keyid:always",false))
+    root_ca.sign(root_key, OpenSSL::Digest::SHA256.new)
 
-    #TODO: implement locking as an option
-    polly_lock = "#{File.dirname(destination)}/.polly.lock"
+    key = OpenSSL::PKey::RSA.new 2048
+    cert = OpenSSL::X509::Certificate.new
+    cert.version = 2
+    cert.serial = 2
+    cert.subject = OpenSSL::X509::Name.parse "/DC=org/DC=unhookd/CN=polly-registry"
+    cert.issuer = root_ca.subject # root CA is the issuer
+    cert.public_key = key.public_key
+    cert.not_before = Time.now
+    cert.not_after = cert.not_before + 2 * 365 * 24 * 60 * 60 # 2 years validity
+    ef = OpenSSL::X509::ExtensionFactory.new
+    ef.subject_certificate = cert
+    ef.issuer_certificate = root_ca
+    cert.add_extension(ef.create_extension("keyUsage","digitalSignature", true))
+    cert.add_extension(ef.create_extension("subjectKeyIdentifier","hash", false))
+    #cert.add_extension(ef.create_extension("subjectAltName", "IP:10.32.0.8", false))
+    cert.add_extension(ef.create_extension("subjectAltName", "DNS:polly-registry", false))
+    cert.sign(root_key, OpenSSL::Digest::SHA256.new)
 
-    File.open(polly_lock, File::RDWR|File::CREAT, 0644) { |f|
-      f.flock(File::LOCK_EX)
-      if Dir.chdir(destination)
-        if exe.system("git", "status")
-        else
-          exe.systemx("git", "init")
-        end
+    wca = File.read(workstation_ca_certificates)
+    a = Base64.strict_encode64(wca)
+    b = Base64.strict_encode64(root_ca.to_pem)
+    c = Base64.strict_encode64(wca + root_ca.to_pem)
 
-        exe.system("git", "remote", "add", "origin", repo)
-        exe.systemx("git","fetch", "origin")
+    polly_certificates = <<-HEREDOC
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "ca-certificates"
+type: Opaque
+data:
+  ca.workstation.crt: #{a}
+  ca.polly.crt: #{b}
+  ca-certificates.crt: #{c}
+...
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "registry-certificates"
+type: Opaque
+data:
+  registry.polly.pem: #{Base64.strict_encode64(cert.to_pem)}
+  registry.polly.key: #{Base64.strict_encode64(key.to_pem)}
+...
+HEREDOC
 
-        #TODO: implement caching option/flag
-        #systemx("git", "clean", "-f", "-d", "-x")
-        exe.systemx("git", "checkout", "-m", version)
+    obv = ::Polly::Observe.new
+    obv.register_channels(["certificates"])
 
-        exe.systemx("chmod", "-Rv", "777", File.dirname(destination))
-        #exe.systemx("chown", "-R", "1000", File.dirname(destination))
-      end
-    }
+    delete_polly_certificates = ["kubectl", "delete", "-f", "-"]
+    create_polly_certificates = ["kubectl", "create", "-f", "-"]
+
+    options = {:stdin_data => polly_certificates}
+    o,e,s = exe.execute_simple(:output, delete_polly_certificates, options)
+    obv.report_io("certificates", o, e)
+    obv.flush($stdout, $stderr)
+
+    o,e,s = exe.execute_simple(:output, create_polly_certificates, options)
+    obv.report_io("certificates", o, e)
+    obv.flush($stdout, $stderr)
+
+    obv.flush($stdout, $stderr, true)
   end
 
   desc "init", ""
@@ -270,108 +632,237 @@ class PollyTasks < Thor
       Kernel.exit(1)
     end
 
-    polly_run=<<-HEREDOC
+    polly_resources = []
+    polly_services = []
+    polly_deployments = []
+    polly_pvcs = []
+
+    #polly_image = "#{exe.current_app}:#{exe.current_revision}"
+    #polly_command = ["polly", "dev", "/var/lib/polly/Procfile.init", "--rename=polly-init"].to_json
+
+#apache2: /usr/sbin/apache2 -D FOREGROUND
+#nginx-apt-proxy: /usr/sbin/nginx -g 'daemon off;'
+
+    git_image = "alpine/git:latest"
+    git_command = ["sleep", "2147483647"].to_json
+
+    polly_pvcs << <<-HEREDOC
 ---
 apiVersion: v1
-kind: Service
+kind: PersistentVolumeClaim
 metadata:
-  name: "polly-headless"
+  annotations:
+  labels:
+    app: polly
+  name: polly-mount
 spec:
-  clusterIP: "None"
-  ports:
-  - port: 8111
-    name: nginx-apt-proxy
-    protocol: TCP
-  - port: 8080
-    name: apache2
-    protocol: TCP
-  - port: 5000
-    name: docker-registry
-    protocol: TCP
-  selector:
-    name: "polly-app"
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  #storageClassName: local-storage
 ...
 ---
 apiVersion: v1
-kind: Service
+kind: PersistentVolume
 metadata:
-  name: "polly-app"
+  name: polly-mount
+#  labels:
+#    type: local
 spec:
-  ports:
-  - port: 8111
-    name: nginx-apt-proxy
-    protocol: TCP
-  - port: 8080
-    name: apache2
-    protocol: TCP
-  - port: 5000
-    name: docker-registry
-    protocol: TCP
-  selector:
-    name: "polly-app"
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  #storageClassName: local-storage
+  hostPath:
+    path: /var/tmp/polly-safe
 ...
+HEREDOC
+
+#    polly_services << <<-HEREDOC
+#---
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: "polly-headless"
+#spec:
+#  clusterIP: "None"
+#  ports:
+#  - port: 8111
+#    name: nginx-apt-proxy
+#    protocol: TCP
+#  - port: 8080
+#    name: apache2
+#    protocol: TCP
+#  - port: 5000
+#    name: docker-registry
+#    protocol: TCP
+#  selector:
+#    name: "polly-app"
+#...
+#HEREDOC
+
+#    polly_services << <<-HEREDOC
+#---
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: "polly-app"
+#spec:
+#  ports:
+#  - port: 8111
+#    name: nginx-apt-proxy
+#    protocol: TCP
+#  - port: 8080
+#    name: apache2
+#    protocol: TCP
+#  selector:
+#    name: "polly-app"
+#...
+#HEREDOC
+
+    polly_services << <<-HEREDOC
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: "polly-app-node"
+  name: "polly-registry"
 spec:
-  type: NodePort
   ports:
-  - port: 5000
-    nodePort: 31500
-    name: docker-registry-node
+  - port: 443
+    name: docker-registry
     protocol: TCP
   selector:
-    name: "polly-app"
+    name: "polly-registry"
+...
+HEREDOC
+
+#    polly_services << <<-HEREDOC
+#---
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: "polly-app-node"
+#spec:
+#  type: NodePort
+#  ports:
+#  - port: 5000
+#    nodePort: 31500
+#    name: docker-registry-node
+#    protocol: TCP
+#  selector:
+#    name: "polly-app"
+#...
+#HEREDOC
+
+    polly_deployments << <<-HEREDOC
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: polly-git
+  labels:
+    app: polly-git
+    stack: polly
+spec:
+  revisionHistoryLimit: 1
+  strategy:
+    type: Recreate
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: polly-git
+        stack: polly
+    spec:
+      volumes:
+        - name: polly-mount
+          persistentVolumeClaim:
+            claimName: polly-mount
+        - name: registry-certificates
+          secret:
+            secretName: registry-certificates
+      initContainers:
+      containers:
+      - name: polly-git
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+          - mountPath: /polly-safe
+            name: polly-mount
+          - mountPath: /etc/ssl/private
+            name: registry-certificates
+            readOnly: true
+        image: #{git_image}
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            memory: 500Mi
+            cpu: 1000m
+          limits:
+            memory: 8000Mi
+            cpu: 5000m
+        command: #{git_command}
+...
+HEREDOC
+
+    polly_deployments << <<-HEREDOC
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: registry-config
+data:
+  registry.conf: |
+    version: 0.1
+    storage:
+      filesystem:
+        rootdirectory: /polly-safe/registry
 ...
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: polly-app
+  name: polly-registry
   labels:
-    app: polly-app
+    app: polly-registry
+    stack: polly
 spec:
   revisionHistoryLimit: 1
   strategy:
     type: Recreate
-    #type: RollingUpdate
-    #rollingUpdate:
-    #  maxUnavailable: 1
-    #  maxSurge: 0
   replicas: 1
   template:
     metadata:
       labels:
-        name: polly-app
-      annotations:
-        "ops.v2.rutty/bash": bash
+        name: polly-registry
+        stack: polly
     spec:
       volumes:
-        - name: tmp
-          hostPath:
-            path: /var/tmp/polly-safe
+        - name: registry-config
+          configMap:
+            name: registry-config
+        - name: polly-mount
+          persistentVolumeClaim:
+            claimName: polly-mount
+        - name: registry-certificates
+          secret:
+            secretName: registry-certificates
       initContainers:
-      - name: app-init
-        image: polly:latest
-        imagePullPolicy: IfNotPresent
-        args: ["bash", "-ex", "-c", "mkdir -p /var/tmp/git"]
-        securityContext:
-          runAsUser: 0
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-        volumeMounts:
-          - mountPath: /var/tmp
-            name: tmp
       containers:
-      - name: polly-app
-        securityContext:
-          privileged: true
+      - name: polly-registry
         volumeMounts:
-          - mountPath: /var/tmp
-            name: tmp
-        image: #{exe.current_app}:#{exe.current_revision}
+          - mountPath: /polly-safe
+            name: polly-mount
+          - mountPath: /etc/ssl/private
+            name: registry-certificates
+            readOnly: true
+          - mountPath: /registry.conf
+            subPath: registry.conf
+            name: registry-config
+        image: registry:2
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -381,44 +872,55 @@ spec:
             memory: 1000Mi
             cpu: 2000m
         ports:
-        - containerPort: 8111
-        - containerPort: 8080
-        - containerPort: 5000
-        command: ["polly", "dev", "/var/lib/polly/Procfile.init"]
+        - containerPort: 443
+        command:
+        - /bin/registry
+        args:
+        - serve
+        - /registry.conf
         env:
-        #- name: GIT_TRACE_PACKET
-        #  value: "/var/log/git.trace"
-        #- name: GIT_FLUSH
-        #  value: "1"
+        - name: REGISTRY_HTTP_TLS_CERTIFICATE
+          value: /etc/ssl/private/registry.polly.pem
+        - name: REGISTRY_HTTP_TLS_KEY
+          value: /etc/ssl/private/registry.polly.key
+        - name: REGISTRY_HTTP_ADDR
+          value: 0.0.0.0:443
 ...
 HEREDOC
+
+    polly_run = polly_pvcs.join + polly_services.join + polly_deployments.join
 
     if options["re-init"]
       deploy_polly_app = ["kubectl", "delete", "-f", "-"]
       options = {:stdin_data => polly_run}
-      exe.execute_simple(:blocking, deploy_polly_app, options)
+      o,e,s = exe.execute_simple(:output, deploy_polly_app, options)
+      puts [o, e, s]
 
-      wait_polly_app_deleted = ["kubectl", "wait", "--for=delete", "pod", "-l", "name=polly-app"]
-      exe.execute_simple(:blocking, wait_polly_app_deleted, {})
+      wait_polly_app_deleted = ["kubectl", "wait", "--for=delete", "pod", "-l", "stack=polly"]
+      o,e,s = exe.execute_simple(:output, wait_polly_app_deleted, {})
+      puts [o, e, s]
     end
 
     deploy_polly_app = ["kubectl", "apply", "-f", "-"]
     options = {:stdin_data => polly_run}
-    exe.execute_simple(:blocking, deploy_polly_app, options)
+    o,e,s = exe.execute_simple(:output, deploy_polly_app, options)
+    puts [o, e, s]
 
-    wait_polly_app = ["kubectl", "wait", "--for=condition=available", "deployment/polly-app"]
-    exe.execute_simple(:blocking, wait_polly_app, {})
+    wait_polly_app = ["kubectl", "wait", "--for=condition=available", "deployment/polly-git"]
+    o,e,s = exe.execute_simple(:output, wait_polly_app, {})
+    puts [o, e, s]
 
-    wait_polly_app = ["kubectl", "rollout", "status", "deployment/polly-app"]
-    exe.execute_simple(:blocking, wait_polly_app, {})
+    wait_polly_app = ["kubectl", "rollout", "status", "deployment/polly-git"]
+    o,e,s = exe.execute_simple(:output, wait_polly_app, {})
+    puts [o, e, s]
 
     puts exe.polly_pod
   end
 
   desc "sh", ""
-  def sh
+  def sh(sh_cmd = "sh")
     exe = ::Polly::Execute.new
-    exec(*["kubectl", "exec", exe.polly_pod, "-i", $stdin.tty? ? "-t" : nil, "--", "bash"].compact)
+    exec(*["kubectl", "exec", exe.polly_pod, "-i", $stdin.tty? ? "-t" : nil, "--", sh_cmd].compact)
   end
 
   desc "logs", ""
@@ -430,11 +932,98 @@ HEREDOC
   desc "dev", ""
   option "prepare", :type => :boolean, :default => false
   option "only-prepare", :type => :boolean, :default => false
+  option "rename", :type => :string
   def dev(procfile = "Procfile")
     exe = ::Polly::Execute.new
 
+    if options["rename"]
+      Process.setproctitle(options["rename"])
+    end
+
     exe.execute_procfile(ENV['PWD'], "Prepfile") if (options["prepare"] || options["only-prepare"])
     exe.execute_procfile(ENV['PWD'], procfile) unless options["only-prepare"]
+  end
+
+  ##TODO: --in-vivo split
+  desc "repositories", ""
+  def repositories
+    catalog_json = fetch_from_registry("v2/_catalog")
+    catalog = JSON.load(catalog_json)
+    puts catalog["repositories"]
+  end
+
+  desc "tags", ""
+  def tags
+    exe = ::Polly::Execute.new
+
+    catalog_json = fetch_from_registry("v2/#{exe.current_app}/tags/list")
+    catalog = JSON.load(catalog_json)
+    if catalog
+      puts catalog["tags"]
+    end
+  end
+
+  desc "generate", ""
+  #option "pipeline-fu", :type => :string, :default => "circleci"
+  #option "image-fu", :type => :string, :default => "buildkit"
+  def generate(pollyfile = "Pollyfile")
+    obv = ::Polly::Observe.new
+    exe = ::Polly::Execute.new(options)
+
+    pollyfile_ruby = File.read(pollyfile)
+
+    #Polly::Generate.options = options
+
+    Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, pollyfile)
+  end
+
+  private
+
+  def fetch_from_registry(path)
+    exe = ::Polly::Execute.new
+
+    registry_label = "name=polly-registry"
+
+    random_port = 5000 + (rand * 1000).to_i
+
+    kubectl_port_forward_cmd = [
+                                 "kubectl",
+                                 "port-forward",
+                                 exe.polly_pod(registry_label),
+                                 "#{random_port}:443"
+                               ]
+
+    options = {}
+    process_stdin, process_stdout, process_stderr, process_waiter = exe.execute_simple(:async, kubectl_port_forward_cmd, options)
+
+    process_stdout.expect("-> 443")
+
+    curl_cmd = [
+                         "curl",
+                         "-s",
+                         "-v",
+                         "-k",
+                         "-m",
+                         "999",
+                         "--connect-timeout",
+                         "999",
+                         #TODO: ca-certificates
+                         #"--cacert",
+                         #ssl_cert_file,
+                         #"--resolve",
+                         #"polly-registry:5000:127.0.0.1",
+                         "https://127.0.0.1:#{random_port}/#{path}"
+                       ]
+
+    options = {}
+    o,e,s = exe.execute_simple(:output, curl_cmd, options)
+
+    Process.kill(:INT, process_waiter.pid)
+    process_waiter.kill
+    process_waiter.join
+    exe.wait_child
+
+    o
   end
 end
 
@@ -444,3 +1033,70 @@ case $executing_as
   when Polly::POLLY, "Thorfile"
     PollyTasks.start(ARGV)
 end
+
+#TODO: kaniko build step
+=begin
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kaniko
+spec:
+  containers:
+  - name: kaniko
+    imagePullPolicy: IfNotPresent
+    #image: polly:latest
+    #command: ["sleep", "infinity"]
+    image: gcr.io/kaniko-project/executor:latest
+    args: ["--dockerfile", "Dockerfile",
+           "--context", "/var/polly/scratch/polly/current",
+           "--destination", "polly-app:5000/polly:kaniko-latest",
+           "--cache",
+           "--cache-dir=/var/polly/cache"]
+    volumeMounts:
+      - name: polly-sandbox
+        mountPath: /var/polly
+      - name: ca-certificates
+        mountPath: /kaniko/ssl/certs
+    env:
+      #- name:
+      #  value:
+  restartPolicy: Never
+  volumes:
+    - name: ca-certificates
+      secret:
+        secretName: ca-certificates
+    - name: polly-sandbox
+      persistentVolumeClaim:
+        claimName: polly-sandbox-claim
+...
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: polly-sandbox-claim
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  #storageClassName: local-storage
+...
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: polly-sandbox
+#  labels:
+#    type: local
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  #storageClassName: local-storage
+  hostPath:
+    path: /var/tmp/polly-safe
+...
+=end
