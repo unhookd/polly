@@ -190,7 +190,7 @@ class PollyTasks < Thor
 
     git_repo_template_install_cmd = [
                      "kubectl", "cp", 
-                     "config/git-repo/templates",
+                     File.join($polly_dir, "config/git-repo/templates"),
                      "#{exe.polly_pod}:/usr/share/git-core/"
                    ]
 
@@ -282,6 +282,7 @@ HEREDOC
   #? option "push", :type => :string, :default => nil
   #? option "cache", :type => :boolean, :default => true
   #option "docker-config-json", :type => :string, :default => nil
+  option "in-cluster", :type => :boolean, :default => false
   def build(container_definition="Dockerfile")
     exe = ::Polly::Execute.new
 
@@ -385,10 +386,10 @@ spec:
         - type=image,name=#{image_repo}/#{app}:#{version},push=true
         resources:
           requests:
-            memory: 500Mi
+            memory: 5000Mi
             cpu: 500m
           limits:
-            memory: 500Mi
+            memory: 5000Mi
             cpu: 4000m
         securityContext:
           runAsUser: 1000
@@ -464,6 +465,8 @@ HEREDOC
 
       tag_dockerfile = ["docker", "tag", app + ":" + version, "localhost/" + app + ":git-latest"]
       exe.systemx(*tag_dockerfile)
+
+      puts version
     end
 
     #if options["push"]
@@ -624,6 +627,7 @@ HEREDOC
 
   desc "init", ""
   option "re-init", :type => :boolean, :default => false
+  option "with-registry", :type => :boolean, :default => false
   def init
     exe = ::Polly::Execute.new
 
@@ -723,7 +727,8 @@ HEREDOC
 #...
 #HEREDOC
 
-    polly_services << <<-HEREDOC
+    if options["with-registry"]
+      polly_services << <<-HEREDOC
 ---
 apiVersion: v1
 kind: Service
@@ -738,6 +743,7 @@ spec:
     name: "polly-registry"
 ...
 HEREDOC
+    end
 
 #    polly_services << <<-HEREDOC
 #---
@@ -808,7 +814,8 @@ spec:
 ...
 HEREDOC
 
-    polly_deployments << <<-HEREDOC
+    if options["with-registry"]
+      polly_deployments << <<-HEREDOC
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -887,6 +894,7 @@ spec:
           value: 0.0.0.0:443
 ...
 HEREDOC
+    end
 
     polly_run = polly_pvcs.join + polly_services.join + polly_deployments.join
 
