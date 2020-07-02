@@ -175,9 +175,9 @@ module Polly
           {
             #"terminationGracePeriodSeconds" => 5,
             #"ttlSecondsAfterFinished" => 1,
-            "securityContext" => {
-              "privileged" => true #TODO: figure out un-privd case, use kaniko???
-            },
+            #"securityContext" => {
+            #  "privileged" => true #TODO: figure out un-privd case, use kaniko???
+            #},
             "name" => clean_name,
             "image" => run_image,
             "imagePullPolicy" => "IfNotPresent",
@@ -285,6 +285,8 @@ module Polly
       a = IO.popen(find_all_pods).read.strip
       wait_child
       all_pods = a.split("\n")
+
+sleep 60
 
       pod_index = 0
       ci_run_cmd = [

@@ -9,7 +9,7 @@ defaults: &defaults
   environment: &environment_defaults
     CUSTOM: "settings"
   docker:
-    - image: &build_image ubuntu:bionic-20180526
+    - image: &build_image polly:latest
 
 version: 2
 jobs:
@@ -19,4 +19,8 @@ jobs:
       - run:
           name: rspec
           command: |
+            whoami
+            ls -la
+            pwd
+            ruby -v
             bundle exec rspec
