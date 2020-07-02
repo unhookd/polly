@@ -2,25 +2,33 @@ workflows:
   version: 2
   build:
     jobs:
-      - primary
+    - bootstrap
+    - primary:
+        requires:
+        - bootstrap
 
 defaults: &defaults
   working_directory: /home/app/current
   environment: &environment_defaults
     CUSTOM: "settings"
   docker:
-    - image: &build_image polly:latest
+    - image: &build_image ubuntu:latest
 
 version: 2
 jobs:
+  bootstrap:
+    docker:
+      - image: &build_image ubuntu:latest
+    steps:
+      - run:
+          name: bootstrap
+          command: |
+            apt-
+
   primary:
     <<: *defaults
     steps:
       - run:
           name: rspec
           command: |
-            whoami
-            ls -la
-            pwd
-            ruby -v
             bundle exec rspec

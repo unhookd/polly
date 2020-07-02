@@ -983,6 +983,7 @@ HEREDOC
   end
 
   desc "generate", ""
+  option "--circle", :type => :boolean, :default => false
   #option "pipeline-fu", :type => :string, :default => "circleci"
   #option "image-fu", :type => :string, :default => "buildkit"
   def generate(pollyfile = "Pollyfile")
@@ -994,6 +995,12 @@ HEREDOC
     #Polly::Generate.options = options
 
     Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, pollyfile)
+
+    if options["circle"]
+      puts "wtf"
+    else
+      $stdout.write(Polly::Generate.read_output)
+    end
   end
 
   private

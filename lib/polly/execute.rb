@@ -48,6 +48,9 @@ module Polly
       current_kube_context = IO.popen("kubectl config current-context").read.strip
       wait_child
       raise "unsafe kubernetes context" unless Polly::Config.allowed_contexts.include?(current_kube_context)
+    rescue Errno::ENOENT
+      #TODO: is this the case of missing kubectl ??? is that safe ???
+      false
     end
 
     def current_revision
@@ -184,68 +187,68 @@ module Polly
             "workingDir" => job.parameters[:working_directory] || "/home/app/current", #TODO: local executor support
             "args" => sleep_cmd_args,
             "volumeMounts" => [
-              {
-                "mountPath" => "/var/run/docker.sock",
-                "name" => "dood"
-              },
+              #{
+              #  "mountPath" => "/var/run/docker.sock",
+              #  "name" => "dood"
+              #},
               {
                 "mountPath" => build_manifest_dir,
                 "name" => "fd-config-volume"
               },
-              {
-                "mountPath" => "/home/app",
-                "name" => "scratch-dir"
-              },
+              #{
+              #  "mountPath" => "/home/app",
+              #  "name" => "scratch-dir"
+              #},
               {
                 "mountPath" => "/var/tmp/artifacts",
                 "name" => "build-artifacts"
               },
-              {
-                "mountPath" => "/home/app/.ssh",
-                "name" => "ssh-key"
-              },
+              #{
+              #  "mountPath" => "/home/app/.ssh",
+              #  "name" => "ssh-key"
+              #},
             ],
             "env" => job.parameters[:environment].collect { |k,v| {"name" => k, "value" => v } }
           }
         ],
         "volumes" => [
-          {
-            "name" => "dood",
-            "hostPath" => {
-              "path" => "/var/run/docker.sock"
-            }
-          },
+          #{
+          #  "name" => "dood",
+          #  "hostPath" => {
+          #    "path" => "/var/run/docker.sock"
+          #  }
+          #},
           {
             "name" => "fd-config-volume",
             "configMap" => {
               "name" => "fd-#{clean_name}-#{current_revision}"
             }
           },
-          {
-            "name" => "git-repo",
-            #TODO: bundle cache bits!! "emptyDir" => {} ????
-            "hostPath" => {
-              "path" => "/var/tmp/polly-safe/git/#{current_app}"
-            }
-          },
-          {
-            "name" => "scratch-dir",
-            "hostPath" => {
-              "path" => "/var/tmp/polly-safe/scratch/#{current_app}"
-            }
-          },
+          #{
+          #  "name" => "git-repo",
+          #  #TODO: bundle cache bits!! "emptyDir" => {} ????
+          #  "hostPath" => {
+          #    "path" => "/var/tmp/polly-safe/git/#{current_app}"
+          #  }
+          #},
+          #{
+          #  "name" => "scratch-dir",
+          #  "hostPath" => {
+          #    "path" => "/var/tmp/polly-safe/scratch/#{current_app}"
+          #  }
+          #},
           {
             "name" => "build-artifacts",
             "hostPath" => {
               "path" => "/var/tmp/polly-safe/artifacts/#{current_app}"
             }
           },
-          {
-            "name" => "ssh-key",
-            "hostPath" => {
-              "path" => "#{ENV['HOME']}/.ssh"
-            }
-          }
+          #{
+          #  "name" => "ssh-key",
+          #  "hostPath" => {
+          #    "path" => "#{ENV['HOME']}/.ssh"
+          #  }
+          #}
         ]
       }
 
@@ -285,8 +288,6 @@ module Polly
       a = IO.popen(find_all_pods).read.strip
       wait_child
       all_pods = a.split("\n")
-
-sleep 60
 
       pod_index = 0
       ci_run_cmd = [
