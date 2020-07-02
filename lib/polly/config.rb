@@ -3,7 +3,11 @@
 module Polly
   class Config
     def self.rc
-      YAML.load(File.read(File.expand_path("~/.pollyrc")))
+      @rc ||= begin
+        YAML.load(File.read(File.expand_path("~/.pollyrc")))
+      rescue Errno::ENOENT
+        {}
+      end
     end
 
     def self.allowed_contexts

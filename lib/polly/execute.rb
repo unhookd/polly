@@ -111,7 +111,7 @@ module Polly
       #end
 
       deployment_spec = {
-        "apiVersion" => "extensions/v1beta1",
+        "apiVersion" => "apps/v1",
         "kind" => "Deployment",
         "metadata" => {
           "name" => clean_name,
@@ -125,9 +125,16 @@ module Polly
             "type" => "Recreate"
           },
           "replicas" => 1,
+          "selector" => {
+            "matchLabels" => {
+              #TODO: abstract this!!!!
+              "name" => clean_name
+            }
+          },
           "template" => {
             "metadata" => {
               "labels" => {
+                #TODO: abstract this
                 "name" => clean_name
               },
               "annotations" => {}

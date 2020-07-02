@@ -7,6 +7,7 @@ require 'date'
 require 'openssl'
 require 'base64'
 require 'expect'
+require 'uri'
 
 module Polly
   POLLY = "polly"
