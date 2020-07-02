@@ -14,6 +14,7 @@ polly understands circleci config and is able to plan and execute workflows on a
 
 # installation
 
+    sudo apt-get install ruby2* ruby2*-dev libruby2* ruby-bundler rubygems-integration build-essential --no-install-recommends
     cd ~/workspace
     git clone git@github.com:unhookd/polly.git
     cd polly
@@ -113,3 +114,9 @@ do not expose or use polly unless you have thoroughly understood the risk.
 * https://www.atlassian.com/git/tutorials/setting-up-a-repository/git-init
 * https://github.com/GoogleContainerTools/kaniko
 * https://github.com/erikhuda/thor
+
+# development diary
+
+refresh Gemfile.lock on all new machines / resolve Gemfile.lock conflicts
+
+`rm Gemfile.lock && bundle install --path=vendor/bundle
