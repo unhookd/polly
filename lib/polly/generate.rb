@@ -8,7 +8,12 @@ module Polly
       end
 
       def output
-        $stdout
+        @output ||= StringIO.new # $stdout
+      end
+
+      def read_output
+        @output.rewind
+        @output.read
       end
 
       def emit(bytes)
@@ -35,7 +40,7 @@ module Polly
 
       def apt(p)
         run "apt-get update" +
-            "; apt install -y " +
+            "; apt-get install -y " +
               p.join(" ") +
             "; apt-get clean; rm -rf /var/lib/apt/lists/*"
       end

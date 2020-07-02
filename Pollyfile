@@ -123,7 +123,7 @@
 
 #_image declares container artifacts
 build = image {
-  stage "build", "ubuntu:bionic-20180526"
+  stage "build", "ubuntu:focal-20200606"
 
   env "DEBIAN_FRONTEND" => "noninteractive",
       "LC_ALL" => "C.UTF-8",
@@ -148,15 +148,14 @@ deploy = image {
 
   run %q{useradd --home-dir /home/app --create-home --shell /bin/bash app}
 
-  ppa "brightbox/ruby-ng"
+  #ppa "brightbox/ruby-ng"
 
   apt %w{
     build-essential
     libyaml-dev
-    ruby2.6*-dev
+    ruby2*
     libruby2*
     ruby-bundler rubygems-integration
-    ruby2.6*
     rake
   }
 
@@ -176,7 +175,7 @@ deploy = image {
 
   run %q{bundle install --path=vendor/bundle --jobs=4 --retry=3 --deployment --without "development"}
 
-  run %q{bundle exec rake build}
+  #run %q{bundle exec rake build}
 
   #TODO: user module
   command("USER") {

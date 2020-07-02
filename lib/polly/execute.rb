@@ -35,8 +35,11 @@ module Polly
       Kernel.system(*args)
     end
 
-    def systemx(*args)
-      unless Kernel.system(*args)
+    def systemx(*cmd)
+      #pid = Kernel.spawn(*cmd)
+      #status = Process.wait pid
+      status = Kernel.system(*cmd)
+      unless status
         Kernel.exit(1)
       end
     end
