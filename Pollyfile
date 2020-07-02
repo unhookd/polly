@@ -122,7 +122,7 @@
 #  }
 
 #_image declares container artifacts
-build = image {
+@build = image {
   stage "build", "ubuntu:focal-20200606"
 
   env "DEBIAN_FRONTEND" => "noninteractive",
@@ -143,8 +143,8 @@ build = image {
   run %q{touch /a}
 }
 
-deploy = image {
-  stage "deploy", build
+@deploy = image {
+  stage "deploy", @build
 
   run %q{useradd --home-dir /home/app --create-home --shell /bin/bash app}
 
@@ -185,8 +185,8 @@ deploy = image {
   run %q{ln -fs /home/app/current/bin/polly /usr/local/bin/polly}
 }
 
-test = image {
-  stage "test", deploy
+@test = image {
+  stage "test", @deploy
 
   #TODO: user module
   command("USER") {
@@ -215,6 +215,14 @@ test = image {
     "/home/app/current"
   }
 }
+
+#circle {
+#  step(:bootstrap, @build, @deploy) {
+#    step(:test, @test) {
+#      run %q{bundle exec rspec}
+#    }
+#  }
+#}
 
 #    #switch root_context
 #  

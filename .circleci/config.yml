@@ -23,7 +23,7 @@ jobs:
       - run:
           name: bootstrap
           command: |
-            apt-
+            apt-get install ruby2* ruby-bundler
 
   primary:
     <<: *defaults
