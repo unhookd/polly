@@ -280,8 +280,8 @@ HEREDOC
   desc "build", "Build the current working directory's Dockerfile"
   #? option "run", :type => :string, :default => nil
   #? option "push", :type => :string, :default => nil
-  #? option "cache", :type => :boolean, :default => true
   #option "docker-config-json", :type => :string, :default => nil
+  option "cache", :type => :boolean, :default => true
   option "in-cluster", :type => :boolean, :default => false
   def build(container_definition="Dockerfile")
     exe = ::Polly::Execute.new
