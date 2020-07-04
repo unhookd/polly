@@ -8,22 +8,22 @@ workflows:
         - bootstrap
 
 defaults: &defaults
-  working_directory: /home/app/current
-  environment: &environment_defaults
-    CUSTOM: "settings"
+  #working_directory: /home/app/current
+  #environment: &environment_defaults
+  #  CUSTOM: "settings"
   docker:
-    - image: &build_image ubuntu:latest
+    - image: &default_build_image polly:latest
 
 version: 2
 jobs:
   bootstrap:
     docker:
-      - image: &build_image ubuntu:latest
+      - image: &bootstrap_build_image ubuntu:latest
     steps:
       - run:
           name: bootstrap
           command: |
-            apt-get install ruby2* ruby-bundler
+            true
 
   primary:
     <<: *defaults

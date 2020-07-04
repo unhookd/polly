@@ -113,7 +113,7 @@ class PollyTasks < Thor
 
     obv.report_stdout("exe", exe.description)
 
-    while plan.has_unfinished_jobs? && exe.running?
+    while exe.running? || plan.has_unfinished_jobs?
       started_this_loop = plan.jobs_ready_to_start.collect do |job_to_start|
         exe.start_job!(job_to_start)
       end
@@ -129,8 +129,8 @@ class PollyTasks < Thor
         finished_job
       end
 
-      io_this_loop.each do |job, stdout, stderr|
-        obv.report_io(job.run_name, stdout, stderr)
+      io_this_loop.each do |job_run_name, stdout, stderr|
+        obv.report_io(job_run_name, stdout, stderr)
       end
 
       unless finished_this_loop.empty?

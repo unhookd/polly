@@ -340,7 +340,12 @@ module Polly
 
       jobs_to_keep_completed = []
 
+      #puts "all r #{@runners.length}"
+
       @runners.each do |job_run_name, pod_name, cmd_io|
+
+      #puts "!!!! #{job_run_name} #{pod_name} #{cmd_io.empty?} process..."
+
         next if cmd_io.empty?
 
         this_job = @running_jobs[job_run_name]
@@ -371,11 +376,14 @@ module Polly
 
           process_waiter.join(0.1)
 
-          io_this_loop << [this_job, stdout, stderr]
+          #puts "found #{[job_run_name, stdout, stderr]}"
+
+          io_this_loop << [job_run_name, stdout, stderr]
         else
-          if this_job
             proc_wait_value = process_waiter.value
             aok = proc_wait_value.success?
+
+          if this_job
             jobs_to_mark_as_completed << this_job
             if !aok
               this_job.fail!
@@ -385,7 +393,7 @@ module Polly
               end
 
               if @detach_failed
-                jobs_to_detach << this_job
+                jobs_to_detach << job_run_name
               end
             end
 
@@ -394,6 +402,7 @@ module Polly
             end
 
             @running_jobs.delete(job_run_name)
+          end
 
             chunk = 65432
             stdout = ""
@@ -419,23 +428,37 @@ module Polly
             exit_proc = cmd_io[4]
             exit_proc.call(stdout, stderr, proc_wait_value, false)
 
-            io_this_loop << [this_job, stdout, stderr]
-          end
+            # puts "last found #{[job_run_name, stdout, stderr]}"
+
+            io_this_loop << [job_run_name, stdout, stderr]
+
         end
       end
 
-      jobs_to_detach.each do |failed_job|
+      jobs_to_detach.each do |failed_job_run_name|
         #failed_job.parameters[:executor_hints][:detach] = true
         #start_job!(failed_job)
+        @runners.reject! { |job_namish, pod_name, cmd_io|
+          failed_job_run_name == job_namish
+        }
       end
+
+      get_log_runners = []
 
       jobs_to_mark_as_completed.each { |job_thang|
         #unless job_thang.parameters[:executor_hints][:detach]
           @runners.each { |job_namish, pod_name, cmd_io|
             if job_thang.run_name == job_namish
         #  #if jobs_to_mark_as_completed.include?(job_namish)
-              unless jobs_to_keep_completed.include?(job_thang) || jobs_to_detach.include?(job_thang)
+              unless jobs_to_keep_completed.include?(job_thang) || jobs_to_detach.include?(job_thang.run_name)
                 #puts [jobs_to_mark_as_completed, jobs_to_detach, job_namish, pod_name].inspect
+
+                get_logs = ["kubectl", "logs", "-l", "name=#{pod_name}", "--all-containers=true", "--tail=-1"]
+                ##execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {})
+                #@runners << [job_namish, pod_name, execute_simple(:async, get_logs, {})]
+                @all_exited = false
+                get_log_runners << [job_namish, "logs-#{pod_name}", execute_simple(:async, get_logs, {})]
+
                 execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {})
               end
             end
@@ -443,11 +466,19 @@ module Polly
         #end
       }
 
+      get_log_runners.each { |lr|
+        @runners << lr
+      }
+
       return jobs_to_mark_as_completed, io_this_loop
     end
 
     def running?
-      if @exiting
+#run? false true
+#all r 4
+#puts "run? #{@exiting} #{@all_exited}"
+
+      if @exiting || @all_exited
         $stderr.write($/)
         $stderr.write("caught SIGINT, shutting down, please wait...")
 
