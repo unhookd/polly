@@ -248,17 +248,23 @@ describe Polly::Plan do
     it "constructs a plan with correct dependency tree based on provided yaml" do
       plan = described_class.new(valid_revision)
 
-      plan.load_circleci
+      plan.load_circleci("spec/fixtures/dot-circleci/config.yml")
 
       expect(plan.has_unfinished_jobs?).to eq(true)
 
-      expect(plan.all_jobs.count).to eq(1)
+      expect(plan.all_jobs.count).to eq(2)
+
+      ready_to_start_jobs = plan.jobs_ready_to_start
+      expect(ready_to_start_jobs).to eq([plan.all_jobs["bootstrap"]])
+
+      plan.complete_job!(plan.all_jobs["bootstrap"])
+
+      expect(plan.has_unfinished_jobs?).to eq(true)
 
       ready_to_start_jobs = plan.jobs_ready_to_start
       expect(ready_to_start_jobs).to eq([plan.all_jobs["primary"]])
 
       plan.complete_job!(plan.all_jobs["primary"])
-
       expect(plan.has_unfinished_jobs?).to eq(false)
     end
   end
