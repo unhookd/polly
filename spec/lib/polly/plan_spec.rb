@@ -248,7 +248,9 @@ describe Polly::Plan do
     it "constructs a plan with correct dependency tree based on provided yaml" do
       plan = described_class.new(valid_revision)
 
-      plan.load_circleci("spec/fixtures/dot-circleci/config.yml")
+      plan.load_circleci(File.read("spec/fixtures/dot-circleci/config.yml"))
+
+puts plan.inspect
 
       expect(plan.has_unfinished_jobs?).to eq(true)
 
