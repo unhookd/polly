@@ -105,7 +105,44 @@ class PollyTasks < Thor
     plan = ::Polly::Plan.new(revision, run_pipeline_upto_these_jobs, options)
 
     #TODO: switch plan based on detected hueristics here
-    plan.load_circleci
+    pollyfile_ruby = File.read("Pollyfile")
+    Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
+    generated_circleci_config_yml = Polly::Generate.read_circleci_output
+
+    #generated_dockerfile_fd = Tempfile.new("dockerfile")
+    #generated_dockerfile_fd.write(generated_dockerfile)
+    #generated_dockerfile_fd.rewind
+
+    plan.load_circleci(generated_circleci_config_yml)
+
+    #puts YAML.dump(plan.all_jobs)
+    #puts YAML.dump(plan.deps)
+
+
+#workflows:
+#  version: 2
+#  polly:
+#    jobs:
+#    - bootstrap
+#    - primary:
+#        requires:
+#        - bootstrap
+#
+#bootstrap: []
+#primary:
+#- bootstrap
+#
+#
+#version: 2
+#jobs:
+#  bootstrap:
+#    docker:
+#      - image: &bootstrap_build_image ubuntu:latest
+#    steps:
+#      - run:
+#          name: bootstrap
+
+    exit 2
 
     obv.register_channels(["plan"] + plan.all_jobs.collect { |key, _| key } + ["exe"])
 

@@ -16,6 +16,16 @@ module Polly
         @output.read
       end
 
+      #def circleci_output
+      #  @circleci_output ||= StringIO.new # $stdout
+      #end
+
+      def read_circleci_output
+        #@circleci_output.rewind
+        #@circleci_output.read
+        File.read("spec/fixtures/dot-circleci/config.yml")
+      end
+
       def emit(bytes)
         output.write(bytes)
       end
@@ -62,9 +72,6 @@ module Polly
       def stage(name, from)
         @image_name = name
         command("FROM #{from} AS #{name}")
-        #{
-        #  from
-        #}
       end
 
       def env(h)

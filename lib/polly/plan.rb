@@ -6,6 +6,7 @@ module Polly
     DEFAULT_CIRCLECI_CONFIG_YML_PATH = ".circleci/config.yml"
 
     attr_accessor :all_jobs
+    attr_accessor :deps
 
     def initialize(revision = nil, upto_these_jobs = nil, options = {})
       @all_jobs = {}
@@ -195,9 +196,8 @@ module Polly
       @completed[job.run_name] = !job.failed?
     end
 
-    def load_circleci(config_yml_path = DEFAULT_CIRCLECI_CONFIG_YML_PATH)
-      #TODO: enhance support for known circleci templates
-      raw_yaml = (File.read(config_yml_path) || "")
+    #TODO: enhance support for known circleci templates
+    def load_circleci(raw_yaml = File.read(DEFAULT_CIRCLECI_CONFIG_YML_PATH))
       yaml_template_rendered = raw_yaml.gsub("$CIRCLE_SHA1", @revision)
       circle_yaml = YAML.load(yaml_template_rendered)
 
@@ -218,6 +218,7 @@ module Polly
           image = circleci_like_parameters["docker"]
         end
 
+        puts "add_circleci_job(#{job_run_name}, #{image}, #{circleci_like_parameters["steps"]}, #{circleci_like_parameters["environment"]}, #{circleci_like_parameters["working_directory"]}"
         add_circleci_job(job_run_name, image, circleci_like_parameters["steps"], circleci_like_parameters["environment"], circleci_like_parameters["working_directory"])
       }
 
@@ -234,6 +235,7 @@ module Polly
             if add_job_to_stack.call(job_run_name)
               if job_run_name_or_reqs[job_run_name]
                 job_run_name_or_reqs[job_run_name]["requires"].each { |dep_job_run_name|
+                  puts "depends(#{job_run_name}, #{dep_job_run_name})"
                   depends(job_run_name, dep_job_run_name)
                 }
               end

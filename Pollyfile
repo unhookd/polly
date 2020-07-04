@@ -217,6 +217,12 @@
 }
 
 #circle {
+#add_circleci_job(bootstrap, [{"image"=>"ubuntu:latest"}], [{"run"=>{"name"=>"bootstrap", "command"=>"true\n"}}], , 
+#add_circleci_job(primary, [{"image"=>"polly:latest"}], [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], , 
+#depends(primary, bootstrap)
+#}
+
+#circle {
 #  step(:bootstrap, @build, @deploy) {
 #    step(:test, @test) {
 #      run %q{bundle exec rspec}
