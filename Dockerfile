@@ -15,16 +15,15 @@ RUN /var/tmp/bootstrap.sh
 
 COPY --chown=app Gemfile Gemfile.lock polly.gemspec /var/tmp/polly/
 COPY --chown=app lib/polly.rb /var/tmp/polly/lib/polly.rb
-COPY --chown=app bin /var/tmp/polly/bin/
-COPY --chown=app Thorfile /var/tmp/polly/Thorfile
-
 WORKDIR /var/tmp/polly
 
 USER app
 
 RUN bundle install --path=vendor/bundle
 
-COPY --chown=app . /var/tmp/polly/
+COPY . /var/tmp/polly/
+
+#COPY --chown=app Thorfile /var/tmp/polly/Thorfile
 
 RUN bundle exec rake build
 
