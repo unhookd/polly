@@ -326,7 +326,7 @@ spec:
     name: "polly-app"
 ...
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: polly-app
@@ -341,6 +341,9 @@ spec:
     #  maxUnavailable: 1
     #  maxSurge: 0
   replicas: 1
+  selector:
+    matchLabels:
+      name: polly-app
   template:
     metadata:
       labels:
@@ -404,15 +407,17 @@ HEREDOC
 
     deploy_polly_app = ["kubectl", "apply", "-f", "-"]
     options = {:stdin_data => polly_run}
-    exe.execute_simple(:blocking, deploy_polly_app, options)
+    puts exe.execute_simple(:blocking, deploy_polly_app, options)
 
     wait_polly_app = ["kubectl", "wait", "--for=condition=available", "deployment/polly-app"]
-    exe.execute_simple(:blocking, wait_polly_app, {})
+    puts exe.execute_simple(:blocking, wait_polly_app, {})
 
     wait_polly_app = ["kubectl", "rollout", "status", "deployment/polly-app"]
-    exe.execute_simple(:blocking, wait_polly_app, {})
+    puts exe.execute_simple(:blocking, wait_polly_app, {})
 
     puts exe.polly_pod
+
+    puts "ok"
   end
 
   desc "sh", ""
