@@ -190,12 +190,22 @@ module Polly
         #    ]
         #  }
         #],
+        "securityContext" => {
+          #"privileged" => true, #TODO: figure out un-privd case, use kaniko???
+          #"runAsUser" => 0
+          #"runAsGroup" => 134
+          #"fsGroup" => 999
+          "supplementalGroups" => [134]
+        },
         "containers" => [
           {
             #"terminationGracePeriodSeconds" => 5,
             #"ttlSecondsAfterFinished" => 1,
             "securityContext" => {
-              "privileged" => true #TODO: figure out un-privd case, use kaniko???
+              "privileged" => true, #TODO: figure out un-privd case, use kaniko???
+              #"runAsUser" => 0
+              #"runAsGroup" => 134
+              #"fsGroup" => 999
             },
             "name" => clean_name,
             "image" => run_image,
@@ -203,10 +213,10 @@ module Polly
             "workingDir" => job.parameters[:working_directory] || "/home/app/current", #TODO: local executor support
             "args" => sleep_cmd_args,
             "volumeMounts" => [
-              #{
-              #  "mountPath" => "/var/run/docker.sock",
-              #  "name" => "dood"
-              #},
+              {
+                "mountPath" => "/var/run/docker.sock",
+                "name" => "dood"
+              },
               {
                 "mountPath" => build_manifest_dir,
                 "name" => "fd-config-volume"
@@ -225,19 +235,19 @@ module Polly
               #},
               {
                 "mountPath" => "/home/app/.ssh-auth-sock",
-                "name" => "ssh-auth-socket"
+                "name" => "ssh-auth-sock"
               },
             ],
             "env" => job.parameters[:environment].collect { |k,v| {"name" => k, "value" => v } }
           }
         ],
         "volumes" => [
-          #{
-          #  "name" => "dood",
-          #  "hostPath" => {
-          #    "path" => "/var/run/docker.sock"
-          #  }
-          #},
+          {
+            "name" => "dood",
+            "hostPath" => {
+              "path" => "/var/run/docker.sock"
+            }
+          },
           {
             "name" => "fd-config-volume",
             "configMap" => {
