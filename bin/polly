@@ -109,7 +109,7 @@ class PollyTasks < Thor
     Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
     generated_circleci_config_yml = YAML.dump(Polly::Generate.read_circleci_output)
     
-    puts generated_circleci_config_yml
+    #puts generated_circleci_config_yml
     #raise "wtf!!!"
 
     #generated_dockerfile_fd = Tempfile.new("dockerfile")
@@ -117,10 +117,6 @@ class PollyTasks < Thor
     #generated_dockerfile_fd.rewind
 
     plan.load_circleci(generated_circleci_config_yml)
-
-    #plan.load_circleci()
-
-    #exit 1
 
     obv.register_channels(["plan"] + plan.all_jobs.collect { |key, _| key } + ["exe"])
 

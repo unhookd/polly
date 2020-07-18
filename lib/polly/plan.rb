@@ -285,23 +285,27 @@ module Polly
       pro_fd.rewind
 
       circleci_env = {
-        "CI" => "true",
-        "CIRCLE_NODE_INDEX" => "0",
-        "CIRCLE_NODE_TOTAL" => "1",
-        "CIRCLE_SHA1" => @revision,
-        "RACK_ENV" => "test",
-        "RAILS_ENV" => "test",
-        "CIRCLE_ARTIFACTS" => "/var/tmp/artifacts",
-        "CIRCLE_TEST_REPORTS" => "/var/tmp/reports",
-        "SSH_ASKPASS" => "false",
-        "CIRCLE_WORKING_DIRECTORY" => "/home/app/current",
-        "PATH" => "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games",
-        #TODO: parse all of the executor models
-        "TZ" => "Etc/UCT",
+        #"CI" => "true",
+        #"CIRCLE_NODE_INDEX" => "0",
+        #"CIRCLE_NODE_TOTAL" => "1",
+        #"FART" => "farts",
+        #"RACK_ENV" => "test",
+        #"RAILS_ENV" => "test",
+        #"CIRCLE_ARTIFACTS" => "/var/tmp/artifacts",
+        #"CIRCLE_TEST_REPORTS" => "/var/tmp/reports",
+        #"SSH_ASKPASS" => "false",
+        #"CIRCLE_WORKING_DIRECTORY" => "/home/app/current",
+        #"PATH" => "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games",
+        ##TODO: parse all of the executor models
+        #"TZ" => "Etc/UCT",
         "SSH_AUTH_SOCK" => "/home/app/.ssh-auth-sock"
-          #"SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]
+        #"SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]
         #TODO: "HTTP_PROXY_HOST" => "#{http_proxy_service_ip}:8111"
       }
+
+      if @revision && !@revision.empty?
+        circleci_env["CIRCLE_SHA1"] = @revision
+      end
 
       if job_env
         circleci_env.merge!(job_env)
