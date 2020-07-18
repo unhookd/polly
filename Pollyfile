@@ -226,7 +226,7 @@
 @plain_workflow.add_circleci_job("bootstrap", [{"image"=>"polly:latest"}], [{"run"=>{"name"=>"bootstrap", "command"=>"
 pwd
 whoami
-polly help
+ls -la
 polly build
 "}}], {}, nil)
 @plain_workflow.add_circleci_job("primary", [{"image"=>"polly:latest"}], [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {}, nil) 

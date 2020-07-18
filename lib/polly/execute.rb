@@ -42,7 +42,7 @@ module Polly
 
       if cmd[0] && cmd[0].is_a?(Hash)
         cmd.insert(1, "echo") if @explain
-        $stdout.write(cmd[0].collect { |k, v| "#{k}=#{v}" }.join(" "))
+        $stdout.write(cmd[0].collect { |k, v| "#{k}=#{v}" }.join(" ") + " ")
       else
         cmd.unshift("echo") if @explain
       end
