@@ -799,7 +799,7 @@ HEREDOC
 
     polly_deployments << <<-HEREDOC
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: polly-git
@@ -811,6 +811,9 @@ spec:
   strategy:
     type: Recreate
   replicas: 1
+  selector:
+    matchLabels:
+      name: polly-git
   template:
     metadata:
       labels:
@@ -863,7 +866,7 @@ data:
         rootdirectory: /polly-safe/registry
 ...
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: polly-registry
@@ -875,6 +878,9 @@ spec:
   strategy:
     type: Recreate
   replicas: 1
+  selector:
+    matchLabels:
+      name: polly-registry
   template:
     metadata:
       labels:
