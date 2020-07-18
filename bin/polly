@@ -203,6 +203,9 @@ class PollyTasks < Thor
 
     #exe.systemx(*bootstrap_recv_pack)
 
+    puts exe.polly_pod
+    raise "no polly" if exe.polly_pod.empty?
+
     git_repo_template_install_cmd = [
                      "kubectl", "cp", 
                      File.join($polly_dir, "config/git-repo/templates"),
