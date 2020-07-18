@@ -25,21 +25,35 @@ module Polly
       def read_circleci_output
         #@circleci_output.rewind
         #@circleci_output.read
-        puts @plain_workflow
+        #puts @plain_workflow
 
-    puts YAML.dump(@plain_workflow.all_jobs)
-    puts YAML.dump(@plain_workflow.deps)
+    #puts YAML.dump(@plain_workflow.all_jobs)
+    #puts YAML.dump(@plain_workflow.deps)
+    #puts "!!!"
 
-output_circleci = {
-  "workflows" => {
-    "version" => 2,
-    "polly" => {
-      "jobs" => []
-    }
-  },
-  "version" => 2,
-  "jobs" => {
-  }
+#{
+#"workflows"=>{
+#  "version"=>2, 
+#   "polly"=>{
+#     "jobs"=>[]}},
+#"version"=>2,
+#"jobs"=>{}
+#}
+
+jobs_repacked = {}
+
+@plain_workflow.all_jobs.each { |job_name, job_spec|
+	jobs_repacked[job_name] = {
+    "environment" => job_spec.parameters[:environment],
+    "steps" => [
+      {
+        "run" => {
+          "name" => job_spec.run_name,
+          "command" => job_spec.parameters[:command]
+        }
+      }
+    ]
+  }.merge(job_spec.parameters[:executor_hints] || {})
 }
 
 #bootstrap: !ruby/object:Polly::Job
@@ -94,8 +108,19 @@ output_circleci = {
 #    :executor_hints:
 #      :docker:
 #      - image: polly:latest
-
-
+#jobs:
+#  primary:
+#		docker:
+#			- image: &build_image ubuntu:bionic-20180526
+#    steps:
+#      - checkout
+#
+#      - run:
+#          name: bootstrap
+#nil
+#workflows:
+#  version: 2
+#    build:
 ## example
 #
 # bootstrap: []
@@ -108,8 +133,6 @@ output_circleci = {
 # - primary:
 #     requires:
 #     - bootstrap
-
-
 ## example
 #
 #  bootstrap:
@@ -120,7 +143,20 @@ output_circleci = {
 #          name: bootstrap
         
 ###TODO: debug File.read("spec/fixtures/dot-circleci/config.yml")
-nil
+
+#puts @plain_workflow.deps.inspect
+#raise "Wtf"
+
+output_circleci = {
+  "workflows" => {
+    "version" => 2,
+    "polly" => {
+      "jobs" => @plain_workflow.deps.collect { |k, v| {k => {"requires" => v}} }
+    }
+  },
+  "version" => 2,
+  "jobs" => jobs_repacked
+}
       end
 
       def emit(bytes)
