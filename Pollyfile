@@ -217,11 +217,12 @@
 }
 
 @plain_workflow = Plan.new
-@plain_workflow.add_circleci_job("bootstrap", [{"image"=>"cimg/base:2020.01"}], [{"run"=>{"name"=>"bootstrap", "command"=>
-"DOCKER_BUILDKIT=1 SSH_AUTH_SOCK=/run/user/1000/keyring/sshdocker build --ssh default -t polly:c1f7c463ab87ba105a8443845a993e289ac391e1 . -f - &&
-docker tag polly:c1f7c463ab87ba105a8443845a993e289ac391e1 polly:latest &&
-docker tag polly:c1f7c463ab87ba105a8443845a993e289ac391e1 polly:git-latest &&
-docker tag polly:c1f7c463ab87ba105a8443845a993e289ac391e1 localhost/polly:git-latest"}}], {}, nil)
+@plain_workflow.add_circleci_job("bootstrap", [{"image"=>"cimg/base:2020.01"}], [{"run"=>{"name"=>"bootstrap", "command"=>"
+DOCKER_BUILDKIT=1 SSH_AUTH_SOCK=/run/user/1000/keyring/sshdocker build --ssh default -t polly:c1f7c463ab87ba105a8443845a993e289ac391e1 . -f -
+docker tag polly:c1f7c463ab87ba105a8443845a993e289ac391e1 polly:latest
+docker tag polly:c1f7c463ab87ba105a8443845a993e289ac391e1 polly:git-latest
+docker tag polly:c1f7c463ab87ba105a8443845a993e289ac391e1 localhost/polly:git-latest
+"}}], {}, nil)
 @plain_workflow.add_circleci_job("primary", [{"image"=>"polly:latest"}], [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {}, nil) 
 @plain_workflow.depends("primary", "bootstrap")
 

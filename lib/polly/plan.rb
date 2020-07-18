@@ -198,6 +198,8 @@ module Polly
 
     #TODO: enhance support for known circleci templates
     def load_circleci(raw_yaml = File.read(DEFAULT_CIRCLECI_CONFIG_YML_PATH))
+      raise "empty config" if raw_yaml.nil? || raw_yaml.empty?
+
       yaml_template_rendered = raw_yaml.gsub("$CIRCLE_SHA1", @revision)
       circle_yaml = YAML.load(yaml_template_rendered)
 
