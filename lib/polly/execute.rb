@@ -12,6 +12,7 @@ module Polly
       @detach_failed = options["detach-failed"]
       @short_circuit = options["short-circuit"]
       @debug = options["debug"]
+      @explain = options["explain"]
       @init = !options["no-init"]
 
       @running_jobs = {}
@@ -38,6 +39,14 @@ module Polly
     def systemx(*cmd)
       #pid = Kernel.spawn(*cmd)
       #status = Process.wait pid
+
+      if cmd[0] && cmd[0].is_a?(Hash)
+        cmd.insert(1, "echo") if @explain
+        $stdout.write(cmd[0].collect { |k, v| "#{k}=#{v}" }.join(" "))
+      else
+        cmd.unshift("echo") if @explain
+      end
+
       status = Kernel.system(*cmd)
       unless status
         Kernel.exit(1)

@@ -16,6 +16,8 @@ module Polly
         @output.read
       end
 
+      #(job_run_name, docker_image, steps, job_env, working_directory)
+
       #def circleci_output
       #  @circleci_output ||= StringIO.new # $stdout
       #end
@@ -23,7 +25,102 @@ module Polly
       def read_circleci_output
         #@circleci_output.rewind
         #@circleci_output.read
-        File.read("spec/fixtures/dot-circleci/config.yml")
+        puts @plain_workflow
+
+    puts YAML.dump(@plain_workflow.all_jobs)
+    puts YAML.dump(@plain_workflow.deps)
+
+output_circleci = {
+  "workflows" => {
+    "version" => 2,
+    "polly" => {
+      "jobs" => []
+    }
+  },
+  "version" => 2,
+  "jobs" => {
+  }
+}
+
+#bootstrap: !ruby/object:Polly::Job
+#  run_name: bootstrap                              
+#  parameters:                                                                                             
+#    :environment:
+#      CI: 'true'
+#      CIRCLE_NODE_INDEX: '0'
+#      CIRCLE_NODE_TOTAL: '1'
+#      CIRCLE_SHA1:     
+#      RACK_ENV: test
+#      RAILS_ENV: test
+#      CIRCLE_ARTIFACTS: "/var/tmp/artifacts"
+#      CIRCLE_TEST_REPORTS: "/var/tmp/reports"
+#      SSH_ASKPASS: 'false'
+#      CIRCLE_WORKING_DIRECTORY: "/home/app/current"
+#      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games"
+#      TZ: Etc/UCT
+#    :command: |2
+#                                                     
+#      echo BEGIN bootstrap
+#      true                        
+#                                                                                                          
+#      echo END bootstrap                                                                                  
+#    :working_directory:                                                                                   
+#    :executor_hints:                                                                                      
+#      :docker:                                                                                            
+#      - image: ubuntu:latest                      
+#primary: !ruby/object:Polly::Job                                                                                                                                                                                     
+#  run_name: primary               
+#  parameters:                                       
+#    :environment:                                   
+#      CI: 'true'                                                                                          
+#      CIRCLE_NODE_INDEX: '0'                                                                              
+#      CIRCLE_NODE_TOTAL: '1'
+#      CIRCLE_SHA1:                                                                                        
+#      RACK_ENV: test
+#      RAILS_ENV: test                                                                                     
+#      CIRCLE_ARTIFACTS: "/var/tmp/artifacts"
+#      CIRCLE_TEST_REPORTS: "/var/tmp/reports"                                                             
+#      SSH_ASKPASS: 'false'                                                                                                                                                                                           
+#      CIRCLE_WORKING_DIRECTORY: "/home/app/current"
+#      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games"
+#      TZ: Etc/UCT
+#    :command: |2
+#
+#      echo BEGIN rspec
+#      bundle exec rspec
+#
+#      echo END rspec
+#    :working_directory: 
+#    :executor_hints:
+#      :docker:
+#      - image: polly:latest
+
+
+## example
+#
+# bootstrap: []
+# primary:
+# - bootstrap
+#     - bootstrap
+# =>
+# - bootstrap:
+#     requires: []
+# - primary:
+#     requires:
+#     - bootstrap
+
+
+## example
+#
+#  bootstrap:
+#    docker:
+#      - image: &bootstrap_build_image ubuntu:latest
+#    steps:
+#      - run:
+#          name: bootstrap
+        
+###TODO: debug File.read("spec/fixtures/dot-circleci/config.yml")
+nil
       end
 
       def emit(bytes)

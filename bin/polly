@@ -108,6 +108,7 @@ class PollyTasks < Thor
     pollyfile_ruby = File.read("Pollyfile")
     Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
     generated_circleci_config_yml = Polly::Generate.read_circleci_output
+    puts generated_circleci_config_yml.inspect
 
     #generated_dockerfile_fd = Tempfile.new("dockerfile")
     #generated_dockerfile_fd.write(generated_dockerfile)
@@ -115,34 +116,10 @@ class PollyTasks < Thor
 
     plan.load_circleci(generated_circleci_config_yml)
 
-    #puts YAML.dump(plan.all_jobs)
-    #puts YAML.dump(plan.deps)
+    #plan.load_circleci()
 
+    exit 1
 
-#workflows:
-#  version: 2
-#  polly:
-#    jobs:
-#    - bootstrap
-#    - primary:
-#        requires:
-#        - bootstrap
-#
-#bootstrap: []
-#primary:
-#- bootstrap
-#
-#
-#version: 2
-#jobs:
-#  bootstrap:
-#    docker:
-#      - image: &bootstrap_build_image ubuntu:latest
-#    steps:
-#      - run:
-#          name: bootstrap
-
-    exit 2
 
     obv.register_channels(["plan"] + plan.all_jobs.collect { |key, _| key } + ["exe"])
 
@@ -314,14 +291,15 @@ HEREDOC
     puts [o, e]
   end
 
-  desc "build", "Build the current working directory's Dockerfile"
+  desc "build [container_def]", "Build the current working directory's Dockerfile"
   #? option "run", :type => :string, :default => nil
   #? option "push", :type => :string, :default => nil
   #option "docker-config-json", :type => :string, :default => nil
   option "cache", :type => :boolean, :default => true
+  option "explain", :type => :boolean, :default => false
   option "in-cluster", :type => :boolean, :default => false
   def build(container_definition="-")
-    exe = ::Polly::Execute.new
+    exe = ::Polly::Execute.new(options)
 
     version = exe.current_revision
     branch = exe.current_branch
@@ -491,15 +469,19 @@ HEREDOC
       build_pod = exe.polly_pod("job-name=polly-buildkit")
       exec(*["kubectl", "logs", build_pod, "-f"].compact)
     else
-    pollyfile_ruby = File.read("Pollyfile")
-    #TODO: ??? Polly::Generate.options = options
-    Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
-    generated_dockerfile = Polly::Generate.read_output
-    generated_dockerfile_fd = Tempfile.new("dockerfile")
-    generated_dockerfile_fd.write(generated_dockerfile)
-    generated_dockerfile_fd.rewind
+      generated_dockerfile_fd = nil
 
-      build_dockerfile = [{"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]}, "docker", "build", "--ssh", "default", options["no-cache"] ? "--no-cache" : nil, "-t", app + ":" + version, ".", "-f", container_definition, {:in => generated_dockerfile_fd}].compact
+      if container_definition == "-"
+        pollyfile_ruby = File.read("Pollyfile")
+        #TODO: ??? Polly::Generate.options = options
+        Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
+        generated_dockerfile = Polly::Generate.read_output
+        generated_dockerfile_fd = Tempfile.new("dockerfile")
+        generated_dockerfile_fd.write(generated_dockerfile)
+        generated_dockerfile_fd.rewind
+      end
+
+      build_dockerfile = [{"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]}, "docker", "build", "--ssh", "default", options["no-cache"] ? "--no-cache" : nil, "-t", app + ":" + version, ".", "-f", container_definition, generated_dockerfile_fd.nil? ? {} : {:in => generated_dockerfile_fd}].compact
 
       #o,e,s = exe.execute_simple(:output, build_dockerfile, io_options)
       #puts [o, e]
@@ -514,7 +496,7 @@ HEREDOC
       tag_dockerfile = ["docker", "tag", app + ":" + version, "localhost/" + app + ":git-latest"]
       exe.systemx(*tag_dockerfile)
 
-      puts version
+      puts "Built and tagged: #{version} OK" unless options["explain"]
     end
 
     #if options["push"]

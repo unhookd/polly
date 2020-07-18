@@ -245,13 +245,7 @@ describe Polly::Plan do
   end
 
   context "loading from circleci like yaml config" do
-    it "constructs a plan with correct dependency tree based on provided yaml" do
-      plan = described_class.new(valid_revision)
-
-      plan.load_circleci(File.read("spec/fixtures/dot-circleci/config.yml"))
-
-puts plan.inspect
-
+    def plain_workflow(plan)
       expect(plan.has_unfinished_jobs?).to eq(true)
 
       expect(plan.all_jobs.count).to eq(2)
@@ -268,6 +262,24 @@ puts plan.inspect
 
       plan.complete_job!(plan.all_jobs["primary"])
       expect(plan.has_unfinished_jobs?).to eq(false)
+    end
+
+    it "constructs a plan with correct dependency tree based on provided yaml" do
+      plan = described_class.new(valid_revision)
+
+      plan.load_circleci(File.read("spec/fixtures/dot-circleci/config.yml"))
+
+      plain_workflow(plan)
+    end
+
+    it "constructs a plan with correct dependency tree based on provided yaml" do
+      plan = described_class.new(valid_revision)
+
+      plan.add_circleci_job("bootstrap", "ubuntu:latest", [{"run"=>{"name"=>"bootstrap", "command"=>"true\n"}}], {}, nil)
+      plan.add_circleci_job("primary", "polly:latest", [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {}, nil)
+      plan.depends("primary", "bootstrap")
+
+      plain_workflow(plan)
     end
   end
 
