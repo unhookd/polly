@@ -298,6 +298,8 @@ module Polly
         "PATH" => "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games",
         #TODO: parse all of the executor models
         "TZ" => "Etc/UCT",
+        "SSH_AUTH_SOCK" => "/home/app/.ssh-auth-sock"
+          #"SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]
         #TODO: "HTTP_PROXY_HOST" => "#{http_proxy_service_ip}:8111"
       }
 

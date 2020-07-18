@@ -194,9 +194,9 @@ module Polly
           {
             #"terminationGracePeriodSeconds" => 5,
             #"ttlSecondsAfterFinished" => 1,
-            #"securityContext" => {
-            #  "privileged" => true #TODO: figure out un-privd case, use kaniko???
-            #},
+            "securityContext" => {
+              "privileged" => true #TODO: figure out un-privd case, use kaniko???
+            },
             "name" => clean_name,
             "image" => run_image,
             "imagePullPolicy" => "IfNotPresent",
@@ -223,6 +223,10 @@ module Polly
               #  "mountPath" => "/home/app/.ssh",
               #  "name" => "ssh-key"
               #},
+              {
+                "mountPath" => "/home/app/.ssh-auth-sock",
+                "name" => "ssh-auth-socket"
+              },
             ],
             "env" => job.parameters[:environment].collect { |k,v| {"name" => k, "value" => v } }
           }
@@ -265,6 +269,12 @@ module Polly
           #    "path" => "#{ENV['HOME']}/.ssh"
           #  }
           #}
+          {
+            "name" => "ssh-auth-sock",
+            "hostPath" => {
+              "path" => ENV["SSH_AUTH_SOCK"]
+            }
+          }
         ]
       }
 
