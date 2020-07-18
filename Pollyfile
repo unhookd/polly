@@ -218,6 +218,8 @@
 
 @plain_workflow = Plan.new
 @plain_workflow.add_circleci_job("bootstrap", [{"image"=>"cimg/base:2020.01"}], [{"run"=>{"name"=>"bootstrap", "command"=>"
+pwd
+ls -la
 DOCKER_BUILDKIT=1 docker build --ssh default -t polly:c1f7c463ab87ba105a8443845a993e289ac391e1 . -f -
 docker tag polly:c1f7c463ab87ba105a8443845a993e289ac391e1 polly:latest
 docker tag polly:c1f7c463ab87ba105a8443845a993e289ac391e1 polly:git-latest

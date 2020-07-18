@@ -167,29 +167,50 @@ module Polly
 
       container_spec = {
         ##TODO: converge this with workstion git context
-        #"initContainers" => [
-        #  {
-        #    #"terminationGracePeriodSeconds" => 5,
-        #    "name" => "git-clone",
-        #    "image" => "polly:latest",
-        #    "imagePullPolicy" => "IfNotPresent",
-        #    "args" => [
-        #      "polly", "checkout", "http://polly-app:8080/#{current_app}", current_revision, "/home/app/current"
-        #    ],
-        #    "env" => { "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
-        #    "securityContext" => {
-        #      "runAsUser" => 0,
-        #      "allowPrivilegeEscalation" => false,
-        #      "readOnlyRootFilesystem" => true
-        #    },
-        #    "volumeMounts" => [
-        #      {
-        #        "mountPath" => "/home/app",
-        #        "name" => "scratch-dir"
-        #      }
-        #    ]
-        #  }
-        #],
+        "initContainers" => [
+          {
+            #"terminationGracePeriodSeconds" => 5,
+            "name" => "git-clone",
+            "image" => "alpine/git:latest",
+            "workingDir" => "/home/app/current", #TODO: local executor support
+            "imagePullPolicy" => "IfNotPresent",
+            "args" => [
+              #origin = "/polly-safe/git/#{app}"
+              #"http://polly-app:8080/#{current_app}"
+              "clone", "-b", current_branch, "/polly-safe/git/#{current_app}", "."
+            ],
+            "env" => { "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
+            "securityContext" => {
+              "runAsUser" => 0,
+              "allowPrivilegeEscalation" => false,
+              "readOnlyRootFilesystem" => true
+            },
+            "volumeMounts" => [
+              {
+                "mountPath" => "/home/app/current",
+                "name" => "scratch-dir"
+              },
+              {
+                "mountPath" => "/polly-safe/git/#{current_app}",
+                "name" => "git-repo"
+              },
+            ]
+          }
+        ],
+
+      #- name: git-clone
+      #  image: alpine/git:latest
+      #  command:
+      #  - git
+      #  - clone
+      #  - -b
+      #  - #{branch}
+      #  - #{origin}
+      #  - .
+      #  workingDir: /workspace
+      #  securityContext:
+      #    runAsUser: 1000
+      #    runAsGroup: 1000
         "securityContext" => {
           #"privileged" => true, #TODO: figure out un-privd case, use kaniko???
           #"runAsUser" => 0
@@ -221,10 +242,10 @@ module Polly
                 "mountPath" => build_manifest_dir,
                 "name" => "fd-config-volume"
               },
-              #{
-              #  "mountPath" => "/home/app",
-              #  "name" => "scratch-dir"
-              #},
+              {
+                "mountPath" => "/home/app/current",
+                "name" => "scratch-dir"
+              },
               {
                 "mountPath" => "/var/tmp/artifacts",
                 "name" => "build-artifacts"
@@ -254,19 +275,20 @@ module Polly
               "name" => "fd-#{clean_name}-#{current_revision}"
             }
           },
-          #{
-          #  "name" => "git-repo",
-          #  #TODO: bundle cache bits!! "emptyDir" => {} ????
-          #  "hostPath" => {
-          #    "path" => "/var/tmp/polly-safe/git/#{current_app}"
-          #  }
-          #},
-          #{
-          #  "name" => "scratch-dir",
-          #  "hostPath" => {
-          #    "path" => "/var/tmp/polly-safe/scratch/#{current_app}"
-          #  }
-          #},
+          {
+            "name" => "git-repo",
+            #TODO: bundle cache bits!! "emptyDir" => {} ????
+            "hostPath" => {
+              "path" => "/var/tmp/polly-safe/git/#{current_app}"
+            }
+          },
+          {
+            "name" => "scratch-dir",
+            "emptyDir" => {},
+            #"hostPath" => {
+            #  "path" => "/var/tmp/polly-safe/scratch/#{current_app}"
+            #}
+          },
           {
             "name" => "build-artifacts",
             "hostPath" => {

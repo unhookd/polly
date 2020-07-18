@@ -45,6 +45,7 @@ jobs_repacked = {}
 @plain_workflow.all_jobs.each { |job_name, job_spec|
 	jobs_repacked[job_name] = {
     "environment" => job_spec.parameters[:environment],
+    "working_directory" => job_spec.parameters[:working_directory],
     "steps" => [
       {
         "run" => {
