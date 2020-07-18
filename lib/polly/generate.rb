@@ -53,7 +53,9 @@ jobs_repacked = {}
         }
       }
     ]
-  }.merge(job_spec.parameters[:executor_hints] || {})
+  }.merge({
+    "docker" => job_spec.parameters[:executor_hints][:docker]
+  })
 }
 
 #bootstrap: !ruby/object:Polly::Job

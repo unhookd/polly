@@ -120,7 +120,7 @@ class PollyTasks < Thor
 
     #plan.load_circleci()
 
-    exit 1
+    #exit 1
 
     obv.register_channels(["plan"] + plan.all_jobs.collect { |key, _| key } + ["exe"])
 

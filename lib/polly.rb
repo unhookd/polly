@@ -8,6 +8,7 @@ require 'openssl'
 require 'base64'
 require 'expect'
 require 'uri'
+require 'pathname'
 
 module Polly
   POLLY = "polly"

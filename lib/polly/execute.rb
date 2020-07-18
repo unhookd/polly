@@ -108,8 +108,15 @@ module Polly
 
         docker_image_url = URI.parse("http://local/#{first_docker_executor_hint["image"]}")
         repo = docker_image_url.host
-        File.basename(docker_image_url.path)
+        #TODO: ???? File.basename(docker_image_url.path)
+        Pathname.new(docker_image_url.path).relative_path_from("/").to_s
       end
+
+      #puts "!!!!2222"
+      #puts "http://local/#{first_docker_executor_hint["image"]}"
+      #puts run_image 
+      #puts "!!!!"
+      #exit 1
 
       build_run_dir = "/var/tmp/run"
       build_manifest_dir = File.join(build_run_dir, clean_name, current_revision)
