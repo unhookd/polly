@@ -1,0 +1,55 @@
+---
+workflows:
+  version: 2
+  polly:
+    jobs:
+    - bootstrap:
+        requires: []
+    - primary:
+        requires:
+        - bootstrap
+
+version: 2
+jobs:
+  bootstrap:
+    steps:
+    - checkout 
+    - setup_remote_docker: 
+        docker_layer_caching: true
+        version: 19.03.12
+    - run:
+        name: bootstrap
+        command: |2
+
+          echo BEGIN bootstrap
+
+          apt-get update; apt-get install -y locales locales-all; apt-get clean; rm -rf /var/lib/apt/lists/*
+          dpkg-reconfigure locales
+          apt-get update; apt-get install -y git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker-ce build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake; apt-get clean; rm -rf /var/lib/apt/lists/*
+          useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app
+          groupadd --gid 134 docker-extra
+          adduser app docker-extra
+          adduser app docker
+          chown -R app /home/app
+          sudo -u app bash -c 'bundle install --path=~/vendor/bundle --jobs=4 --retry=3 --deployment --without "development"'
+          sudo --preserve-env=SSH_AUTH_SOCK -u app /home/app/current/bin/polly build
+
+          echo END bootstrap
+    docker:
+    - image: cimg/base:2020.07-20.04
+      user: 0
+  primary:
+    environment:
+      BUNDLE_PATH: "~/vendor/bundle"
+    steps:
+    - checkout 
+    - run:
+        name: primary
+        command: |2
+
+          echo BEGIN rspec
+          bundle exec rspec
+
+          echo END rspec
+    docker:
+    - image: polly:latest
