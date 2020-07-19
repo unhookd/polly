@@ -11,6 +11,10 @@ module Polly
         @output ||= StringIO.new # $stdout
       end
 
+      #def command_list
+      #  @command_list ||= []
+      #end
+
       def read_output
         @output.rewind
         @output.read
@@ -179,6 +183,8 @@ output_circleci = {
       end
 
       def run(s)
+        @command_list << s
+
         command("RUN") {
           "--mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; " + s
         }
@@ -196,13 +202,15 @@ output_circleci = {
       end
 
       def image(type = :dockerfile)
+        @command_list = []
+
         comment "syntax=docker/dockerfile-upstream:master-experimental"
 
         yield
 
         comment "Generated #{Time.now}"
 
-        @image_name
+        OpenStruct.new(:stage => @image_name, :command_list => @command_list)
       end
 
       def stage(name, from)

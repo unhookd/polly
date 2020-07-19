@@ -213,10 +213,10 @@ module Polly
       #    runAsGroup: 1000
         "securityContext" => {
           #"privileged" => true, #TODO: figure out un-privd case, use kaniko???
-          #"runAsUser" => 0
+          "runAsUser" => first_docker_executor_hint["user"],
           #"runAsGroup" => 134
-          #"fsGroup" => 999
-          "supplementalGroups" => [134]
+          "fsGroup" => 999,
+          "supplementalGroups" => [1000, 999]
         },
         "containers" => [
           {
@@ -225,7 +225,7 @@ module Polly
             "securityContext" => {
               "privileged" => true, #TODO: figure out un-privd case, use kaniko???
               #"runAsUser" => 0
-              #"runAsGroup" => 134
+              "runAsGroup" => 999
               #"fsGroup" => 999
             },
             "name" => clean_name,
