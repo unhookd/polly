@@ -6,7 +6,12 @@ jobs:
 
   build:
  
-    runs-on: ubuntu-20.04
+    #runs-on: ubuntu-20.04
+
+    container:
+      image: ubuntu:focal-20200606
+      options:
+      - "--user 0"
  
     steps:
     - uses: actions/checkout@v1
@@ -14,4 +19,4 @@ jobs:
       run: |
         set -e
 
-        sudo bash bin/github-actions.sh
+        bash bin/github-actions.sh
