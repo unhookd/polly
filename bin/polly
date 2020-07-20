@@ -481,7 +481,7 @@ HEREDOC
         generated_dockerfile_fd.rewind
       end
 
-      build_dockerfile = [{"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]}, "docker", "build", "--ssh", "default", options["no-cache"] ? "--no-cache" : nil, "-t", app + ":" + version, ".", "-f", container_definition, generated_dockerfile_fd.nil? ? {} : {:in => generated_dockerfile_fd}].compact
+      build_dockerfile = [{"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]}, "docker", "build", "--progress=plain", "--ssh", "default", options["no-cache"] ? "--no-cache" : nil, "-t", app + ":" + version, ".", "-f", container_definition, generated_dockerfile_fd.nil? ? {} : {:in => generated_dockerfile_fd}].compact
 
       #o,e,s = exe.execute_simple(:output, build_dockerfile, io_options)
       #puts [o, e]

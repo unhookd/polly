@@ -130,16 +130,16 @@
   }
 
   env "DEBIAN_FRONTEND" => "noninteractive",
-      #"LC_ALL" => "C.UTF-8",
-      #"LANG" => "en_US",
-      #"LANGUAGE" => "en_US",
+      "LC_ALL" => "C.UTF-8",
+      "LANG" => "en_US",
+      "LANGUAGE" => "en_US",
       "ACCEPT_EULA" => "y"
 
   apt %w{locales locales-all}
 
-  #run %q{locale-gen --purge en_US}
-  #run %q{/bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale}
-  #run %q{locale-gen $LANGUAGE}
+  run %q{locale-gen --purge en_US}
+  run %q{/bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale}
+  run %q{locale-gen $LANGUAGE}
   run %q{dpkg-reconfigure locales}
 
   apt %w{git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake}
@@ -157,6 +157,8 @@
   command("COPY") {
     "--chown=app . /home/app/current"
   }
+
+  run %q{chown -R app /home/app}
 
   ##ppa "brightbox/ruby-ng"
   #apt %w{
