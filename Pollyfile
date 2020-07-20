@@ -243,7 +243,7 @@ groupadd --gid 134 docker-extra
 adduser app docker-extra
 adduser app docker
 chown -R app /home/app
-sudo -u app test -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1000 $SSH_AUTH_SOCK && sudo -u app test -w $SSH_AUTH_SOCK)
+sudo -u app test -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1000 $SSH_AUTH_SOCK && chgrp 1000 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && sudo -u app test -w $SSH_AUTH_SOCK)
 sudo -u app bash -c '#{@deploy.command_list.join(" && ")}'
 sudo --preserve-env=SSH_AUTH_SOCK -u app /home/app/current/bin/polly build
 "}}], {}, "/home/app/current")
