@@ -496,7 +496,7 @@ HEREDOC
       tag_dockerfile = ["docker", "tag", app + ":" + version, "localhost/" + app + ":git-latest"]
       exe.systemx(*tag_dockerfile)
 
-      puts "Built and tagged: #{version} OK" unless options["explain"]
+      puts "Built and tagged: #{app}:#{version} OK" unless options["explain"]
     end
 
     #if options["push"]

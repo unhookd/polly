@@ -16,8 +16,10 @@ module Polly
       #end
 
       def read_output
-        @output.rewind
-        @output.read
+        if @output
+          @output.rewind
+          @output.read
+        end
       end
 
       #(job_run_name, docker_image, steps, job_env, working_directory)
