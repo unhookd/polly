@@ -10,13 +10,11 @@ jobs:
 
     container:
       image: ubuntu:focal-20200606
-      options:
-      - "--user 0"
- 
+      options: "--user 0"
+
     steps:
     - uses: actions/checkout@v1
     - name: bootstrap
       run: |
         set -e
-
         bash bin/github-actions.sh
