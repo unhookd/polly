@@ -31,7 +31,7 @@ jobs:
           adduser app docker
           chown -R app /home/app
           sudo -u app test -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1000 $SSH_AUTH_SOCK && chgrp 1000 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && sudo -u app test -w $SSH_AUTH_SOCK)
-          test -z $DOCKER_CERT_PATH || (chmod g+r $DOCKER_CERT_PATH && chgrp 1000 $DOCKER_CERT_PATH && chgrp 1000 $(dirname $DOCKER_CERT_PATH) && chmod g+x $(dirname $DOCKER_CERT_PATH))
+          test -z $DOCKER_CERT_PATH || (chown -R 1000 $(dirname $DOCKER_CERT_PATH))
           sudo -u app bash -c 'bundle config set --local path /home/app/vendor/bundle && bundle config set --local jobs 4 && bundle config set --local retry 3 && bundle config set --local deploment true && bundle config set --local without development && bundle install'
           sudo --preserve-env=SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -u app /home/app/current/bin/polly build
 
