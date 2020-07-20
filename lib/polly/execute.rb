@@ -98,7 +98,7 @@ module Polly
       end
 
       extra_runtime_envs = begin
-        if clean_name == "polly-bootstrap"
+        if clean_name.include?("bootstrap")
           {"SSH_AUTH_SOCK" => "/home/app/.ssh-auth-sock"}
         else
           {}
