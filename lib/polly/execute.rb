@@ -56,7 +56,7 @@ module Polly
     def check_current_kube_context_is_safe!
       current_kube_context = IO.popen("kubectl config current-context").read.strip
       wait_child
-      raise "unsafe kubernetes context" unless Polly::Config.allowed_contexts.include?(current_kube_context)
+      raise "unsafe kubernetes context #{current_kube_context}" unless Polly::Config.allowed_contexts.include?(current_kube_context)
     rescue Errno::ENOENT
       #TODO: is this the case of missing kubectl ??? is that safe ???
       false
