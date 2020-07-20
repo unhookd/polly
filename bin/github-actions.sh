@@ -12,7 +12,12 @@ locale-gen --purge en_US
 /bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale
 locale-gen $LANGUAGE
 dpkg-reconfigure locales
-apt-get update; apt-get install -y git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io containerd build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake; apt-get clean; rm -rf /var/lib/apt/lists/*
+apt-get update; apt-get install -y openssh-client git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io containerd build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake; apt-get clean; rm -rf /var/lib/apt/lists/*
+
+export SSH_AUTH_SOCK=/tmp/ssh-auth.sock
+#ssh-keyscan github.com >> ~/.ssh/known_hosts
+ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+
 useradd --uid 1001 --home-dir /home/app --create-home --shell /bin/bash app
 chown -R app /home/app
 groupadd --gid 134 docker-extra

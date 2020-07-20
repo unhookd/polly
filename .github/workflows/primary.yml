@@ -18,10 +18,4 @@ jobs:
       run: |
         set -e
 
-        export SSH_AUTH_SOCK=/tmp/ssh-auth.sock
-        ssh-keyscan github.com >> ~/.ssh/known_hosts
-        ssh-agent -a $SSH_AUTH_SOCK > /dev/null
-
-        #ssh-add - <<< "${{ secrets.SSH_PRIVATE_KEY }}"
-
         bash bin/github-actions.sh
