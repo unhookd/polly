@@ -176,7 +176,12 @@
     "app"
   }
 
-  run %q{bundle install --path=~/vendor/bundle --jobs=4 --retry=3 --deployment --without "development"}
+  run %q{bundle config set --local path /home/app/vendor/bundle}
+  run %q{bundle config set --local jobs 4}
+  run %q{bundle config set --local retry 3}
+  run %q{bundle config set --local deploment true}
+  run %q{bundle config set --local without development}
+  run %q{bundle install}
 
   #run %q{bundle exec rake build}
 
@@ -238,7 +243,7 @@ groupadd --gid 134 docker-extra
 adduser app docker-extra
 adduser app docker
 chown -R app /home/app
-sudo -u app bash -c '#{@deploy.command_list.join("")}'
+sudo -u app bash -c '#{@deploy.command_list.join(" && ")}'
 sudo --preserve-env=SSH_AUTH_SOCK -u app /home/app/current/bin/polly build
 "}}], {}, nil)
 @plain_workflow.add_circleci_job("primary", [{"image"=>"polly:latest"}], [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {"BUNDLE_PATH" => "~/vendor/bundle"}, nil) 
