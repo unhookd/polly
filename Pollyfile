@@ -142,7 +142,7 @@
   #run %q{locale-gen $LANGUAGE}
   run %q{dpkg-reconfigure locales}
 
-  apt %w{git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker-ce build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake}
+  apt %w{git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake}
 
 #}
 #@deploy = image {
@@ -237,7 +237,7 @@
 #exit 1
 
 @plain_workflow = Plan.new
-@plain_workflow.add_circleci_job("bootstrap", [{"image"=>"cimg/base:2020.07-20.04", "user"=> 0}], [{"run"=>{"name"=>"bootstrap", "command"=>"
+@plain_workflow.add_circleci_job("bootstrap", [{"image"=>@bootstrap.from, "user"=> 0}], [{"run"=>{"name"=>"bootstrap", "command"=>"
 #{@bootstrap.command_list.join("\n")}
 groupadd --gid 134 docker-extra
 adduser app docker-extra

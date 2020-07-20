@@ -214,11 +214,12 @@ output_circleci = {
 
         comment "Generated #{Time.now}"
 
-        OpenStruct.new(:stage => @image_name, :command_list => @command_list)
+        OpenStruct.new(:stage => @image_name, :from => @image_from, :command_list => @command_list)
       end
 
       def stage(name, from)
         @image_name = name
+        @image_from = from
         command("FROM #{from} AS #{name}")
       end
 

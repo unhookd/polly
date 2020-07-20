@@ -24,7 +24,7 @@ jobs:
 
           apt-get update; apt-get install -y locales locales-all; apt-get clean; rm -rf /var/lib/apt/lists/*
           dpkg-reconfigure locales
-          apt-get update; apt-get install -y git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker-ce build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake; apt-get clean; rm -rf /var/lib/apt/lists/*
+          apt-get update; apt-get install -y git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake; apt-get clean; rm -rf /var/lib/apt/lists/*
           useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app
           groupadd --gid 134 docker-extra
           adduser app docker-extra
@@ -37,7 +37,7 @@ jobs:
 
           echo END bootstrap
     docker:
-    - image: cimg/base:2020.07-20.04
+    - image: ubuntu:focal-20200606
       user: root
   primary:
     environment:
