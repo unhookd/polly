@@ -226,7 +226,9 @@ output_circleci = {
       def env(h)
         emit "ENV"
         h.each { |k,v|
-          emit(" " + k + "=" + v)
+          export = " " + k + "=" + v
+          emit(export)
+          @command_list << "export #{export}"
         }
         emit $/
       end
