@@ -242,7 +242,9 @@
 @plain_workflow.add_circleci_job("bootstrap", [{"image"=>@bootstrap.from, "user"=> 0}], [{"run"=>{"name"=>"bootstrap", "command"=>"
 #{@bootstrap.command_list.join("\n")}
 groupadd --gid 134 docker-extra
+groupadd --gid 999 docker-extra-extra
 adduser app docker-extra
+adduser app docker-extra-extra
 adduser app docker
 chown -R app /home/app
 su app -s /bin/test -- -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1000 $SSH_AUTH_SOCK && chgrp 1000 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && su app -s /bin/test -- -w $SSH_AUTH_SOCK)

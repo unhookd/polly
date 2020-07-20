@@ -117,7 +117,7 @@ module Polly
         docker_image_url = URI.parse("http://local/#{first_docker_executor_hint["image"]}")
         repo = docker_image_url.host
         #TODO: ???? File.basename(docker_image_url.path)
-        Pathname.new(docker_image_url.path).relative_path_from("/").to_s
+        Pathname.new(docker_image_url.path).relative_path_from(Pathname.new("/")).to_s
       end
 
       #puts "!!!!2222"
