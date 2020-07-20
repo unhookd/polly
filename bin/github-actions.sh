@@ -17,6 +17,7 @@ apt-get update; apt-get install -y openssh-client git curl apt-transport-https a
 export SSH_AUTH_SOCK=/tmp/ssh-auth.sock
 #ssh-keyscan github.com >> ~/.ssh/known_hosts
 ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+chown -R app /var/run/docker.sock
 
 useradd --uid 1001 --home-dir /home/app --create-home --shell /bin/bash app
 chown -R app /home/app
