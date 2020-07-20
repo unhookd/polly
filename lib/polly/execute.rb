@@ -180,7 +180,7 @@ module Polly
             #"terminationGracePeriodSeconds" => 5,
             "name" => "git-clone",
             "image" => "alpine/git:latest",
-            "workingDir" => "/home/app/current", #TODO: local executor support
+            "workingDir" => "/home/app/#{current_app}", #TODO: local executor support
             "imagePullPolicy" => "IfNotPresent",
             "args" => [
               #origin = "/polly-safe/git/#{app}"
@@ -195,7 +195,7 @@ module Polly
             },
             "volumeMounts" => [
               {
-                "mountPath" => "/home/app/current",
+                "mountPath" => "/home/app/#{current_app}",
                 "name" => "scratch-dir"
               },
               {
@@ -239,7 +239,7 @@ module Polly
             "name" => clean_name,
             "image" => run_image,
             "imagePullPolicy" => "IfNotPresent",
-            "workingDir" => job.parameters[:working_directory] || "/home/app/current", #TODO: local executor support
+            "workingDir" => job.parameters[:working_directory] || "/home/app/#{current_app}", #TODO: local executor support
             "args" => sleep_cmd_args,
             "volumeMounts" => [
               {
@@ -251,7 +251,7 @@ module Polly
                 "name" => "fd-config-volume"
               },
               {
-                "mountPath" => "/home/app/current",
+                "mountPath" => "/home/app/#{current_app}",
                 "name" => "scratch-dir"
               },
               {
