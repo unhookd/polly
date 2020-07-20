@@ -97,6 +97,14 @@ module Polly
         Kernel.exit(1)
       end
 
+      extra_runtime_envs = begin
+        if clean_name == "polly-bootstrap"
+          {"SSH_AUTH_SOCK" => "/home/app/.ssh-auth-sock"}
+        else
+          {}
+        end
+      end
+
       run_image = @image_override || begin
         first_docker_executor_hint = executor_hints[:docker].first
 
@@ -259,7 +267,7 @@ module Polly
                 "name" => "ssh-auth-sock"
               },
             ],
-            "env" => job.parameters[:environment].collect { |k,v| {"name" => k, "value" => v } }
+            "env" => extra_runtime_envs.merge(job.parameters[:environment]).collect { |k,v| {"name" => k, "value" => v } }
           }
         ],
         "volumes" => [

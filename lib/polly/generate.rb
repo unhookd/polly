@@ -51,16 +51,20 @@ jobs_repacked = {}
     "environment" => job_spec.parameters[:environment],
     "working_directory" => job_spec.parameters[:working_directory],
     "steps" => [
+      "checkout",
+      (job_name.include?("bootstrap") ? {"setup_remote_docker" => { "version" => "19.03.12" }} : nil),
       {
         "run" => {
           "name" => job_spec.run_name,
           "command" => job_spec.parameters[:command]
         }
       }
-    ]
+    ].compact
   }.merge({
     "docker" => job_spec.parameters[:executor_hints][:docker]
   })
+  jobs_repacked[job_name].delete("environment") unless jobs_repacked[job_name]["environment"] && !jobs_repacked[job_name]["environment"].empty?
+  jobs_repacked[job_name].delete("working_directory") unless jobs_repacked[job_name]["working_directory"]
 }
 
 #bootstrap: !ruby/object:Polly::Job

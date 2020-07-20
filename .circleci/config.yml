@@ -8,13 +8,12 @@ workflows:
     - primary:
         requires:
         - bootstrap
-
 version: 2
 jobs:
   bootstrap:
     steps:
-    - checkout 
-    - setup_remote_docker: 
+    - checkout
+    - setup_remote_docker:
         version: 19.03.12
     - run:
         name: bootstrap
@@ -30,7 +29,7 @@ jobs:
           adduser app docker-extra
           adduser app docker
           chown -R app /home/app
-          sudo -u app bash -c 'bundle install --path=~/vendor/bundle --jobs=4 --retry=3 --deployment --without "development"'
+          sudo -u app bash -c 'bundle config set --local path /home/app/vendor/bundle && bundle config set --local jobs 4 && bundle config set --local retry 3 && bundle config set --local deploment true && bundle config set --local without development && bundle install'
           sudo --preserve-env=SSH_AUTH_SOCK -u app /home/app/current/bin/polly build
 
           echo END bootstrap
@@ -41,7 +40,7 @@ jobs:
     environment:
       BUNDLE_PATH: "~/vendor/bundle"
     steps:
-    - checkout 
+    - checkout
     - run:
         name: primary
         command: |2
