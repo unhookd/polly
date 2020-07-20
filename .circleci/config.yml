@@ -11,6 +11,7 @@ workflows:
 version: 2
 jobs:
   bootstrap:
+    working_directory: "/home/app/current"
     steps:
     - checkout
     - setup_remote_docker:
@@ -39,6 +40,7 @@ jobs:
   primary:
     environment:
       BUNDLE_PATH: "~/vendor/bundle"
+    working_directory: "/home/app/current"
     steps:
     - checkout
     - run:

@@ -245,8 +245,8 @@ adduser app docker
 chown -R app /home/app
 sudo -u app bash -c '#{@deploy.command_list.join(" && ")}'
 sudo --preserve-env=SSH_AUTH_SOCK -u app /home/app/current/bin/polly build
-"}}], {}, nil)
-@plain_workflow.add_circleci_job("primary", [{"image"=>"polly:latest"}], [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {"BUNDLE_PATH" => "~/vendor/bundle"}, nil) 
+"}}], {}, "/home/app/current")
+@plain_workflow.add_circleci_job("primary", [{"image"=>"polly:latest"}], [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {"BUNDLE_PATH" => "~/vendor/bundle"}, "/home/app/current")
 @plain_workflow.depends("primary", "bootstrap")
 
 #circle {
