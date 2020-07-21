@@ -220,7 +220,8 @@ module Polly
           image = circleci_like_parameters["docker"]
         end
 
-        puts "add_circleci_job(#{job_run_name}, #{image}, #{circleci_like_parameters["steps"]}, #{circleci_like_parameters["environment"]}, #{circleci_like_parameters["working_directory"]}"
+        #TODO: Regen module
+        #puts "add_circleci_job(#{job_run_name.inspect}, #{image.inspect}, #{circleci_like_parameters["steps"].inspect}, #{circleci_like_parameters["environment"].inspect}, #{circleci_like_parameters["working_directory"].inspect}"
         add_circleci_job(job_run_name, image, circleci_like_parameters["steps"], circleci_like_parameters["environment"], circleci_like_parameters["working_directory"])
       }
 
@@ -237,7 +238,8 @@ module Polly
             if add_job_to_stack.call(job_run_name)
               if job_run_name_or_reqs[job_run_name]
                 job_run_name_or_reqs[job_run_name]["requires"].each { |dep_job_run_name|
-                  puts "depends(#{job_run_name}, #{dep_job_run_name})"
+                  #TODO: Regen module
+                  #puts "depends(#{job_run_name.inspect}, #{dep_job_run_name.inspect})"
                   depends(job_run_name, dep_job_run_name)
                 }
               end
@@ -264,8 +266,8 @@ module Polly
           next
         end
 
-        if step == "setup-remote-docker" || step == "setup_remote_docker"
-          executor_hints[:setup_remote_docker] = true
+        if setup_remote_docker = step["setup-remote-docker"] || step["setup_remote_docker"]
+          executor_hints[:setup_remote_docker] = setup_remote_docker
           next
         end
 

@@ -98,7 +98,7 @@ module Polly
       end
 
       extra_runtime_envs = begin
-        if clean_name.include?("bootstrap")
+        if executor_hints[:setup_remote_docker] || clean_name.include?("bootstrap")
           {"SSH_AUTH_SOCK" => "/home/app/.ssh-auth-sock"}
         else
           {}
@@ -262,10 +262,6 @@ module Polly
               #  "mountPath" => "/home/app/.ssh",
               #  "name" => "ssh-key"
               #},
-              {
-                "mountPath" => "/home/app/.ssh-auth-sock",
-                "name" => "ssh-auth-sock"
-              },
             ],
             "env" => extra_runtime_envs.merge(job.parameters[:environment]).collect { |k,v| {"name" => k, "value" => v } }
           }
@@ -309,14 +305,22 @@ module Polly
           #    "path" => "#{ENV['HOME']}/.ssh"
           #  }
           #}
-          {
-            "name" => "ssh-auth-sock",
-            "hostPath" => {
-              "path" => ENV["SSH_AUTH_SOCK"]
-            }
-          }
         ]
       }
+
+      if executor_hints[:setup_remote_docker]
+        container_spec["volumes"] << {
+          "name" => "ssh-auth-sock",
+          "hostPath" => {
+            "path" => ENV["SSH_AUTH_SOCK"]
+          }
+        }
+
+        container_spec["containers"][0]["volumeMounts"] << {
+          "mountPath" => "/home/app/.ssh-auth-sock",
+          "name" => "ssh-auth-sock"
+        }
+      end
 
       unless @init
         container_spec.delete("initContainers")
