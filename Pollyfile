@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-#_image declares container artifacts
+# image declares container artifacts
 @bootstrap = image {
   stage "bootstrap", "ubuntu:focal-20200606"
 
@@ -81,5 +81,5 @@ test -z $DOCKER_CERT_PATH || (chown -R 1000 $(dirname $DOCKER_CERT_PATH))
 su app -s /bin/bash -c '#{@deploy.command_list.join(" && ")}'
 su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s bin/polly -- build
 "}}], {}, "/home/app/polly") #TODO: workingdir module
-@plain_workflow.add_circleci_job("primary", [{"image"=>"polly:latest"}], [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {"BUNDLE_PATH" => "~/vendor/bundle"}, "/home/app/polly")
+@plain_workflow.add_circleci_job("primary", [{"image"=>"polly:latest"}], [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {"BUNDLE_PATH" => "/home/app/vendor/bundle"}, "/home/app/polly")
 @plain_workflow.depends("primary", "bootstrap")
