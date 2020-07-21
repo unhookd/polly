@@ -352,13 +352,13 @@ spec:
         - #{branch}
         - #{origin}
         - .
-        workingDir: /workspace
+        workingDir: /home/app/#{app}
         securityContext:
           runAsUser: 1000
           runAsGroup: 1000
         volumeMounts:
         - name: workspace
-          mountPath: /workspace
+          mountPath: /home/app/#{app}
         - name: polly-mount
           mountPath: /polly-safe
         - mountPath: /etc/ssl/certs
@@ -388,9 +388,9 @@ spec:
         - --frontend
         - dockerfile.v0
         - --local
-        - context=/workspace
+        - context=/home/app/#{app}
         - --local
-        - dockerfile=/workspace
+        - dockerfile=/home/app/#{app}
         #- --output
         #- type=image,name=polly-registry:443/#{app}:#{version},push=true
         #- --export-cache
@@ -411,11 +411,11 @@ spec:
           runAsUser: 1000
           runAsGroup: 1000
         volumeMounts:
-        - mountPath: /home/user/.docker/config.json
-          subPath: config.json
-          name: docker-config
+        #- mountPath: /home/user/.docker/config.json
+        #  subPath: config.json
+        #  name: docker-config
         - name: workspace
-          mountPath: /workspace
+          mountPath: /home/app/#{app}
           readOnly: true
         - name: polly-mount
           mountPath: /polly-safe
@@ -427,9 +427,9 @@ spec:
           subPath: ca-certificates.crt
           name: ca-certificates
       volumes:
-      - name: docker-config
-        secret:
-          secretName: docker-config
+      #- name: docker-config
+      #  secret:
+      #    secretName: docker-config
       - name: ca-certificates
         secret:
           secretName: ca-certificates
