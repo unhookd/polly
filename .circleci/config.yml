@@ -11,7 +11,7 @@ workflows:
 version: 2
 jobs:
   bootstrap:
-    working_directory: "/home/app/current"
+    working_directory: "/home/app/polly"
     steps:
     - checkout
     - setup_remote_docker:
@@ -36,7 +36,9 @@ jobs:
           useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app
           chown -R app /home/app
           groupadd --gid 134 docker-extra
+          groupadd --gid 999 docker-extra-extra
           adduser app docker-extra
+          adduser app docker-extra-extra
           adduser app docker
           chown -R app /home/app
           su app -s /bin/test -- -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1000 $SSH_AUTH_SOCK && chgrp 1000 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && su app -s /bin/test -- -w $SSH_AUTH_SOCK)
@@ -50,8 +52,8 @@ jobs:
       user: root
   primary:
     environment:
-      BUNDLE_PATH: "~/vendor/bundle"
-    working_directory: "/home/app/current"
+      BUNDLE_PATH: "/home/app/vendor/bundle"
+    working_directory: "/home/app/polly"
     steps:
     - checkout
     - run:

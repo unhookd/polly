@@ -312,8 +312,6 @@ HEREDOC
     if options["in-cluster"]
       origin = "/polly-safe/git/#{app}"
 
-      #docker_config_json = options["docker-config-json"] || "{}"
-
       build_jobs = ""
 
       build_jobs << <<-HEREDOC
@@ -368,8 +366,8 @@ spec:
           readOnly: true
       containers:
       - name: buildkit
-        #image: moby/buildkit:master-rootless
-        image: moby/buildkit:v0.6.3-rootless
+        image: moby/buildkit:master-rootless
+        #image: moby/buildkit:v0.6.4-rootless
         env:
         - name: BUILDKITD_FLAGS
           value: --oci-worker-no-process-sandbox
@@ -400,8 +398,8 @@ spec:
         #- type=registry,ref=polly-registry:443/#{app}
         #- --export-cache
         #- type=local,dest=/polly-safe/buildkit,mode=max
-        - --output
-        - type=image,name=#{image_repo}/#{app}:#{version},push=true
+        #- --output
+        #- type=image,name=#{image_repo}/#{app}:#{version},push=true
         resources:
           requests:
             memory: 5000Mi
