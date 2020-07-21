@@ -321,7 +321,6 @@ HEREDOC
       generated_dockerfile_fd.rewind
     end
 
-
     if options["in-cluster"]
       polly_dockerfile_config = []
       polly_dockerfile_config << <<-HEREDOC
@@ -415,25 +414,28 @@ spec:
         args:
         #- --oci-worker-no-process-sandbox
         - build
-        #- --import-cache
-        #- type=registry,ref=polly-registry:443/#{app}
-        #- --import-cache
-        #- type=local,src=/polly-safe/buildkit,mode=max
+        - --import-cache
+        - type=registry,ref=polly-registry:443/#{app}
+        - --import-cache
+        - type=local,src=/polly-safe/buildkit,mode=max
         - --frontend
         - dockerfile.v0
         - --local
         - context=/home/app/#{app}
         - --local
         - dockerfile=/tmp/#{app}
-        #- --output
-        #- type=image,name=polly-registry:443/#{app}:#{version},push=true
         #- --export-cache
         #- type=inline
-        #- type=registry,ref=polly-registry:443/#{app}
         #- --export-cache
-        #- type=local,dest=/polly-safe/buildkit,mode=max
+        #- type=registry,ref=polly-registry:443/#{app}
+        - --export-cache
+        - type=local,dest=/polly-safe/buildkit,mode=max
+        - --output
+        - type=tar,dest=/polly-safe/buildkit/tars
         #- --output
         #- type=image,name=#{image_repo}/#{app}:#{version},push=true
+        ##- --output
+        ##- type=image,name=polly-registry:443/#{app}:#{version},push=true
         resources:
           requests:
             memory: 5000Mi
@@ -702,9 +704,8 @@ HEREDOC
 
     #polly_image = "#{exe.current_app}:#{exe.current_revision}"
     #polly_command = ["polly", "dev", "/var/lib/polly/Procfile.init", "--rename=polly-init"].to_json
-
-#apache2: /usr/sbin/apache2 -D FOREGROUND
-#nginx-apt-proxy: /usr/sbin/nginx -g 'daemon off;'
+    #apache2: /usr/sbin/apache2 -D FOREGROUND
+    #nginx-apt-proxy: /usr/sbin/nginx -g 'daemon off;'
 
     git_image = "alpine/git:latest"
     git_command = ["sleep", "2147483647"].to_json

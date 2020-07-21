@@ -15,7 +15,7 @@ module Polly
     end
 
     def self.image_repo
-      rc["image_repo"] || "polly-app:443"
+      rc["image_repo"] || "polly-registry:443"
     end
   end
 end
