@@ -335,6 +335,7 @@ module Polly
 
       #TODO
       #puts YAML.dump(configmap_manifest) if @debug
+puts "PREPOP JOB"
 
       kubectl_apply = ["kubectl", "apply", "-f", "-"]
       apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}
@@ -362,6 +363,10 @@ module Polly
                      "--"
                    ]
 
+puts executor_hints.inspect
+
+puts "POPPING JOB NOW"
+
       if executor_hints[:detach]
         ci_run_cmd += sleep_cmd_args
       else
@@ -388,6 +393,8 @@ module Polly
     end
 
     def wait_for_jobs_to_finish
+      $stderr.write("1")
+
       @iteration += 1
 
       io_this_loop = []
@@ -406,11 +413,11 @@ module Polly
 
       jobs_to_keep_completed = []
 
-      #puts "all r #{@runners.length}"
+      puts "all r #{@runners.length}"
 
       @runners.each do |job_run_name, pod_name, cmd_io|
 
-      #puts "!!!! #{job_run_name} #{pod_name} #{cmd_io.empty?} process..."
+      puts "!!!! #{job_run_name} #{pod_name} #{cmd_io.empty?} process..."
 
         next if cmd_io.empty?
 
@@ -442,7 +449,7 @@ module Polly
 
           process_waiter.join(0.1)
 
-          #puts "found #{[job_run_name, stdout, stderr]}"
+          puts "found #{[job_run_name, stdout, stderr]}"
 
           io_this_loop << [job_run_name, stdout, stderr]
         else
@@ -514,18 +521,21 @@ module Polly
       jobs_to_mark_as_completed.each { |job_thang|
         #unless job_thang.parameters[:executor_hints][:detach]
           @runners.each { |job_namish, pod_name, cmd_io|
+            #puts [jobs_to_mark_as_completed, jobs_to_detach, job_namish, pod_name].inspect
+
             if job_thang.run_name == job_namish
         #  #if jobs_to_mark_as_completed.include?(job_namish)
               unless jobs_to_keep_completed.include?(job_thang) || jobs_to_detach.include?(job_thang.run_name)
-                #puts [jobs_to_mark_as_completed, jobs_to_detach, job_namish, pod_name].inspect
 
-                get_logs = ["kubectl", "logs", "-l", "name=#{pod_name}", "--all-containers=true", "--tail=-1"]
+                get_logs = ["kubectl", "logs", "-l", "name=#{pod_name}", "--follow=true", "--all-containers=true", "--tail=-1"]
                 ##execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {})
                 #@runners << [job_namish, pod_name, execute_simple(:async, get_logs, {})]
                 @all_exited = false
                 get_log_runners << [job_namish, "logs-#{pod_name}", execute_simple(:async, get_logs, {})]
+                puts ["made log-runners", job_namish, pod_name, get_logs].inspect
 
                 execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {})
+                wait_child
               end
             end
           }
@@ -535,6 +545,8 @@ module Polly
       get_log_runners.each { |lr|
         @runners << lr
       }
+
+$stderr.write("X")
 
       return jobs_to_mark_as_completed, io_this_loop
     end

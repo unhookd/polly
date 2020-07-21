@@ -125,7 +125,10 @@ class PollyTasks < Thor
     obv.report_stdout("exe", exe.description)
 
     while exe.running? || plan.has_unfinished_jobs?
+      $stderr.write("2")
+
       started_this_loop = plan.jobs_ready_to_start.collect do |job_to_start|
+        $stderr.write("3")
         exe.start_job!(job_to_start)
       end
 
