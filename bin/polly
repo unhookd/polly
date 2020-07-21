@@ -431,7 +431,7 @@ spec:
         - --export-cache
         - type=local,dest=/polly-safe/buildkit,mode=max
         - --output
-        - type=tar,dest=/polly-safe/buildkit/tars
+        - type=tar,dest=/polly-safe/buildkit/#{app}-#{version}.tar
         #- --output
         #- type=image,name=#{image_repo}/#{app}:#{version},push=true
         ##- --output
