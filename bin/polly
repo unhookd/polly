@@ -309,7 +309,39 @@ HEREDOC
     app = exe.current_app
     image_repo = Polly::Config.image_repo
 
+    generated_dockerfile_fd = nil
+
+    if container_definition == "-"
+      pollyfile_ruby = File.read("Pollyfile")
+      #TODO: ??? Polly::Generate.options = options
+      Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
+      generated_dockerfile = Polly::Generate.read_output
+      generated_dockerfile_fd = Tempfile.new("dockerfile")
+      generated_dockerfile_fd.write(generated_dockerfile)
+      generated_dockerfile_fd.rewind
+    end
+
+
     if options["in-cluster"]
+      polly_dockerfile_config = []
+      polly_dockerfile_config << <<-HEREDOC
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: polly-dockerfile-#{app}
+binaryData:
+  Dockerfile: #{Base64.strict_encode64(generated_dockerfile_fd.read)}
+...
+HEREDOC
+
+puts polly_dockerfile_config
+
+      apply_job = ["kubectl", "apply", "-f", "-"]
+      options = {:stdin_data => polly_dockerfile_config.join}
+      o,e,s = exe.execute_simple(:output, apply_job, options)
+      puts [o, e]
+
       origin = "/polly-safe/git/#{app}"
 
       build_jobs = ""
@@ -366,6 +398,7 @@ spec:
           readOnly: true
       containers:
       - name: buildkit
+        workingDir: /home/app/#{app}
         image: moby/buildkit:master-rootless
         #image: moby/buildkit:v0.6.4-rootless
         env:
@@ -376,10 +409,11 @@ spec:
         #- name: AWS_REGION
         #  value: us-west-2
         command:
-        #- sleep
-        #- "9999"
+        ##- sleep
+        ##- "9999"
         - buildctl-daemonless.sh
         args:
+        #- --oci-worker-no-process-sandbox
         - build
         #- --import-cache
         #- type=registry,ref=polly-registry:443/#{app}
@@ -390,7 +424,7 @@ spec:
         - --local
         - context=/home/app/#{app}
         - --local
-        - dockerfile=/home/app/#{app}
+        - dockerfile=/tmp/#{app}
         #- --output
         #- type=image,name=polly-registry:443/#{app}:#{version},push=true
         #- --export-cache
@@ -414,6 +448,9 @@ spec:
         #- mountPath: /home/user/.docker/config.json
         #  subPath: config.json
         #  name: docker-config
+        - mountPath: /tmp/#{app}/Dockerfile
+          subPath: Dockerfile
+          name: polly-dockerfile-#{app}
         - name: workspace
           mountPath: /home/app/#{app}
           readOnly: true
@@ -430,6 +467,9 @@ spec:
       #- name: docker-config
       #  secret:
       #    secretName: docker-config
+      - name: polly-dockerfile-#{app}
+        configMap:
+          name: polly-dockerfile-#{app}
       - name: ca-certificates
         secret:
           secretName: ca-certificates
@@ -470,18 +510,6 @@ HEREDOC
       build_pod = exe.polly_pod("job-name=polly-buildkit")
       exec(*["kubectl", "logs", build_pod, "-f"].compact)
     else
-      generated_dockerfile_fd = nil
-
-      if container_definition == "-"
-        pollyfile_ruby = File.read("Pollyfile")
-        #TODO: ??? Polly::Generate.options = options
-        Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
-        generated_dockerfile = Polly::Generate.read_output
-        generated_dockerfile_fd = Tempfile.new("dockerfile")
-        generated_dockerfile_fd.write(generated_dockerfile)
-        generated_dockerfile_fd.rewind
-      end
-
       build_dockerfile = [{"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]}, "docker", "build", "--progress=plain", "--ssh", "default", options["no-cache"] ? "--no-cache" : nil, "-t", app + ":" + version, ".", "-f", container_definition, generated_dockerfile_fd.nil? ? {} : {:in => generated_dockerfile_fd}].compact
 
       #o,e,s = exe.execute_simple(:output, build_dockerfile, io_options)
