@@ -94,7 +94,7 @@ class PollyTasks < Thor
   option "skip", :type => :string, :default => nil, :desc => "Don't run specified jobs (comma-separated list)"
   option "only", :type => :string, :default => nil, :desc => "Only run specified jobs (comma-separated list)"
   option "no-init", :type => :boolean, :default => false, :desc => "Do not run pod initialization (eg git-checkout container) before each job (this can speed up debug looping)"
-  def test(run_pipeline_upto_these_jobs = nil)
+  def test(run_pipeline_upto_these_jobs = nil, config = ".circleci/config.yml")
     start_time = Time.now
 
     obv = ::Polly::Observe.new
@@ -104,19 +104,20 @@ class PollyTasks < Thor
 
     plan = ::Polly::Plan.new(revision, run_pipeline_upto_these_jobs, options)
 
-    #TODO: switch plan based on detected hueristics here
-    pollyfile_ruby = File.read("Pollyfile")
-    Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
-    generated_circleci_config_yml = YAML.dump(Polly::Generate.read_circleci_output)
-    
-    #puts generated_circleci_config_yml
-    #raise "wtf!!!"
-
-    #generated_dockerfile_fd = Tempfile.new("dockerfile")
-    #generated_dockerfile_fd.write(generated_dockerfile)
-    #generated_dockerfile_fd.rewind
-
-    plan.load_circleci(generated_circleci_config_yml)
+    if File.exists?(config)
+      plan.load_circleci(File.read(config))
+    else
+      #TODO: switch plan based on detected hueristics here
+      pollyfile_ruby = File.read("Pollyfile")
+      Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
+      generated_circleci_config_yml = YAML.dump(Polly::Generate.read_circleci_output)
+      #puts generated_circleci_config_yml
+      #raise "wtf!!!"
+      #generated_dockerfile_fd = Tempfile.new("dockerfile")
+      #generated_dockerfile_fd.write(generated_dockerfile)
+      #generated_dockerfile_fd.rewind
+      plan.load_circleci(generated_circleci_config_yml)
+    end
 
     obv.register_channels(["plan"] + plan.all_jobs.collect { |key, _| key } + ["exe"])
 
@@ -125,10 +126,7 @@ class PollyTasks < Thor
     obv.report_stdout("exe", exe.description)
 
     while exe.running? || plan.has_unfinished_jobs?
-      $stderr.write("2")
-
       started_this_loop = plan.jobs_ready_to_start.collect do |job_to_start|
-        $stderr.write("3")
         exe.start_job!(job_to_start)
       end
 
