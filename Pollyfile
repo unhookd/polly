@@ -65,6 +65,8 @@
   }
 
   run %q{bundle install --path=~/vendor/bundle --jobs=4 --retry=3 --deployment --with "development"}
+
+  run %q{ssh-add -l}
 }
 
 @plain_workflow = Plan.new
