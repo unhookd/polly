@@ -87,6 +87,9 @@
 @plain_workflow = Plan.new
 @plain_workflow.add_circleci_job("bootstrap", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"bootstrap", "command"=>"
 id app || (#{@bootstrap.command_list.join("; ")})
+which polly
+ls -l $(which polly)
+ls -l /home/app/polly/bin/polly
 chown -R app /home/app
 su app -s /bin/test -- -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1000 $SSH_AUTH_SOCK && chgrp 1000 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && su app -s /bin/test -- -w $SSH_AUTH_SOCK)
 test -z $DOCKER_CERT_PATH || (chown -R 1000 $(dirname $DOCKER_CERT_PATH))
