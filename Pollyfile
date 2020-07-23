@@ -45,6 +45,9 @@
   run %q{adduser app docker-extra-extra}
   run %q{adduser app docker}
 
+  #TODO: this is hacked
+  run %q{ln -sfv /home/app/polly/bin/polly /usr/local/bin/polly}
+
   run %q{chown -R app /home/app}
 }
 
@@ -61,8 +64,6 @@
   run %q{bundle config set --local deploment true}
   run %q{bundle config set --local without development}
   run %q{bundle install}
-
-  run %q{ln -sfv /usr/bin/polly /home/app/polly/bin/polly}
 }
 
 @test = image {
