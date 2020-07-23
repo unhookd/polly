@@ -99,6 +99,7 @@ class PollyTasks < Thor
     start_time = Time.now
 
     obv = ::Polly::Observe.new
+    obv.register_channels(["debug", "plan"] + plan.all_jobs.collect { |key, _| key } + ["exe"])
 
     exe = ::Polly::Execute.new(options) #TODO: namespacing... --exe-idle-timeout --plan-concurrency ???
     revision = exe.current_revision
@@ -109,6 +110,7 @@ class PollyTasks < Thor
 
     #TODO: switch plan based on detected hueristics here
     if File.exists?(config)
+      obv.report_stdout("debug", "using #{config} for config")
       if config.include?("Pollyfile")
         pollyfile_ruby = File.read("Pollyfile")
         Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
@@ -121,8 +123,6 @@ class PollyTasks < Thor
     else
       raise "must create #{config} first ..."
     end
-
-    obv.register_channels(["plan"] + plan.all_jobs.collect { |key, _| key } + ["exe"])
 
     obv.report_stdout("plan", plan.description)
 
