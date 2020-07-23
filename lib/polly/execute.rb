@@ -105,26 +105,25 @@ module Polly
         end
       end
 
-      run_image = @image_override || begin
-        first_docker_executor_hint = executor_hints[:docker].first
+      run_image = begin
+        if @image_override && clean_name.include?("bootstrap")
+          @image_override
+        else
+          first_docker_executor_hint = executor_hints[:docker].first
 
-        unless first_docker_executor_hint
-          #TODO: raise exceptions
-          $stderr.puts "missing req'd docker image executor hint"
-          Kernel.exit(1)
+          unless first_docker_executor_hint
+            #TODO: raise exceptions
+            $stderr.puts "missing req'd docker image executor hint"
+            Kernel.exit(1)
+          end
+
+          docker_image_url = URI.parse("http://local/#{first_docker_executor_hint["image"]}")
+          repo = docker_image_url.host
+
+          #TODO: ???? File.basename(docker_image_url.path)
+          Pathname.new(docker_image_url.path).relative_path_from(Pathname.new("/")).to_s
         end
-
-        docker_image_url = URI.parse("http://local/#{first_docker_executor_hint["image"]}")
-        repo = docker_image_url.host
-        #TODO: ???? File.basename(docker_image_url.path)
-        Pathname.new(docker_image_url.path).relative_path_from(Pathname.new("/")).to_s
       end
-
-      #puts "!!!!2222"
-      #puts "http://local/#{first_docker_executor_hint["image"]}"
-      #puts run_image 
-      #puts "!!!!"
-      #exit 1
 
       build_run_dir = "/var/tmp/run"
       build_manifest_dir = File.join(build_run_dir, clean_name, current_revision)
@@ -134,6 +133,7 @@ module Polly
       #TODO: figure out fail modes run_cmd_args = ["bash", "-x", "-e", "-o", "pipefail", run_shell_path]
       run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash -e -o pipefail #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
 
+      #TODO: dry-run mode
       #debug_cmd_args = ["cat", run_shell_path]
       #if @dry_run
       #elsif executor_hints[:detach]
