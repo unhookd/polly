@@ -98,9 +98,6 @@
 @plain_workflow = Plan.new
 @plain_workflow.add_circleci_job("bootstrap", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"bootstrap", "command"=>"
 id app || (#{@bootstrap.command_list.join("; ")})
-which polly
-ls -l $(which polly)
-ls -l /home/app/polly/bin/polly
 chown -R app /home/app
 su app -s /bin/test -- -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1000 $SSH_AUTH_SOCK && chgrp 1000 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && su app -s /bin/test -- -w $SSH_AUTH_SOCK)
 test -z $DOCKER_CERT_PATH || (chown -R 1000 $(dirname $DOCKER_CERT_PATH))
@@ -108,6 +105,8 @@ su app -s /bin/bash -c '#{@deploy.command_list.join(" && ")}'
 su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /usr/local/bin/polly -- build
 docker run --rm=true polly:latest bundle exec rspec
 "}}], {}, "/home/app/polly") #TODO: workingdir module
+
+
 #@plain_workflow.add_circleci_job("primary", [{"image"=>"polly:latest"}], [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {"BUNDLE_PATH" => "/home/app/vendor/bundle"}, "/home/app/polly")
 #@plain_workflow.depends("primary", "bootstrap")
 
