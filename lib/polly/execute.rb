@@ -60,7 +60,8 @@ module Polly
       raise "unsafe kubernetes context #{current_kube_context}" unless Polly::Config.allowed_contexts.include?(current_kube_context)
     rescue Errno::ENOENT
       #TODO: is this the case of missing kubectl ??? is that safe ???
-      puts current_kube_context
+      #puts current_kube_context
+      #TODO: more debug and better safety checks
       false
     end
 
@@ -107,11 +108,12 @@ module Polly
         end
       end
 
+      first_docker_executor_hint = executor_hints[:docker].first
+
       run_image = begin
         if @image_override && clean_name.include?("bootstrap")
           @image_override
         else
-          first_docker_executor_hint = executor_hints[:docker].first
 
           unless first_docker_executor_hint
             #TODO: raise exceptions
@@ -223,7 +225,7 @@ module Polly
       #    runAsGroup: 1000
         "securityContext" => {
           #"privileged" => true, #TODO: figure out un-privd case, use kaniko???
-          "runAsUser" => first_docker_executor_hint ? first_docker_executor_hint["user"] : nil,
+          "runAsUser" => first_docker_executor_hint["user"],
           #"runAsGroup" => 134
           "fsGroup" => 999,
           "supplementalGroups" => [1000, 999]
@@ -235,6 +237,7 @@ module Polly
             "securityContext" => {
               "privileged" => true, #TODO: figure out un-privd case, use kaniko???
               #"runAsUser" => 0
+              "runAsUser" => first_docker_executor_hint["user"],
               "runAsGroup" => 999
               #"fsGroup" => 999
             },
