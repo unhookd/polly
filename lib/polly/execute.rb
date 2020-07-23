@@ -228,7 +228,7 @@ module Polly
           "runAsUser" => username_to_uid(first_docker_executor_hint["user"]),
           #"runAsGroup" => 134
           "fsGroup" => 999,
-          "supplementalGroups" => [1000, 999]
+          "supplementalGroups" => [1000, 999, File.stat("/var/run/docker.sock").gid] #TODO: fix this hack
         },
         "containers" => [
           {

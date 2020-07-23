@@ -28,7 +28,14 @@
   run %q{apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"}
   apt %w{kubectl}
 
-  run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app}
+  run %q{groupadd --gid 134 abc-otf}
+  run %q{groupadd --gid 999 efg-nnn}
+  
+  #run %q{adduser app abc-otf}
+  #run %q{adduser app docker-nnn}
+  #run %q{adduser app docker}
+
+  run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn}
 
   #TODO: workdir module
   command("WORKDIR") {
@@ -38,12 +45,6 @@
   command("COPY") {
     "--chown=app . /home/app/polly"
   }
-
-  run %q{groupadd --gid 134 docker-extra}
-  run %q{groupadd --gid 999 docker-extra-extra}
-  run %q{adduser app docker-extra}
-  run %q{adduser app docker-extra-extra}
-  run %q{adduser app docker}
 
   #TODO: this is hacked
   run %q{ln -sfv /home/app/polly/bin/polly /usr/local/bin/polly}
