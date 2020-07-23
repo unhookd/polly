@@ -21,7 +21,12 @@
   run %q{locale-gen $LANGUAGE}
   run %q{dpkg-reconfigure locales}
 
-  apt %w{git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper kubectl}
+  apt %w{git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper}
+
+  #TODO: ppa module / extra repo module
+  run %q{curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add}
+  run %q{apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"}
+  apt %w{kubectl}
 
   run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app}
 
