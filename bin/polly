@@ -321,6 +321,8 @@ HEREDOC
       generated_dockerfile_fd.rewind
     end
 
+puts options.inspect
+
     if options["in-cluster"]
       polly_dockerfile_config = []
       polly_dockerfile_config << <<-HEREDOC
@@ -337,8 +339,8 @@ HEREDOC
 puts polly_dockerfile_config
 
       apply_job = ["kubectl", "apply", "-f", "-"]
-      options = {:stdin_data => polly_dockerfile_config.join}
-      o,e,s = exe.execute_simple(:output, apply_job, options)
+      apply_options = {:stdin_data => polly_dockerfile_config.join}
+      o,e,s = exe.execute_simple(:output, apply_job, apply_options)
       puts [o, e]
 
       origin = "/polly-safe/git/#{app}"
@@ -512,7 +514,14 @@ HEREDOC
       build_pod = exe.polly_pod("job-name=polly-buildkit")
       exec(*["kubectl", "logs", build_pod, "-f"].compact)
     else
-      build_dockerfile = [{"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]}, "docker", "build", "--progress=plain", "--ssh", "default", options["no-cache"] ? "--no-cache" : nil, "-t", app + ":" + version, ".", "-f", container_definition, generated_dockerfile_fd.nil? ? {} : {:in => generated_dockerfile_fd}].compact
+      puts options.inspect
+
+      build_dockerfile = [
+        {"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
+        "docker", "build", "--progress=plain", "--ssh", "default",
+        options["no-cache"] ? "--no-cache" : nil, "-t",
+        app + ":" + version, ".", "-f", container_definition, generated_dockerfile_fd.nil? ? {} : {:in => generated_dockerfile_fd}
+      ].compact
 
       #o,e,s = exe.execute_simple(:output, build_dockerfile, io_options)
       #puts [o, e]
