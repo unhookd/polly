@@ -227,6 +227,31 @@ class PollyTasks < Thor
     exe.systemx(*git_init_cmd)
 
     exe.systemx("git", "push", "-f", "polly", branch, "HEAD:#{branch}-#{Time.now.to_i}", "--exec=polly receive-pack")
+
+    #cat /var/tmp/polly-safe/buildkit/example-510b1e33549a9f97b9fce43f1a30d13afe208390.tar | docker import - example:latest
+    cat_image_cmd = [
+                     "kubectl", "exec", exe.polly_pod,
+                     "--",
+                     "cat", "/polly-safe/buildkit/#{exe.current_app}-#{exe.current_revision}.tar"
+                   ]
+
+    docker_tag_cmd = [
+                      "docker",
+                      "import",
+                      "-",
+                      "#{exe.current_app}:latest"
+                   ]
+
+    #options = {:stdin_data => docker_config_secret.join}
+    #o,e,s = exe.execute_simple(:output, apply_job, options)
+    #puts [o, e]
+
+status_list = Open3.pipeline(cat_image_cmd, docker_tag_cmd)
+
+#puts status_list
+
+    #exe.systemx(*git_init_cmd)
+    
   end
 
   desc "receive-pack [ORIGIN]", "(internal) receive incoming git send-pack"
@@ -356,7 +381,7 @@ puts polly_dockerfile_config
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: polly-buildkit
+  name: polly-buildkit-#{app}
 spec:
   backoffLimit: 0
   template:
@@ -489,13 +514,13 @@ spec:
 ...
 HEREDOC
 
-      build_pod_label = "job-name=polly-buildkit"
+      build_pod_label = "job-name=polly-buildkit-#{app}"
 
       delete_job = ["kubectl", "delete", "-f", "-"]
       io_options = {:stdin_data => build_jobs}
       o,e,s = exe.execute_simple(:output, delete_job, io_options)
 
-      wait_build_pod_deleted = ["kubectl", "wait", "--for=delete", "pod", "-l", "job-name=polly-buildkit"]
+      wait_build_pod_deleted = ["kubectl", "wait", "--for=delete", "pod", "-l", "job-name=polly-buildkit-#{app}"]
       o,e,s = exe.execute_simple(:output, wait_build_pod_deleted, {})
 
       build_job_apply = ["kubectl", "apply", "-f", "-"]
@@ -515,7 +540,7 @@ HEREDOC
         end
       end
 
-      build_pod = exe.polly_pod("job-name=polly-buildkit")
+      build_pod = exe.polly_pod("job-name=polly-buildkit-#{app}")
       exec(*["kubectl", "logs", build_pod, "-f"].compact)
     else
       puts options.inspect

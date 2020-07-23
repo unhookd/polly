@@ -36,7 +36,8 @@ then
     cd ${TMPCHECKOUT}
     unset GIT_DIR
 
-    polly test
+    polly build --in-cluster
+    #polly test
 
     export GIT_DIR="."
   fi
