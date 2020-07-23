@@ -5,9 +5,6 @@ workflows:
     jobs:
     - bootstrap:
         requires: []
-    - primary:
-        requires:
-        - bootstrap
 version: 2
 jobs:
   bootstrap:
@@ -22,30 +19,19 @@ jobs:
 
           echo BEGIN bootstrap
 
-          id app || (export  DEBIAN_FRONTEND=noninteractive; export  LC_ALL=C.UTF-8; export  LANG=en_US; export  LANGUAGE=en_US; export  ACCEPT_EULA=y; apt-get update; apt-get install -y locales locales-all; apt-get clean; rm -rf /var/lib/apt/lists/*; locale-gen --purge en_US; /bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale; locale-gen $LANGUAGE; dpkg-reconfigure locales; apt-get update; apt-get install -y git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper; apt-get clean; rm -rf /var/lib/apt/lists/*; curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add; apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"; apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*; useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app; groupadd --gid 134 docker-extra; groupadd --gid 999 docker-extra-extra; adduser app docker-extra; adduser app docker-extra-extra; adduser app docker; chown -R app /home/app)
+          id app || (export  DEBIAN_FRONTEND=noninteractive; export  LC_ALL=C.UTF-8; export  LANG=en_US; export  LANGUAGE=en_US; export  ACCEPT_EULA=y; apt-get update; apt-get install -y locales locales-all; apt-get clean; rm -rf /var/lib/apt/lists/*; locale-gen --purge en_US; /bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale; locale-gen $LANGUAGE; dpkg-reconfigure locales; apt-get update; apt-get install -y git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper; apt-get clean; rm -rf /var/lib/apt/lists/*; curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add; apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"; apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*; useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app; groupadd --gid 134 docker-extra; groupadd --gid 999 docker-extra-extra; adduser app docker-extra; adduser app docker-extra-extra; adduser app docker; ln -sfv /home/app/polly/bin/polly /usr/local/bin/polly; chown -R app /home/app)
+          which polly
+          ls -l $(which polly)
+          ls -l /home/app/polly/bin/polly
           chown -R app /home/app
           su app -s /bin/test -- -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1000 $SSH_AUTH_SOCK && chgrp 1000 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && su app -s /bin/test -- -w $SSH_AUTH_SOCK)
           test -z $DOCKER_CERT_PATH || (chown -R 1000 $(dirname $DOCKER_CERT_PATH))
           su app -s /bin/bash -c 'bundle config set --local path /home/app/vendor/bundle && bundle config set --local jobs 4 && bundle config set --local retry 3 && bundle config set --local deploment true && bundle config set --local without development && bundle install'
-          su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s bin/polly -- build
+          su app -s /bin/bash -c 'bundle config set --local path /home/app/vendor/bundle && bundle config set --local jobs 4 && bundle config set --local retry 3 && bundle config set --local deploment true && bundle config unset --local without && bundle config set --local with development && bundle install && ssh-add -l && kubectl config set-context polly-ci'
+          su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /usr/local/bin/polly -- build
+          docker run --rm=true polly:latest bundle exec rspec
 
           echo END bootstrap
     docker:
     - image: ubuntu:focal-20200606
       user: root
-  primary:
-    environment:
-      BUNDLE_PATH: "/home/app/vendor/bundle"
-    working_directory: "/home/app/polly"
-    steps:
-    - checkout
-    - run:
-        name: primary
-        command: |2
-
-          echo BEGIN rspec
-          bundle exec rspec
-
-          echo END rspec
-    docker:
-    - image: polly:latest
