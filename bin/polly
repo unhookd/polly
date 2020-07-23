@@ -98,13 +98,14 @@ class PollyTasks < Thor
   def test(run_pipeline_upto_these_jobs = nil)
     start_time = Time.now
 
-    obv = ::Polly::Observe.new
-    obv.register_channels(["debug", "plan"] + plan.all_jobs.collect { |key, _| key } + ["exe"])
-
     exe = ::Polly::Execute.new(options) #TODO: namespacing... --exe-idle-timeout --plan-concurrency ???
     revision = exe.current_revision
 
     plan = ::Polly::Plan.new(revision, run_pipeline_upto_these_jobs, options)
+
+    obv = ::Polly::Observe.new
+
+    obv.register_channels(["debug", "plan", "exe"])
 
     config = options["config"]
 
@@ -123,6 +124,8 @@ class PollyTasks < Thor
     else
       raise "must create #{config} first ..."
     end
+
+    obv.register_channels(plan.all_jobs.collect { |key, _| key })
 
     obv.report_stdout("plan", plan.description)
 
