@@ -49,7 +49,7 @@ module Polly
     end
 
     def description
-      "the plan is as follows: #{self}"
+      "the plan is as follows: #{self} #{@all_jobs} #{@deps} #{@jobs_to_skip} #{@only_these_jobs}"
     end
 
     def add_job(job)

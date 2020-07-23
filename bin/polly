@@ -113,6 +113,7 @@ class PollyTasks < Thor
         pollyfile_ruby = File.read("Pollyfile")
         Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
         generated_circleci_config_yml = YAML.dump(Polly::Generate.read_circleci_output)
+        puts generated_circleci_config_yml
         plan.load_circleci(generated_circleci_config_yml)
       else
         plan.load_circleci(File.read(config))

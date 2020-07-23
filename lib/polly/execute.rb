@@ -55,10 +55,12 @@ module Polly
 
     def check_current_kube_context_is_safe!
       current_kube_context = IO.popen("kubectl config current-context").read.strip
+      return true if current_kube_context.empty?
       wait_child
       raise "unsafe kubernetes context #{current_kube_context}" unless Polly::Config.allowed_contexts.include?(current_kube_context)
     rescue Errno::ENOENT
       #TODO: is this the case of missing kubectl ??? is that safe ???
+      puts current_kube_context
       false
     end
 
@@ -221,7 +223,7 @@ module Polly
       #    runAsGroup: 1000
         "securityContext" => {
           #"privileged" => true, #TODO: figure out un-privd case, use kaniko???
-          "runAsUser" => first_docker_executor_hint["user"],
+          "runAsUser" => first_docker_executor_hint ? first_docker_executor_hint["user"] : nil,
           #"runAsGroup" => 134
           "fsGroup" => 999,
           "supplementalGroups" => [1000, 999]
