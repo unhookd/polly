@@ -702,6 +702,7 @@ HEREDOC
   desc "init", ""
   option "re-init", :type => :boolean, :default => false
   option "with-registry", :type => :boolean, :default => false
+  option "with-bootstrap", :type => :string, :default => "polly:latest"
   def init
     exe = ::Polly::Execute.new
 
@@ -720,8 +721,44 @@ HEREDOC
     #apache2: /usr/sbin/apache2 -D FOREGROUND
     #nginx-apt-proxy: /usr/sbin/nginx -g 'daemon off;'
 
-    git_image = "alpine/git:latest"
+    git_image = options["with-bootstrap"] # "alpine/git:latest"
     git_command = ["sleep", "2147483647"].to_json
+
+    polly_resources << <<-HEREDOC
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: polly
+  namespace: default
+...
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: polly
+  namespace: default
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+...
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: polly-bindings
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: polly
+subjects:
+- kind: ServiceAccount
+  name: polly
+  namespace: default
+...
+HEREDOC
 
     polly_pvcs << <<-HEREDOC
 ---
@@ -859,6 +896,7 @@ spec:
         name: polly-git
         stack: polly
     spec:
+      serviceAccountName: polly
       volumes:
         - name: polly-mount
           persistentVolumeClaim:
@@ -866,6 +904,16 @@ spec:
         - name: registry-certificates
           secret:
             secretName: registry-certificates
+        - name: dood
+          hostPath:
+            path: /var/run/docker.sock
+        - name: ssh-auth-sock
+          hostPath:
+            path: #{ENV["SSH_AUTH_SOCK"]}
+      securityContext:
+        runAsUser: 0
+        fsGroup: 999
+        supplementalGroups: [1000, 999, #{File.stat("/var/run/docker.sock").gid}]
       initContainers:
       containers:
       - name: polly-git
@@ -877,8 +925,17 @@ spec:
           - mountPath: /etc/ssl/private
             name: registry-certificates
             readOnly: true
+          - mountPath: /var/run/docker.sock
+            name: dood
+          - mountPath: /home/app/.ssh-auth-sock
+            name: ssh-auth-sock
         image: #{git_image}
         imagePullPolicy: IfNotPresent
+        env:
+        - name: SSH_AUTH_SOCK
+          value: /home/app/.ssh-auth-sock
+        - name: POLLY_SSH_AUTH_SOCK
+          value: #{ENV["SSH_AUTH_SOCK"]}
         resources:
           requests:
             memory: 500Mi
@@ -975,7 +1032,7 @@ spec:
 HEREDOC
     end
 
-    polly_run = polly_pvcs.join + polly_services.join + polly_deployments.join
+    polly_run = polly_resources.join + polly_pvcs.join + polly_services.join + polly_deployments.join
 
     if options["re-init"]
       deploy_polly_app = ["kubectl", "delete", "-f", "-"]
@@ -1005,7 +1062,7 @@ HEREDOC
   end
 
   desc "sh", ""
-  def sh(sh_cmd = "sh")
+  def sh(sh_cmd = "bash")
     exe = ::Polly::Execute.new
     exec(*["kubectl", "exec", exe.polly_pod, "-i", $stdin.tty? ? "-t" : nil, "--", sh_cmd].compact)
   end

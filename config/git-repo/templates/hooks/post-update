@@ -30,7 +30,8 @@ then
 
   if [ -e /usr/local/bin/polly ];
   then
-    TMPCHECKOUT=$(mktemp -d)/$(basename $(pwd))
+    TMPCHECKOUT=/polly-safe/tmp/$(mktemp -d)/$(basename $(pwd))
+    mkdir -p $(dirname ${TMPCHECKOUT})
     git clone -l . ${TMPCHECKOUT}
     cd ${TMPCHECKOUT}
     unset GIT_DIR

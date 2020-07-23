@@ -183,7 +183,7 @@ module Polly
           {
             #"terminationGracePeriodSeconds" => 5,
             "name" => "git-clone",
-            "image" => "alpine/git:latest",
+            "image" => "alpine/git:latest", #TODO: more bits rebootstrap
             "workingDir" => "/home/app/#{current_app}", #TODO: local executor support
             "imagePullPolicy" => "IfNotPresent",
             "args" => [
@@ -313,11 +313,11 @@ module Polly
         ]
       }
 
-      if executor_hints[:setup_remote_docker]
+      if executor_hints[:setup_remote_docker] && (ENV["POLLY_SSH_AUTH_SOCK"] || ENV["SSH_AUTH_SOCK"])
         container_spec["volumes"] << {
           "name" => "ssh-auth-sock",
           "hostPath" => {
-            "path" => ENV["SSH_AUTH_SOCK"]
+            "path" => ENV["POLLY_SSH_AUTH_SOCK"] || ENV["SSH_AUTH_SOCK"]
           }
         }
 
@@ -818,8 +818,8 @@ module Polly
     def polly_pod(label = "name=#{POLLY}-git")
       @polly_pods ||= {}
       @polly_pods[label] ||= begin
-        cmd = "kubectl get pods -l #{label} -o name | cut -d/ -f2"
-        a = IO.popen(cmd).read.strip
+        cmd = "kubectl get pods --field-selector=status.phase=Running -l #{label} -o name | cut -d/ -f2"
+        a = IO.popen(cmd).read.strip.split("\n")[0]
         wait_child
         a
       end
