@@ -193,7 +193,7 @@ module Polly
             ],
             "env" => { "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
             "securityContext" => {
-              "runAsUser" => 0,
+              "runAsUser" => username_to_uid("root"), #TODO: bootstrap module
               "allowPrivilegeEscalation" => false,
               "readOnlyRootFilesystem" => true
             },
@@ -225,7 +225,7 @@ module Polly
       #    runAsGroup: 1000
         "securityContext" => {
           #"privileged" => true, #TODO: figure out un-privd case, use kaniko???
-          "runAsUser" => first_docker_executor_hint["user"],
+          "runAsUser" => username_to_uid(first_docker_executor_hint["user"]),
           #"runAsGroup" => 134
           "fsGroup" => 999,
           "supplementalGroups" => [1000, 999]
@@ -237,7 +237,7 @@ module Polly
             "securityContext" => {
               "privileged" => true, #TODO: figure out un-privd case, use kaniko???
               #"runAsUser" => 0
-              "runAsUser" => first_docker_executor_hint["user"],
+              "runAsUser" => username_to_uid(first_docker_executor_hint["user"]),
               "runAsGroup" => 999
               #"fsGroup" => 999
             },
@@ -829,7 +829,15 @@ module Polly
       current_app == POLLY
     end
 
-    def pump_io
+    def username_to_uid(n)
+      case n
+        when nil
+          nil
+        when "root"
+          0
+      else
+        1000
+      end
     end
   end
 end
