@@ -61,6 +61,8 @@
   run %q{bundle config set --local deploment true}
   run %q{bundle config set --local without development}
   run %q{bundle install}
+
+  run %q{ln -sfv /usr/bin/polly /home/app/polly/bin/polly}
 }
 
 @test = image {
@@ -88,7 +90,7 @@ chown -R app /home/app
 su app -s /bin/test -- -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1000 $SSH_AUTH_SOCK && chgrp 1000 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && su app -s /bin/test -- -w $SSH_AUTH_SOCK)
 test -z $DOCKER_CERT_PATH || (chown -R 1000 $(dirname $DOCKER_CERT_PATH))
 su app -s /bin/bash -c '#{@deploy.command_list.join(" && ")}'
-su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s bin/polly -- build
+su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s polly -- build
 "}}], {}, "/home/app/polly") #TODO: workingdir module
 @plain_workflow.add_circleci_job("primary", [{"image"=>"polly:latest"}], [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {"BUNDLE_PATH" => "/home/app/vendor/bundle"}, "/home/app/polly")
 @plain_workflow.depends("primary", "bootstrap")
