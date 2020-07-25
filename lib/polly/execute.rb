@@ -357,37 +357,28 @@ module Polly
       #puts YAML.dump(configmap_manifest) if @debug
       #puts "PREPOP JOB"
 
-      $stderr.write("1")
+      #$stderr.write("1")
       kubectl_apply = ["kubectl", "apply", "-f", "-"]
       apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}
       execute_simple(:silentx, kubectl_apply, apply_configmap_options)
 
-      $stderr.write("2")
+      #$stderr.write("2")
       execute_simple(:silent, ["kubectl", "delete", "deployment/#{clean_name}", "--grace-period=1"], {})
       execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{clean_name}"], {})
 
-      $stderr.write("3")
+      #$stderr.write("3")
       apply_deployment_options = {:stdin_data => deployment_spec.to_yaml}
       execute_simple(:silentx, kubectl_apply, apply_deployment_options)
 
 ####
 
-      $stderr.write("4")
-      execute_simple(:silent, ["kubectl", "wait", "--for=condition=available", "deployment/#{clean_name}"], {})
-
-      $stderr.write("5")
-      find_all_pods = "kubectl get pods -l name=#{clean_name} -o name | cut -d/ -f2"
-      a = IO.popen(find_all_pods).read.strip
-      #wait_child
-      all_pods = a.split("\n")
-
-      $stderr.write("6")
-      pod_index = 0
-      ci_run_cmd = [
-                     "kubectl", "exec",
-                     all_pods[pod_index],
-                     "--"
+      polly_waitx = [
+                     "polly",
+                     "waitx",
+                     clean_name,
                    ] + intend_to_run_cmd
+
+#ci_run_cmd = polly sh inner-cmd
 
       ##TODO: debug logging
       ##puts executor_hints.inspect
@@ -409,8 +400,9 @@ module Polly
       #  puts ci_run_cmd.inspect
       #end
 
-      $stderr.write("8")
-      @runners << [job.run_name, clean_name, execute_simple(:async, ci_run_cmd, {})]
+      #$stderr.write("8")
+
+      @runners << [job.run_name, clean_name, execute_simple(:async, polly_waitx, {})]
 
       #get_logs = ["kubectl", "logs", "-f", "-l", "name=#{clean_name}", "--all-containers=true"]
       #@runners << [job.run_name, clean_name, execute_simple(:async, get_logs, {})]
@@ -419,8 +411,7 @@ module Polly
       #@runners << a
       #puts a.inspect
 
-      $stderr.write("9")
-#####
+      #$stderr.write("9")
 
       @running_jobs[job.run_name] = job
 
@@ -438,9 +429,9 @@ module Polly
       process_fds = @runners.collect { |job_run_name, pod_name, cmd_io| [cmd_io[1], cmd_io[2]] }.flatten.compact
 
       # wait for changes or errors on all stdout/stderr descriptors
-      _r, _w, _e = IO.select(process_fds, nil, process_fds, 1.0)
+      _r, _w, _e = IO.select(process_fds, nil, process_fds, 0.5)
 
-      $stderr.write("A")
+      #$stderr.write("A")
 
       @all_exited = true
 
@@ -471,7 +462,7 @@ module Polly
           begin
             stdout = cmd_io[1].read_nonblock(chunk)
           rescue IO::EAGAINWaitReadable, Errno::EIO, Errno::EAGAIN, Errno::EINTR => err
-            _r, _w, _e = IO.select(process_fds, nil, process_fds, 1.0)
+            _r, _w, _e = IO.select(process_fds, nil, process_fds, 0.5)
             sleep 0.1
           rescue EOFError => err
           end
@@ -479,7 +470,7 @@ module Polly
           begin
             stderr = cmd_io[2].read_nonblock(chunk)
           rescue IO::EAGAINWaitReadable, Errno::EIO, Errno::EAGAIN, Errno::EINTR => err
-            _r, _w, _e = IO.select(process_fds, nil, process_fds, 1.0)
+            _r, _w, _e = IO.select(process_fds, nil, process_fds, 0.5)
             sleep 0.1
           rescue EOFError => err
           end
@@ -488,11 +479,11 @@ module Polly
 
           io_this_loop << [job_run_name, stdout, stderr]
         else
-      $stderr.write("B")
+      #$stderr.write("B")
             proc_wait_value = process_waiter.value
             aok = proc_wait_value.success?
 
-      $stderr.write("C")
+      #$stderr.write("C")
 
           if this_job
             jobs_to_mark_as_completed << this_job
@@ -515,7 +506,7 @@ module Polly
             @running_jobs.delete(job_run_name)
           end
 
-      $stderr.write("D")
+      #$stderr.write("D")
 
             chunk = 65432
             stdout = ""
@@ -523,7 +514,7 @@ module Polly
               output = cmd_io[1].read_nonblock(chunk)
               stdout += output
             rescue IO::EAGAINWaitReadable, Errno::EIO, Errno::EAGAIN, Errno::EINTR => err
-              _r, _w, _e = IO.select(process_fds, nil, process_fds, 1.0)
+              _r, _w, _e = IO.select(process_fds, nil, process_fds, 0.5)
               sleep 0.1
             rescue EOFError => err
             end
@@ -533,7 +524,7 @@ module Polly
               output = cmd_io[2].read_nonblock(chunk)
               stderr += output
             rescue IO::EAGAINWaitReadable, Errno::EIO, Errno::EAGAIN, Errno::EINTR => err
-              _r, _w, _e = IO.select(process_fds, nil, process_fds, 1.0)
+              _r, _w, _e = IO.select(process_fds, nil, process_fds, 0.5)
               sleep 0.1
             rescue EOFError => err
             end
@@ -545,7 +536,7 @@ module Polly
         end
       end
 
-      $stderr.write("E")
+      #$stderr.write("E")
 
       jobs_to_detach.each do |failed_job_run_name|
         @runners.reject! { |job_namish, pod_name, cmd_io|
@@ -567,7 +558,7 @@ module Polly
                 #execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {})
                 get_log_runners << [job_namish, "delete-#{pod_name}", execute_simple(:async, ["kubectl", "delete", "deployment/#{pod_name}"], {})]
 
-puts "wtf"
+#puts "wtf"
 
                 #wait_child
               end
@@ -575,13 +566,13 @@ puts "wtf"
           }
       }
 
-      $stderr.write("F")
+#      $stderr.write("F")
 
       get_log_runners.each { |lr|
         @runners << lr
       }
 
-      $stderr.write("G")
+#      $stderr.write("G")
 
       return jobs_to_mark_as_completed, io_this_loop
     end
@@ -692,7 +683,7 @@ puts "wtf"
       term_threshold = 3
       kill_threshold = term_threshold + 5 #NOTE: timing controls exit status
       total_kill_count = kill_threshold + 7
-      select_timeout = 10.0
+      select_timeout = 0.5
       needs_winsize_update = false
       trapped = false
       self_reader, self_write = IO.pipe
@@ -706,7 +697,7 @@ puts "wtf"
 
         exiting = true
         trapped = true
-        select_timeout = 1.0
+        select_timeout = 0.5
       end
 
       trap 'WINCH' do

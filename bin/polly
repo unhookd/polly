@@ -130,7 +130,7 @@ class PollyTasks < Thor
     #obv.report_stdout("exe", exe.description)
 
     while exe.running? || plan.has_unfinished_jobs?
-      $stderr.write("!")
+      #$stderr.write("!")
       #started_this_loop = []
       plan.jobs_ready_to_start.each do |job_proc|
         job_to_start = job_proc.call
@@ -146,23 +146,23 @@ class PollyTasks < Thor
       #  obv.report_stdout("plan", "started #{started_this_loop.collect(&:run_name)}")
       #end
 
-      $stderr.write("#")
+      #$stderr.write("#")
       finished_this_loop, io_this_loop = exe.wait_for_jobs_to_finish
       
-      $stderr.write("$")
+      #$stderr.write("$")
       finished_this_loop.collect do |finished_job|
         plan.complete_job!(finished_job)
         finished_job
       end
 
-      $stderr.write("%")
+      #$stderr.write("%")
       #NOTE, sort ordering of parallell observation channels arent supported, flush needed twice
       io_this_loop.each do |job_run_name, stdout, stderr|
         obv.report_io(job_run_name, stdout, stderr)
       end
       obv.flush($stdout, $stderr)
 
-      $stderr.write("^")
+      #$stderr.write("^")
       unless finished_this_loop.empty?
         ran_failed, ran_ok = finished_this_loop.partition { |j| j.failed? }
         obv.report_stdout("plan", "finished #{ran_ok.collect(&:run_name)}") unless ran_ok.empty?
@@ -1079,7 +1079,33 @@ HEREDOC
   desc "sh", ""
   def sh(sh_cmd = "bash")
     exe = ::Polly::Execute.new
+
     exec(*["kubectl", "exec", exe.polly_pod, "-i", $stdin.tty? ? "-t" : nil, "--", sh_cmd].compact)
+  end
+
+  desc "waitx", ""
+  def waitx(clean_name, *cmd)
+    exe = ::Polly::Execute.new
+
+    #$stderr.write("waiting for deploy\n")
+    exe.execute_simple(:silent, ["kubectl", "wait", "--for=condition=available", "deployment/#{clean_name}"], {})
+
+    #$stderr.write("listing pods\n")
+    find_all_pods = "kubectl get pods -l name=#{clean_name} -o name | cut -d/ -f2"
+    a = IO.popen(find_all_pods).read.strip
+    #wait_child
+    all_pods = a.split("\n")
+
+    pod_index = 0
+    kube_exec_cmd = [
+                     "kubectl", "exec",
+                     all_pods[pod_index],
+                     "--"
+                    ] + cmd
+
+    o,e,s = exe.execute_simple(:output, kube_exec_cmd, {})
+    #TODO
+    #puts [e, e, s] unless s
   end
 
   desc "logs", ""
