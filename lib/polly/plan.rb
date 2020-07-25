@@ -184,10 +184,11 @@ module Polly
         end
       else
         jobs_with_zero_req.slice(0, @concurrency - count_of_running_jobs).map { |job_run_name|
-          raise "not should ever happen, you found a bug" unless @all_jobs[job_run_name]
-
-          @started[job_run_name] = true
-          @all_jobs[job_run_name]
+          Proc.new {
+            raise "not should ever happen, you found a bug" unless @all_jobs[job_run_name]
+            @started[job_run_name] = true
+            @all_jobs[job_run_name]
+          }
         }.compact
       end
     end

@@ -130,27 +130,39 @@ class PollyTasks < Thor
     #obv.report_stdout("exe", exe.description)
 
     while exe.running? || plan.has_unfinished_jobs?
-      started_this_loop = plan.jobs_ready_to_start.collect do |job_to_start|
+      $stderr.write("!")
+      #started_this_loop = []
+      plan.jobs_ready_to_start.each do |job_proc|
+        job_to_start = job_proc.call
+        
+        obv.report_stdout("plan", "started #{job_to_start.run_name}")
+        obv.flush($stdout, $stderr)
         exe.start_job!(job_to_start)
+        break
       end
 
-      unless started_this_loop.empty?
-        obv.report_stdout("plan", "started #{started_this_loop.collect(&:run_name)}")
-      end
+      #$stderr.write("@")
+      #unless started_this_loop.empty?
+      #  obv.report_stdout("plan", "started #{started_this_loop.collect(&:run_name)}")
+      #end
 
+      $stderr.write("#")
       finished_this_loop, io_this_loop = exe.wait_for_jobs_to_finish
       
+      $stderr.write("$")
       finished_this_loop.collect do |finished_job|
         plan.complete_job!(finished_job)
         finished_job
       end
 
+      $stderr.write("%")
       #NOTE, sort ordering of parallell observation channels arent supported, flush needed twice
       io_this_loop.each do |job_run_name, stdout, stderr|
         obv.report_io(job_run_name, stdout, stderr)
       end
       obv.flush($stdout, $stderr)
 
+      $stderr.write("^")
       unless finished_this_loop.empty?
         ran_failed, ran_ok = finished_this_loop.partition { |j| j.failed? }
         obv.report_stdout("plan", "finished #{ran_ok.collect(&:run_name)}") unless ran_ok.empty?
@@ -1180,7 +1192,7 @@ HEREDOC
     Process.kill(:INT, process_waiter.pid)
     process_waiter.kill
     process_waiter.join
-    exe.wait_child
+    #exe.wait_child
 
     o
   end
