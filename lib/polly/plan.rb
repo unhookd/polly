@@ -2,7 +2,7 @@
 
 module Polly
   class Plan
-    DEFAULT_CONCURRENCY = 1
+    DEFAULT_CONCURRENCY = 4
     DEFAULT_CIRCLECI_CONFIG_YML_PATH = ".circleci/config.yml"
 
     attr_accessor :all_jobs
