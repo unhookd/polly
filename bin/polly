@@ -434,19 +434,12 @@ spec:
         env:
         - name: BUILDKITD_FLAGS
           value: --oci-worker-no-process-sandbox
-        #- name: PATH
-        #  value: /bin:/sbin:/usr/bin:/usr/sbin:/polly-safe/bin
-        #- name: AWS_REGION
-        #  value: us-west-2
         command:
-        ##- sleep
-        ##- "9999"
         - buildctl-daemonless.sh
         args:
-        #- --oci-worker-no-process-sandbox
         - build
-        - --import-cache
-        - type=registry,ref=polly-registry:443/#{app}
+        #- --import-cache
+        #- type=registry,ref=polly-registry:443/#{app}
         - --import-cache
         - type=local,src=/polly-safe/buildkit,mode=max
         - --frontend

@@ -37,7 +37,7 @@ then
     unset GIT_DIR
 
     polly build --in-cluster
-    #polly test
+    polly test
 
     export GIT_DIR="."
   fi
