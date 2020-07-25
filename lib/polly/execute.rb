@@ -458,8 +458,6 @@ module Polly
 
           process_waiter.join(0.1)
 
-          #puts "found #{[job_run_name, stdout, stderr]}"
-
           io_this_loop << [job_run_name, stdout, stderr]
         else
             proc_wait_value = process_waiter.value
@@ -510,16 +508,11 @@ module Polly
             exit_proc = cmd_io[4]
             exit_proc.call(stdout, stderr, proc_wait_value, false)
 
-            # puts "last found #{[job_run_name, stdout, stderr]}"
-
             io_this_loop << [job_run_name, stdout, stderr]
-
         end
       end
 
       jobs_to_detach.each do |failed_job_run_name|
-        #failed_job.parameters[:executor_hints][:detach] = true
-        #start_job!(failed_job)
         @runners.reject! { |job_namish, pod_name, cmd_io|
           failed_job_run_name == job_namish
         }
@@ -528,27 +521,20 @@ module Polly
       get_log_runners = []
 
       jobs_to_mark_as_completed.each { |job_thang|
-        #unless job_thang.parameters[:executor_hints][:detach]
           @runners.each { |job_namish, pod_name, cmd_io|
-            #puts [jobs_to_mark_as_completed, jobs_to_detach, job_namish, pod_name].inspect
-
             if job_thang.run_name == job_namish
-        #  #if jobs_to_mark_as_completed.include?(job_namish)
               unless jobs_to_keep_completed.include?(job_thang) || jobs_to_detach.include?(job_thang.run_name)
-
                 get_logs = ["kubectl", "logs", "-l", "name=#{pod_name}", "--all-containers=true"]
-                ##execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {})
-                #@runners << [job_namish, pod_name, execute_simple(:async, get_logs, {})]
-                @all_exited = false
-                get_log_runners << [job_namish, "logs-#{pod_name}", execute_simple(:async, get_logs, {})]
-                #puts ["made log-runners", job_namish, pod_name, get_logs].inspect
+                #@all_exited = false
+                #get_log_runners << [job_namish, "logs-#{pod_name}", execute_simple(:async, get_logs, {})]
+                o,e,s = execute_simple(:output, get_logs, {})
+                io_this_loop << [job_namish, o, e]
 
                 execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {})
                 wait_child
               end
             end
           }
-        #end
       }
 
       get_log_runners.each { |lr|
@@ -564,8 +550,9 @@ module Polly
 #puts "run? #{@exiting} #{@all_exited}"
 
       if @exiting || @all_exited
-        $stderr.write($/)
-        $stderr.write("caught SIGINT, shutting down, please wait...")
+        #$stderr.write($/)
+        #$stderr.write("caught SIGINT, shutting down, please wait...")
+        #$stderr.write($/)
 
         #TODO: handle better --wait-for flags
         unless (@keep_completed || @detach_failed)
@@ -579,23 +566,23 @@ module Polly
     end
 
     def wait_for_cleanup
-      $stderr.write("cleaning up, please wait...")
+      #$stderr.write($/)
+      #$stderr.write("cleaning up, please wait...")
+      #$stderr.write($/)
 
       all_ok = @runners.all? { |job_run_name, pod_name, cmd_io| cmd_io.empty? || (!cmd_io[3].alive? && cmd_io[3].value.success?) }
 
       unless (@keep_completed || @detach_failed)
-        $stderr.write("deleting deployment...")
+        #$stderr.write("deleting deployment...")
         @runners.collect { |job_run_name, pod_name, cmd_io| execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {}) }
       end
 
       while (!@detach_failed && !@keep_completed && @runners.any? { |job_run_name, pod_name, cmd_io|
-        $stderr.write(".")
         #TODO:
         #execute_simple(:silent, ["kubectl", "get", "pod/#{pod_name}"], {})
         #execute_simple(:silent, ["kubectl", "wait", "pod/#{pod_name}"], {})
         execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{pod_name}"], {})
       }) do
-        $stderr.write(".")
         sleep 0.1
       end
 
@@ -603,7 +590,7 @@ module Polly
 
       trap 'INT', 'DEFAULT'
 
-      $stderr.write($/)
+      #$stderr.write($/)
       
       all_ok
     end
@@ -721,6 +708,7 @@ module Polly
         if exiting
           exit_grace_counter += 1
 
+          $stderr.write($/)
           $stdout.write(" ... trying to exit gracefully, please wait #{exit_grace_counter} / #{total_kill_count}")
           $stdout.write($/)
 
@@ -791,6 +779,7 @@ module Polly
             detected_exited << pid
             process_result = process_waiter.value
 
+            $stdout.write($/)
             $stdout.write("#{process_name} exited... #{process_result.success?}")
             $stdout.write($/)
           end

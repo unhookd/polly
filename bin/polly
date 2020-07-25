@@ -111,12 +111,11 @@ class PollyTasks < Thor
 
     #TODO: switch plan based on detected hueristics here
     if File.exists?(config)
-      obv.report_stdout("debug", "using #{config} for config")
+      #obv.report_stdout("debug", "using #{config} for config")
       if config.include?("Pollyfile")
         pollyfile_ruby = File.read("Pollyfile")
         Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
         generated_circleci_config_yml = YAML.dump(Polly::Generate.read_circleci_output)
-        puts generated_circleci_config_yml
         plan.load_circleci(generated_circleci_config_yml)
       else
         plan.load_circleci(File.read(config))
@@ -127,9 +126,8 @@ class PollyTasks < Thor
 
     obv.register_channels(plan.all_jobs.collect { |key, _| key })
 
-    obv.report_stdout("plan", plan.description)
-
-    obv.report_stdout("exe", exe.description)
+    #obv.report_stdout("plan", plan.description)
+    #obv.report_stdout("exe", exe.description)
 
     while exe.running? || plan.has_unfinished_jobs?
       started_this_loop = plan.jobs_ready_to_start.collect do |job_to_start|
@@ -147,16 +145,17 @@ class PollyTasks < Thor
         finished_job
       end
 
+      #NOTE, sort ordering of parallell observation channels arent supported, flush needed twice
       io_this_loop.each do |job_run_name, stdout, stderr|
         obv.report_io(job_run_name, stdout, stderr)
       end
+      obv.flush($stdout, $stderr)
 
       unless finished_this_loop.empty?
         ran_failed, ran_ok = finished_this_loop.partition { |j| j.failed? }
         obv.report_stdout("plan", "finished #{ran_ok.collect(&:run_name)}") unless ran_ok.empty?
         obv.report_stderr("plan", "failed #{ran_failed.collect(&:run_name)}") unless ran_failed.empty?
       end
-
       obv.flush($stdout, $stderr)
     end
 
@@ -206,7 +205,6 @@ class PollyTasks < Thor
 
     #exe.systemx(*bootstrap_recv_pack)
 
-    puts exe.polly_pod
     raise "no polly" if exe.polly_pod.empty?
 
     git_repo_template_install_cmd = [
@@ -246,12 +244,7 @@ class PollyTasks < Thor
     #o,e,s = exe.execute_simple(:output, apply_job, options)
     #puts [o, e]
 
-status_list = Open3.pipeline(cat_image_cmd, docker_tag_cmd)
-
-#puts status_list
-
-    #exe.systemx(*git_init_cmd)
-    
+    status_list = Open3.pipeline(cat_image_cmd, docker_tag_cmd)
   end
 
   desc "receive-pack [ORIGIN]", "(internal) receive incoming git send-pack"
@@ -350,8 +343,6 @@ HEREDOC
       generated_dockerfile_fd.rewind
     end
 
-puts options.inspect
-
     if options["in-cluster"]
       polly_dockerfile_config = []
       polly_dockerfile_config << <<-HEREDOC
@@ -364,8 +355,6 @@ binaryData:
   Dockerfile: #{Base64.strict_encode64(generated_dockerfile_fd.read)}
 ...
 HEREDOC
-
-puts polly_dockerfile_config
 
       apply_job = ["kubectl", "apply", "-f", "-"]
       apply_options = {:stdin_data => polly_dockerfile_config.join}
@@ -536,8 +525,6 @@ HEREDOC
       build_pod = exe.polly_pod("job-name=polly-buildkit-#{app}")
       exec(*["kubectl", "logs", build_pod, "-f"].compact)
     else
-      puts options.inspect
-
       build_dockerfile = [
         {"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
         "docker", "build", "--progress=plain", "--ssh", "default",
@@ -1075,8 +1062,6 @@ HEREDOC
     wait_polly_app = ["kubectl", "rollout", "status", "deployment/polly-git"]
     o,e,s = exe.execute_simple(:output, wait_polly_app, {})
     puts [o, e, s]
-
-    puts exe.polly_pod
   end
 
   desc "sh", ""
@@ -1145,7 +1130,7 @@ HEREDOC
       Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
       generated_circleci_config_yml = YAML.dump(Polly::Generate.read_circleci_output)
       
-      puts generated_circleci_config_yml
+      $stdout.write(generated_circleci_config_yml)
     else
       $stdout.write(Polly::Generate.read_output)
     end
