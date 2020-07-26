@@ -15,10 +15,11 @@ module Polly
 
   class Error < StandardError; end
 
-  autoload 'Plan', 'polly/plan'
+  autoload 'Build', 'polly/build'
+  autoload 'Config', 'polly/config'
   autoload 'Execute', 'polly/execute'
+  autoload 'Generate', 'polly/generate'
   autoload 'Job', 'polly/job'
   autoload 'Observe', 'polly/observe'
-  autoload 'Generate', 'polly/generate'
-  autoload 'Config', 'polly/config'
+  autoload 'Plan', 'polly/plan'
 end

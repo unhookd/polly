@@ -343,18 +343,16 @@ HEREDOC
     app = exe.current_app
     image_repo = Polly::Config.image_repo
 
-    generated_dockerfile_fd = nil
-
     if container_definition == "-"
       pollyfile_ruby = File.read("Pollyfile")
       #TODO: ??? Polly::Generate.options = options
       Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
       generated_dockerfile = Polly::Generate.read_output
-      generated_dockerfile_fd = Tempfile.new("dockerfile")
-      generated_dockerfile_fd.write(generated_dockerfile)
     end
 
     if options["in-cluster"]
+      generated_dockerfile_fd = nil
+
       polly_dockerfile_config = []
       polly_dockerfile_config << <<-HEREDOC
 ---
@@ -539,20 +537,7 @@ HEREDOC
       exec(*["kubectl", "logs", build_pod, "-f"].compact)
     else
       Polly::Generate.all_images.each { |build_image|
-        generated_dockerfile_fd.rewind
-
-        build_dockerfile = [
-          {"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
-          "docker", "build", "--progress=plain", "--ssh", "default",
-          options["no-cache"] ? "--no-cache" : nil, "-t",
-          app + ":" + build_image.stage + "-" + version, ".", "--target", build_image.stage, "-f", container_definition, generated_dockerfile_fd.nil? ? {} : {:in => generated_dockerfile_fd}
-        ].compact
-
-        #o,e,s = exe.execute_simple(:output, build_dockerfile, io_options)
-        #puts [o, e]
-        exe.systemx(*build_dockerfile)
-      
-        puts "Built and tagged: #{app}:#{build_image.stage}-#{version} OK" unless options["explain"]
+        Polly::Build.buildkit_external(exe, app, build_image, version, generated_dockerfile, options["no-cache"])
       }
 
       #tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":latest"]
