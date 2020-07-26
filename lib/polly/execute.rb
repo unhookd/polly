@@ -54,15 +54,18 @@ module Polly
     end
 
     def check_current_kube_context_is_safe!
-      current_kube_context = IO.popen("kubectl config current-context").read.strip
-      return true if current_kube_context.empty?
-      #wait_child
-      raise "unsafe kubernetes context #{current_kube_context}" unless Polly::Config.allowed_contexts.include?(current_kube_context)
-    rescue Errno::ENOENT
-      #TODO: is this the case of missing kubectl ??? is that safe ???
-      #puts current_kube_context
-      #TODO: more debug and better safety checks
-      false
+      if File.exists?(File.join(Etc.getpwuid.dir, ".kube/config")) || ENV['KUBE_CONFIG']
+        begin
+          current_kube_context = IO.popen("kubectl config current-context").read.strip
+          return true if current_kube_context.empty?
+        rescue Errno::ENOENT
+          #TODO: is this the case of missing kubectl ??? is that safe ???
+        end
+
+        wait_child
+
+        raise "unsafe kubernetes context #{current_kube_context}" unless Polly::Config.allowed_contexts.include?(current_kube_context)
+      end
     end
 
     def current_revision

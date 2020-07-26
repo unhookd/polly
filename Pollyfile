@@ -91,7 +91,9 @@
   #run %q{bundle install --path=~/vendor/bundle --jobs=4 --retry=3 --deployment --with "development"}
 
   #run %q{ssh-add -l}
-  #run %q{kubectl config set-context polly-ci}
+
+  run %q{kubectl config set-context polly-ci}
+  run %q{kubectl config use-context polly-ci}
 }
 
 @plain_workflow = Plan.new
