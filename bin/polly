@@ -382,7 +382,9 @@ HEREDOC
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: polly-buildkit-#{app}
+  name: buildkit-#{app}
+  labels:
+    stack: polly
 spec:
   backoffLimit: 0
   template:
