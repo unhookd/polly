@@ -353,6 +353,8 @@ HEREDOC
       generated_dockerfile_fd = Tempfile.new("dockerfile")
       generated_dockerfile_fd.write(generated_dockerfile)
       generated_dockerfile_fd.rewind
+      puts Polly::Generate.all_images
+      exit 32
     end
 
     if options["in-cluster"]
