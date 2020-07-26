@@ -352,9 +352,6 @@ HEREDOC
       generated_dockerfile = Polly::Generate.read_output
       generated_dockerfile_fd = Tempfile.new("dockerfile")
       generated_dockerfile_fd.write(generated_dockerfile)
-      generated_dockerfile_fd.rewind
-      puts Polly::Generate.all_images
-      exit 32
     end
 
     if options["in-cluster"]
@@ -541,27 +538,31 @@ HEREDOC
       build_pod = exe.polly_pod("job-name=polly-buildkit-#{app}")
       exec(*["kubectl", "logs", build_pod, "-f"].compact)
     else
-      build_dockerfile = [
-        {"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
-        "docker", "build", "--progress=plain", "--ssh", "default",
-        options["no-cache"] ? "--no-cache" : nil, "-t",
-        app + ":" + version, ".", "-f", container_definition, generated_dockerfile_fd.nil? ? {} : {:in => generated_dockerfile_fd}
-      ].compact
+      Polly::Generate.all_images.each { |build_image|
+        generated_dockerfile_fd.rewind
 
-      #o,e,s = exe.execute_simple(:output, build_dockerfile, io_options)
-      #puts [o, e]
-      exe.systemx(*build_dockerfile)
+        build_dockerfile = [
+          {"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
+          "docker", "build", "--progress=plain", "--ssh", "default",
+          options["no-cache"] ? "--no-cache" : nil, "-t",
+          app + ":" + build_image.stage + "-" + version, ".", "--target", build_image.stage, "-f", container_definition, generated_dockerfile_fd.nil? ? {} : {:in => generated_dockerfile_fd}
+        ].compact
 
-      tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":latest"]
-      exe.systemx(*tag_dockerfile)
+        #o,e,s = exe.execute_simple(:output, build_dockerfile, io_options)
+        #puts [o, e]
+        exe.systemx(*build_dockerfile)
+      
+        puts "Built and tagged: #{app}:#{build_image.stage}-#{version} OK" unless options["explain"]
+      }
 
-      tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":git-latest"]
-      exe.systemx(*tag_dockerfile)
+      #tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":latest"]
+      #exe.systemx(*tag_dockerfile)
 
-      tag_dockerfile = ["docker", "tag", app + ":" + version, "localhost/" + app + ":git-latest"]
-      exe.systemx(*tag_dockerfile)
+      #tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":git-latest"]
+      #exe.systemx(*tag_dockerfile)
 
-      puts "Built and tagged: #{app}:#{version} OK" unless options["explain"]
+      #tag_dockerfile = ["docker", "tag", app + ":" + version, "localhost/" + app + ":git-latest"]
+      #exe.systemx(*tag_dockerfile)
     end
 
     #if options["push"]
