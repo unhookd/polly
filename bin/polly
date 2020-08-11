@@ -111,12 +111,11 @@ class PollyTasks < Thor
 
     #TODO: switch plan based on detected hueristics here
     if File.exists?(config)
-      obv.report_stdout("debug", "using #{config} for config")
+      #obv.report_stdout("debug", "using #{config} for config")
       if config.include?("Pollyfile")
         pollyfile_ruby = File.read("Pollyfile")
         Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
         generated_circleci_config_yml = YAML.dump(Polly::Generate.read_circleci_output)
-        puts generated_circleci_config_yml
         plan.load_circleci(generated_circleci_config_yml)
       else
         plan.load_circleci(File.read(config))
@@ -127,36 +126,48 @@ class PollyTasks < Thor
 
     obv.register_channels(plan.all_jobs.collect { |key, _| key })
 
-    obv.report_stdout("plan", plan.description)
-
-    obv.report_stdout("exe", exe.description)
+    #obv.report_stdout("plan", plan.description)
+    #obv.report_stdout("exe", exe.description)
 
     while exe.running? || plan.has_unfinished_jobs?
-      started_this_loop = plan.jobs_ready_to_start.collect do |job_to_start|
+      #$stderr.write("!")
+      #started_this_loop = []
+      plan.jobs_ready_to_start.each do |job_proc|
+        job_to_start = job_proc.call
+        
+        obv.report_stdout("plan", "started #{job_to_start.run_name}")
+        obv.flush($stdout, $stderr)
         exe.start_job!(job_to_start)
+        break
       end
 
-      unless started_this_loop.empty?
-        obv.report_stdout("plan", "started #{started_this_loop.collect(&:run_name)}")
-      end
+      #$stderr.write("@")
+      #unless started_this_loop.empty?
+      #  obv.report_stdout("plan", "started #{started_this_loop.collect(&:run_name)}")
+      #end
 
+      #$stderr.write("#")
       finished_this_loop, io_this_loop = exe.wait_for_jobs_to_finish
       
+      #$stderr.write("$")
       finished_this_loop.collect do |finished_job|
         plan.complete_job!(finished_job)
         finished_job
       end
 
+      #$stderr.write("%")
+      #NOTE, sort ordering of parallell observation channels arent supported, flush needed twice
       io_this_loop.each do |job_run_name, stdout, stderr|
         obv.report_io(job_run_name, stdout, stderr)
       end
+      obv.flush($stdout, $stderr)
 
+      #$stderr.write("^")
       unless finished_this_loop.empty?
         ran_failed, ran_ok = finished_this_loop.partition { |j| j.failed? }
         obv.report_stdout("plan", "finished #{ran_ok.collect(&:run_name)}") unless ran_ok.empty?
         obv.report_stderr("plan", "failed #{ran_failed.collect(&:run_name)}") unless ran_failed.empty?
       end
-
       obv.flush($stdout, $stderr)
     end
 
@@ -206,7 +217,6 @@ class PollyTasks < Thor
 
     #exe.systemx(*bootstrap_recv_pack)
 
-    puts exe.polly_pod
     raise "no polly" if exe.polly_pod.empty?
 
     git_repo_template_install_cmd = [
@@ -246,12 +256,7 @@ class PollyTasks < Thor
     #o,e,s = exe.execute_simple(:output, apply_job, options)
     #puts [o, e]
 
-status_list = Open3.pipeline(cat_image_cmd, docker_tag_cmd)
-
-#puts status_list
-
-    #exe.systemx(*git_init_cmd)
-    
+    status_list = Open3.pipeline(cat_image_cmd, docker_tag_cmd)
   end
 
   desc "receive-pack [ORIGIN]", "(internal) receive incoming git send-pack"
@@ -338,234 +343,34 @@ HEREDOC
     app = exe.current_app
     image_repo = Polly::Config.image_repo
 
-    generated_dockerfile_fd = nil
-
-    if container_definition == "-"
+    if container_definition == "-" && File.exists?("Pollyfile")
       pollyfile_ruby = File.read("Pollyfile")
       #TODO: ??? Polly::Generate.options = options
       Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
       generated_dockerfile = Polly::Generate.read_output
-      generated_dockerfile_fd = Tempfile.new("dockerfile")
-      generated_dockerfile_fd.write(generated_dockerfile)
-      generated_dockerfile_fd.rewind
+    else
+      generated_dockerfile = File.read(container_definition)
     end
 
-puts options.inspect
-
     if options["in-cluster"]
-      polly_dockerfile_config = []
-      polly_dockerfile_config << <<-HEREDOC
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: polly-dockerfile-#{app}
-binaryData:
-  Dockerfile: #{Base64.strict_encode64(generated_dockerfile_fd.read)}
-...
-HEREDOC
-
-puts polly_dockerfile_config
-
-      apply_job = ["kubectl", "apply", "-f", "-"]
-      apply_options = {:stdin_data => polly_dockerfile_config.join}
-      o,e,s = exe.execute_simple(:output, apply_job, apply_options)
-      puts [o, e]
-
-      origin = "/polly-safe/git/#{app}"
-
-      build_jobs = ""
-
-      build_jobs << <<-HEREDOC
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: polly-buildkit-#{app}
-spec:
-  backoffLimit: 0
-  template:
-    metadata:
-      annotations:
-        container.apparmor.security.beta.kubernetes.io/buildkit: unconfined
-        container.seccomp.security.alpha.kubernetes.io/buildkit: unconfined
-    spec:
-      restartPolicy: Never
-
-      initContainers:
-      #- name: amazon-ecr-credential-helper-build
-      #  image: golang:1.9.1-alpine3.6
-      #  command:
-      #  - sh
-      #  - -c
-      #  - "test -e /polly-safe/bin/docker-credential-ecr-login || (apk --no-cache add git && go get -u github.com/awslabs/amazon-ecr-credential-helper/ecr-login/cli/docker-credential-ecr-login && mkdir /polly-safe/bin && mv /go/bin/docker-credential-ecr-login /polly-safe/bin)"
-      #  securityContext:
-      #    runAsUser: 0
-      #    runAsGroup: 0
-      #  volumeMounts:
-      #  - name: polly-mount
-      #    mountPath: /polly-safe
-      - name: git-clone
-        image: alpine/git:latest
-        command:
-        - git
-        - clone
-        - -b
-        - #{branch}
-        - #{origin}
-        - .
-        workingDir: /home/app/#{app}
-        securityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
-        volumeMounts:
-        - name: workspace
-          mountPath: /home/app/#{app}
-        - name: polly-mount
-          mountPath: /polly-safe
-        - mountPath: /etc/ssl/certs
-          name: ca-certificates
-          readOnly: true
-      containers:
-      - name: buildkit
-        workingDir: /home/app/#{app}
-        image: moby/buildkit:master-rootless
-        #image: moby/buildkit:v0.6.4-rootless
-        env:
-        - name: BUILDKITD_FLAGS
-          value: --oci-worker-no-process-sandbox
-        #- name: PATH
-        #  value: /bin:/sbin:/usr/bin:/usr/sbin:/polly-safe/bin
-        #- name: AWS_REGION
-        #  value: us-west-2
-        command:
-        ##- sleep
-        ##- "9999"
-        - buildctl-daemonless.sh
-        args:
-        #- --oci-worker-no-process-sandbox
-        - build
-        - --import-cache
-        - type=registry,ref=polly-registry:443/#{app}
-        - --import-cache
-        - type=local,src=/polly-safe/buildkit,mode=max
-        - --frontend
-        - dockerfile.v0
-        - --local
-        - context=/home/app/#{app}
-        - --local
-        - dockerfile=/tmp/#{app}
-        #- --export-cache
-        #- type=inline
-        #- --export-cache
-        #- type=registry,ref=polly-registry:443/#{app}
-        - --export-cache
-        - type=local,dest=/polly-safe/buildkit,mode=max
-        - --output
-        - type=tar,dest=/polly-safe/buildkit/#{app}-#{version}.tar
-        #- --output
-        #- type=image,name=#{image_repo}/#{app}:#{version},push=true
-        ##- --output
-        ##- type=image,name=polly-registry:443/#{app}:#{version},push=true
-        resources:
-          requests:
-            memory: 5000Mi
-            cpu: 500m
-          limits:
-            memory: 5000Mi
-            cpu: 4000m
-        securityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
-        volumeMounts:
-        #- mountPath: /home/user/.docker/config.json
-        #  subPath: config.json
-        #  name: docker-config
-        - mountPath: /tmp/#{app}/Dockerfile
-          subPath: Dockerfile
-          name: polly-dockerfile-#{app}
-        - name: workspace
-          mountPath: /home/app/#{app}
-          readOnly: true
-        - name: polly-mount
-          mountPath: /polly-safe
-          #readOnly: true
-        - mountPath: /etc/ssl/certs
-          name: ca-certificates
-          readOnly: true
-        - mountPath: /etc/ssl/cert.pem
-          subPath: ca-certificates.crt
-          name: ca-certificates
-      volumes:
-      #- name: docker-config
-      #  secret:
-      #    secretName: docker-config
-      - name: polly-dockerfile-#{app}
-        configMap:
-          name: polly-dockerfile-#{app}
-      - name: ca-certificates
-        secret:
-          secretName: ca-certificates
-      - name: polly-mount
-        persistentVolumeClaim:
-          claimName: polly-mount
-      - name: workspace
-        emptyDir: {}
-...
-HEREDOC
-
-      build_pod_label = "job-name=polly-buildkit-#{app}"
-
-      delete_job = ["kubectl", "delete", "-f", "-"]
-      io_options = {:stdin_data => build_jobs}
-      o,e,s = exe.execute_simple(:output, delete_job, io_options)
-
-      wait_build_pod_deleted = ["kubectl", "wait", "--for=delete", "pod", "-l", "job-name=polly-buildkit-#{app}"]
-      o,e,s = exe.execute_simple(:output, wait_build_pod_deleted, {})
-
-      build_job_apply = ["kubectl", "apply", "-f", "-"]
-      io_options = {:stdin_data => build_jobs}
-      o,e,s = exe.execute_simple(:output, build_job_apply, io_options)
-      puts [o, e]
-
-      wait_build_job = ["kubectl", "get", "pods", "-l", build_pod_label, "-o", "jsonpath={..status.conditions[?(@.type=='Ready')].status}"]
-      o,e,s = "False"
-
-      while o != "True" && exe.running?
-        sleep 1
-        o,e,s = exe.execute_simple(:output, ["kubectl", "logs", "-l", build_pod_label, "-c", "git-clone"], {})
-        if s
-          puts [o, e]
-          o,e,s = exe.execute_simple(:output, wait_build_job, {})
-        end
-      end
-
-      build_pod = exe.polly_pod("job-name=polly-buildkit-#{app}")
-      exec(*["kubectl", "logs", build_pod, "-f"].compact)
+      Polly::Generate.all_images.each { |build_image|
+        Polly::Build.buildkit_internal(exe, app, build_image, version, generated_dockerfile, options["no-cache"])
+      }
     else
-      puts options.inspect
+      #Polly::Generate.all_images.each { |build_image|
+      #  Polly::Build.buildkit_external(exe, app, build_image.stage, version, generated_dockerfile, options["no-cache"])
+      #}
 
-      build_dockerfile = [
-        {"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
-        "docker", "build", "--progress=plain", "--ssh", "default",
-        options["no-cache"] ? "--no-cache" : nil, "-t",
-        app + ":" + version, ".", "-f", container_definition, generated_dockerfile_fd.nil? ? {} : {:in => generated_dockerfile_fd}
-      ].compact
+      Polly::Build.buildkit_external(exe, app, "wkndr", version, generated_dockerfile, options["no-cache"])
 
-      #o,e,s = exe.execute_simple(:output, build_dockerfile, io_options)
-      #puts [o, e]
-      exe.systemx(*build_dockerfile)
+      #tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":latest"]
+      #exe.systemx(*tag_dockerfile)
 
-      tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":latest"]
-      exe.systemx(*tag_dockerfile)
+      #tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":git-latest"]
+      #exe.systemx(*tag_dockerfile)
 
-      tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":git-latest"]
-      exe.systemx(*tag_dockerfile)
-
-      tag_dockerfile = ["docker", "tag", app + ":" + version, "localhost/" + app + ":git-latest"]
-      exe.systemx(*tag_dockerfile)
-
-      puts "Built and tagged: #{app}:#{version} OK" unless options["explain"]
+      #tag_dockerfile = ["docker", "tag", app + ":" + version, "localhost/" + app + ":git-latest"]
+      #exe.systemx(*tag_dockerfile)
     end
 
     #if options["push"]
@@ -792,7 +597,7 @@ kind: PersistentVolumeClaim
 metadata:
   annotations:
   labels:
-    app: polly
+    stack: polly
   name: polly-mount
 spec:
   accessModes:
@@ -800,21 +605,21 @@ spec:
   resources:
     requests:
       storage: 10Gi
-  #storageClassName: local-storage
+  storageClassName: local-storage
 ...
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: polly-mount
-#  labels:
-#    type: local
+  labels:
+    stack: polly
 spec:
   capacity:
     storage: 10Gi
   accessModes:
     - ReadWriteMany
-  #storageClassName: local-storage
+  storageClassName: local-storage
   hostPath:
     path: /var/tmp/polly-safe
 ...
@@ -1082,14 +887,38 @@ HEREDOC
     wait_polly_app = ["kubectl", "rollout", "status", "deployment/polly-git"]
     o,e,s = exe.execute_simple(:output, wait_polly_app, {})
     puts [o, e, s]
-
-    puts exe.polly_pod
   end
 
   desc "sh", ""
   def sh(sh_cmd = "bash")
     exe = ::Polly::Execute.new
+
     exec(*["kubectl", "exec", exe.polly_pod, "-i", $stdin.tty? ? "-t" : nil, "--", sh_cmd].compact)
+  end
+
+  desc "waitx", ""
+  def waitx(clean_name, *cmd)
+    exe = ::Polly::Execute.new
+
+    #$stderr.write("waiting for deploy\n")
+    exe.execute_simple(:silent, ["kubectl", "wait", "--for=condition=available", "deployment/#{clean_name}"], {})
+
+    #$stderr.write("listing pods\n")
+    find_all_pods = "kubectl get pods -l name=#{clean_name} -o name | cut -d/ -f2"
+    a = IO.popen(find_all_pods).read.strip
+    #wait_child
+    all_pods = a.split("\n")
+
+    pod_index = 0
+    kube_exec_cmd = [
+                     "kubectl", "exec",
+                     all_pods[pod_index],
+                     "--"
+                    ] + cmd
+
+    o,e,s = exe.execute_simple(:output, kube_exec_cmd, {})
+    #TODO
+    #puts [e, e, s] unless s
   end
 
   desc "logs", ""
@@ -1152,7 +981,7 @@ HEREDOC
       Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
       generated_circleci_config_yml = YAML.dump(Polly::Generate.read_circleci_output)
       
-      puts generated_circleci_config_yml
+      $stdout.write(generated_circleci_config_yml)
     else
       $stdout.write(Polly::Generate.read_output)
     end
@@ -1202,7 +1031,7 @@ HEREDOC
     Process.kill(:INT, process_waiter.pid)
     process_waiter.kill
     process_waiter.join
-    exe.wait_child
+    #exe.wait_child
 
     o
   end
@@ -1256,27 +1085,29 @@ kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
   name: polly-sandbox-claim
+  labels:
+    stack: polly
 spec:
   accessModes:
     - ReadWriteMany
   resources:
     requests:
       storage: 10Gi
-  #storageClassName: local-storage
+  storageClassName: local-storage
 ...
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: polly-sandbox
-#  labels:
-#    type: local
+  labels:
+    stack: local
 spec:
   capacity:
     storage: 10Gi
   accessModes:
     - ReadWriteMany
-  #storageClassName: local-storage
+  storageClassName: local-storage
   hostPath:
     path: /var/tmp/polly-safe
 ...

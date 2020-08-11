@@ -31,10 +31,6 @@
   run %q{groupadd --gid 134 abc-otf}
   run %q{groupadd --gid 999 efg-nnn}
   
-  #run %q{adduser app abc-otf}
-  #run %q{adduser app docker-nnn}
-  #run %q{adduser app docker}
-
   run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn}
 
   #TODO: workdir module
@@ -91,10 +87,15 @@
   #run %q{bundle install --path=~/vendor/bundle --jobs=4 --retry=3 --deployment --with "development"}
 
   #run %q{ssh-add -l}
-  #run %q{kubectl config set-context polly-ci}
+
+  run %q{kubectl config set-context polly-ci}
+  run %q{kubectl config use-context polly-ci}
 }
 
 @plain_workflow = Plan.new
+#@plain_workflow.add_circleci_job("bootstrap-5", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-5", "command"=>"sleep 5"}}], {}, "/")
+#@plain_workflow.add_circleci_job("bootstrap-30", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-30", "command"=>"sleep 30"}}], {}, "/")
+#@plain_workflow.add_circleci_job("bootstrap-60", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-60", "command"=>"sleep 60"}}], {}, "/")
 @plain_workflow.add_circleci_job("bootstrap", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"bootstrap", "command"=>"
 id app || (#{@bootstrap.command_list.join("; ")})
 chown -R app /home/app
@@ -104,7 +105,6 @@ su app -s /bin/bash -c '#{@deploy.command_list.join(" && ")}'
 su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /usr/local/bin/polly -- build
 docker run --rm=true polly:latest bundle exec rspec
 "}}], {}, "/home/app/polly") #TODO: workingdir module
-
 
 #@plain_workflow.add_circleci_job("primary", [{"image"=>"polly:latest"}], [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {"BUNDLE_PATH" => "/home/app/vendor/bundle"}, "/home/app/polly")
 #@plain_workflow.depends("primary", "bootstrap")
