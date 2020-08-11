@@ -343,11 +343,13 @@ HEREDOC
     app = exe.current_app
     image_repo = Polly::Config.image_repo
 
-    if container_definition == "-"
+    if container_definition == "-" && File.exists?("Pollyfile")
       pollyfile_ruby = File.read("Pollyfile")
       #TODO: ??? Polly::Generate.options = options
       Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
       generated_dockerfile = Polly::Generate.read_output
+    else
+      generated_dockerfile = File.read(container_definition)
     end
 
     if options["in-cluster"]
@@ -355,9 +357,11 @@ HEREDOC
         Polly::Build.buildkit_internal(exe, app, build_image, version, generated_dockerfile, options["no-cache"])
       }
     else
-      Polly::Generate.all_images.each { |build_image|
-        Polly::Build.buildkit_external(exe, app, build_image, version, generated_dockerfile, options["no-cache"])
-      }
+      #Polly::Generate.all_images.each { |build_image|
+      #  Polly::Build.buildkit_external(exe, app, build_image.stage, version, generated_dockerfile, options["no-cache"])
+      #}
+
+      Polly::Build.buildkit_external(exe, app, "wkndr", version, generated_dockerfile, options["no-cache"])
 
       #tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":latest"]
       #exe.systemx(*tag_dockerfile)

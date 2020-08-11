@@ -3,25 +3,25 @@
 module Polly
   class Build
 
-    def self.build_image_to_tag(app, build_image, version)
-      app + ":" + build_image.stage + "-" + version
+    def self.build_image_to_tag(app, build_image_stage, version)
+      app + ":" + build_image_stage + "-" + version
     end
 
-    def generated_dockerfile_fd(generated_dockerfile)
+    def self.generated_dockerfile_fd(generated_dockerfile)
       fd = Tempfile.new("dockerfile")
       fd.write(generated_dockerfile)
       fd.rewind
       fd
     end
 
-    def self.buildkit_external(exe, app, build_image, version, generated_dockerfile, force_no_cache)
-      tag = build_image_to_tag(app, build_image, version)
+    def self.buildkit_external(exe, app, build_image_stage, version, generated_dockerfile, force_no_cache)
+      tag = build_image_to_tag(app, build_image_stage, version)
 
       build_dockerfile = [
         {"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
         "docker", "build", "--progress=plain", "--ssh", "default",
         force_no_cache ? "--no-cache" : nil,
-        "--target", build_image.stage, 
+        "--target", build_image_stage,
         "-t", tag, 
         "-f", "-",
         ".",
@@ -35,9 +35,9 @@ module Polly
       puts "Built and tagged: #{tag} OK"
     end
 
-    def self.buildkit_internal(exe, app, build_image, version, generated_dockerfile, force_no_cache)
-      tag = build_image_to_tag(app, build_image, version)
-      stage = app + "-" + build_image.stage
+    def self.buildkit_internal(exe, app, build_image_stage, version, generated_dockerfile, force_no_cache)
+      tag = build_image_to_tag(app, build_image_stage, version)
+      stage = app + "-" + build_image_stage
 
       polly_dockerfile_config = []
       polly_dockerfile_config << <<-HEREDOC
