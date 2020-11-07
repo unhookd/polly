@@ -41,7 +41,7 @@ class PollyTasks < Thor
           existing_entries.unshift(*new_entry)
           existing_entries << ""
 
-          File.write(File.expand_path("../VERSION", __dir__), version)
+          File.write("VERSION", version)
           File.write(changelog, existing_entries.join("\n"))
         end
       end

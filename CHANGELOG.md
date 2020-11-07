@@ -1,3 +1,9 @@
+# [1.6.0] - 2020-11-07 - Jon Bardin
+
+fix version path
+
+#######
+
 # [1.5.0] - 2020-11-07 - Jon Bardin
 
 add VERSION file

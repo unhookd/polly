@@ -45,6 +45,14 @@ event hooks are dispatched
 
     polly push # install current PWD as a project in the deployed polly controller
 
+# polly changelog
+
+the `changelog` command is a tool that appends to development journal CHANGELOG.md by default.
+
+Useful for creating notes, or making blank commits for pushing into a git+ops pipeline
+
+It can also be used to increment a VERSION file
+
 # polly test
 
 the `test` command will run the auto-detected workflow (currently supports detection of .circleci/config.yml)
@@ -65,12 +73,6 @@ the `dev` command is a tool to help local development by executing `Procfile`
       two: sleep 2 && echo false
 
     polly dev # will run commands in Procfile
-
-# polly changelog
-
-the `changelog` command is a tool that appends to development journal CHANGELOG.md by default.
-
-Useful for creating notes, or making blank commits for pushing into a git+ops pipeline
 
 # polly build
 
