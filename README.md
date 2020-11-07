@@ -53,9 +53,13 @@ Useful for creating notes, or making blank commits for pushing into a git+ops pi
 
 It can also be used to increment a VERSION file
 
+# polly version
+
+prints current polly version
+
 # polly test
 
-the `test` command will run the auto-detected workflow (currently supports detection of .circleci/config.yml)
+the `test` command will run the auto-detected workflow (currently supports `Pollyfile` and `.circleci/config.yml` declared suites)
 
     polly test --dry-run # emit plan for execution for detected ci workflow
 

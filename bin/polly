@@ -62,7 +62,6 @@ class PollyTasks < Thor
 
   desc "test [PIPELINE]", "Run the CI pipeline"
   option "concurrency", :type => :numeric, :default => Polly::Plan::DEFAULT_CONCURRENCY, :desc => "Number of divergent paths to process simultaneously"
-  # option "idle-timeout", :type => :numeric, :default => Polly::Execute::DEFAULT_IDLE_TIMEOUT, :desc => "Short-circuit and fail job if it doesn't finish within this timeframe"
   option "config", :type => :string, :default => "Pollyfile", :desc => "Declaration of config"
   option "with-bootstrap", :type => :string, :default => nil, :desc => "Docker image to use as the build context"
   option "dry-run", :type => :boolean, :default => false, :desc => "Emit the plan but do not run the pipeline"
@@ -76,7 +75,7 @@ class PollyTasks < Thor
   def test(run_pipeline_upto_these_jobs = nil)
     start_time = Time.now
 
-    exe = ::Polly::Execute.new(options) #TODO: namespacing... --exe-idle-timeout --plan-concurrency ???
+    exe = ::Polly::Execute.new(options)
     revision = exe.current_revision
 
     plan = ::Polly::Plan.new(revision, run_pipeline_upto_these_jobs, options)
@@ -91,13 +90,15 @@ class PollyTasks < Thor
     if File.exists?(config)
       #obv.report_stdout("debug", "using #{config} for config")
       if config.include?("Pollyfile")
-        pollyfile_ruby = File.read("Pollyfile")
-        Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
+        pollyfile_ruby = File.read(config)
+        Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, config)
         generated_circleci_config_yml = YAML.dump(Polly::Generate.read_circleci_output)
         plan.load_circleci(generated_circleci_config_yml)
       else
         plan.load_circleci(File.read(config))
       end
+    elsif File.exists?(".circleci/config.yml")
+      plan.load_circleci(File.read(".circleci/config.yml"))
     else
       raise "must create #{config} first ..."
     end
