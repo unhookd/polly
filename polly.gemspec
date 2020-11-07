@@ -1,6 +1,6 @@
 #
 
-version = File.read(File.expand_path("../VERSION", __dir__)).strip
+version = File.read(File.expand_path("VERSION", __dir__)).strip
 
 Gem::Specification.new do |spec|
   spec.name          = "polly"

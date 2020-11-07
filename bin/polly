@@ -25,7 +25,8 @@ class PollyTasks < Thor
     today = Date.today.to_s
     username = IO.popen("git config user.name").read.strip || ENV["USER"] || "ac"
     template_args = [today, username]
-    opening_line_template = "# [1.#{version_count + 1}.0] - %s - %s\n\n\n\n#{version_delim}\n" % template_args
+    version = "1.#{version_count + 1}.0"
+    opening_line_template = "# [#{version}] - %s - %s\n\n\n\n#{version_delim}\n" % template_args
 
     Tempfile.create(changelog) do |new_entry_tmp|
       new_entry_tmp.write(opening_line_template)
@@ -40,20 +41,22 @@ class PollyTasks < Thor
           existing_entries.unshift(*new_entry)
           existing_entries << ""
 
+          File.write(File.expand_path("../VERSION", __dir__), version)
           File.write(changelog, existing_entries.join("\n"))
         end
       end
     end
 
-    exe.systemx("git", "add", changelog)
+    exe.systemx("git", "add", changelog, "VERSION")
     exe.systemx("git", "commit", "--allow-empty", "-m", "updates in #{changelog}")
   end
 
   desc "version", "Print version"
   def version
+    version = File.read(File.expand_path("../VERSION", __dir__)).strip
     obv = ::Polly::Observe.new
     obv.register_channels([::Polly::POLLY])
-    obv.report_stdout(::Polly::POLLY, ::Polly::VERSION)
+    obv.report_stdout(::Polly::POLLY, version)
     obv.flush($stdout, $stderr, true)
   end
 
