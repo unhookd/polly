@@ -1,8 +1,10 @@
 #
 
+version = File.read(File.expand_path("../VERSION", __dir__)).strip
+
 Gem::Specification.new do |spec|
   spec.name          = "polly"
-  spec.version       = "1.0.0"
+  spec.version       = version
   spec.authors       = ["Jon Bardin", "Jack Senechal"]
   spec.email         = ["diclophis@gmail.com", "jacksenechal@gmail.com"]
 

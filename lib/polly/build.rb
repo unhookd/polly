@@ -21,7 +21,7 @@ module Polly
         {"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
         "docker", "build", "--progress=plain", "--ssh", "default",
         force_no_cache ? "--no-cache" : nil,
-        "--target", build_image_stage,
+        #"--target", build_image_stage,
         "-t", tag, 
         "-f", "-",
         ".",
@@ -30,6 +30,7 @@ module Polly
 
       #o,e,s = exe.execute_simple(:output, build_dockerfile, io_options)
       #puts [o, e]
+      puts build_dockerfile.inspect
       exe.systemx(*build_dockerfile)
     
       puts "Built and tagged: #{tag} OK"
