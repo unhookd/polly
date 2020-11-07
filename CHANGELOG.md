@@ -1,3 +1,9 @@
+# [1.4.0] - 2020-11-07 - Jon Bardin
+
+Add 1.4.0 versioning bits
+
+#######
+
 # [1.3.0] - 2020-11-07 - Jon Bardin
 
 Add 1.3.0 versioning bits
