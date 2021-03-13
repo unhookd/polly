@@ -342,14 +342,14 @@ HEREDOC
 
       Polly::Build.buildkit_external(exe, app, "wkndr", version, generated_dockerfile, options["no-cache"])
 
-      #tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":latest"]
-      #exe.systemx(*tag_dockerfile)
+      tag_dockerfile = ["docker", "tag", app + ":wkndr-" + version, app + ":latest"]
+      exe.systemx(*tag_dockerfile)
 
-      #tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":git-latest"]
-      #exe.systemx(*tag_dockerfile)
+      tag_dockerfile = ["docker", "tag", app + ":wkndr-" + version, app + ":git-latest"]
+      exe.systemx(*tag_dockerfile)
 
-      #tag_dockerfile = ["docker", "tag", app + ":" + version, "localhost/" + app + ":git-latest"]
-      #exe.systemx(*tag_dockerfile)
+      tag_dockerfile = ["docker", "tag", app + ":wkndr-" + version, "localhost/" + app + ":git-latest"]
+      exe.systemx(*tag_dockerfile)
     end
 
     #if options["push"]
