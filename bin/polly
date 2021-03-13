@@ -11,31 +11,6 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'polly'
 
 class PollyTasks < Thor
-  desc "debug-io", ""
-  option "newlines", :type => :boolean, :default => true
-  option "stdout-chunk", :type => :string, :default => "example msg"
-  option "stderr-chunk", :type => :string, :default => "example err"
-  option "chunk-count", :type => :numeric, :default => 3
-  def debug_io(delay = 1)
-    $stdout.sync = true
-    $stderr.sync = true
-
-    while true
-      $stdout.write(options["stdout-chunk"] * options["chunk-count"])
-      if options["newlines"]
-        $stdout.write($/)
-      end
-
-      $stderr.write(options["stderr-chunk"] * options["chunk-count"])
-      if options["newlines"]
-        $stderr.write($/)
-      end
-
-      sleep delay.to_f
-    end
-  rescue Interrupt
-  end
-
   desc "changelog [CHANGELOG]", "appends changelog item to CHANGELOG.md"
   def changelog(changelog = "CHANGELOG.md")
     exe = Polly::Execute.new
@@ -50,7 +25,8 @@ class PollyTasks < Thor
     today = Date.today.to_s
     username = IO.popen("git config user.name").read.strip || ENV["USER"] || "ac"
     template_args = [today, username]
-    opening_line_template = "# [1.#{version_count + 1}.0] - %s - %s\n\n\n\n#{version_delim}\n" % template_args
+    version = "1.#{version_count + 1}.0"
+    opening_line_template = "# [#{version}] - %s - %s\n\n\n\n#{version_delim}\n" % template_args
 
     Tempfile.create(changelog) do |new_entry_tmp|
       new_entry_tmp.write(opening_line_template)
@@ -65,26 +41,27 @@ class PollyTasks < Thor
           existing_entries.unshift(*new_entry)
           existing_entries << ""
 
+          File.write("VERSION", version)
           File.write(changelog, existing_entries.join("\n"))
         end
       end
     end
 
-    exe.systemx("git", "add", changelog)
+    exe.systemx("git", "add", changelog, "VERSION")
     exe.systemx("git", "commit", "--allow-empty", "-m", "updates in #{changelog}")
   end
 
   desc "version", "Print version"
   def version
+    version = File.read(File.expand_path("../VERSION", __dir__)).strip
     obv = ::Polly::Observe.new
     obv.register_channels([::Polly::POLLY])
-    obv.report_stdout(::Polly::POLLY, ::Polly::VERSION)
+    obv.report_stdout(::Polly::POLLY, version)
     obv.flush($stdout, $stderr, true)
   end
 
   desc "test [PIPELINE]", "Run the CI pipeline"
   option "concurrency", :type => :numeric, :default => Polly::Plan::DEFAULT_CONCURRENCY, :desc => "Number of divergent paths to process simultaneously"
-  # option "idle-timeout", :type => :numeric, :default => Polly::Execute::DEFAULT_IDLE_TIMEOUT, :desc => "Short-circuit and fail job if it doesn't finish within this timeframe"
   option "config", :type => :string, :default => "Pollyfile", :desc => "Declaration of config"
   option "with-bootstrap", :type => :string, :default => nil, :desc => "Docker image to use as the build context"
   option "dry-run", :type => :boolean, :default => false, :desc => "Emit the plan but do not run the pipeline"
@@ -98,7 +75,7 @@ class PollyTasks < Thor
   def test(run_pipeline_upto_these_jobs = nil)
     start_time = Time.now
 
-    exe = ::Polly::Execute.new(options) #TODO: namespacing... --exe-idle-timeout --plan-concurrency ???
+    exe = ::Polly::Execute.new(options)
     revision = exe.current_revision
 
     plan = ::Polly::Plan.new(revision, run_pipeline_upto_these_jobs, options)
@@ -113,13 +90,15 @@ class PollyTasks < Thor
     if File.exists?(config)
       #obv.report_stdout("debug", "using #{config} for config")
       if config.include?("Pollyfile")
-        pollyfile_ruby = File.read("Pollyfile")
-        Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
+        pollyfile_ruby = File.read(config)
+        Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, config)
         generated_circleci_config_yml = YAML.dump(Polly::Generate.read_circleci_output)
         plan.load_circleci(generated_circleci_config_yml)
       else
         plan.load_circleci(File.read(config))
       end
+    elsif File.exists?(".circleci/config.yml")
+      plan.load_circleci(File.read(".circleci/config.yml"))
     else
       raise "must create #{config} first ..."
     end
@@ -363,14 +342,14 @@ HEREDOC
 
       Polly::Build.buildkit_external(exe, app, "wkndr", version, generated_dockerfile, options["no-cache"])
 
-      #tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":latest"]
-      #exe.systemx(*tag_dockerfile)
+      tag_dockerfile = ["docker", "tag", app + ":wkndr-" + version, app + ":latest"]
+      exe.systemx(*tag_dockerfile)
 
-      #tag_dockerfile = ["docker", "tag", app + ":" + version, app + ":git-latest"]
-      #exe.systemx(*tag_dockerfile)
+      tag_dockerfile = ["docker", "tag", app + ":wkndr-" + version, app + ":git-latest"]
+      exe.systemx(*tag_dockerfile)
 
-      #tag_dockerfile = ["docker", "tag", app + ":" + version, "localhost/" + app + ":git-latest"]
-      #exe.systemx(*tag_dockerfile)
+      tag_dockerfile = ["docker", "tag", app + ":wkndr-" + version, "localhost/" + app + ":git-latest"]
+      exe.systemx(*tag_dockerfile)
     end
 
     #if options["push"]

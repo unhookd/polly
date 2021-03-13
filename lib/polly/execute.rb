@@ -360,61 +360,38 @@ module Polly
       #puts YAML.dump(configmap_manifest) if @debug
       #puts "PREPOP JOB"
 
-      #$stderr.write("1")
-      kubectl_apply = ["kubectl", "apply", "-f", "-"]
-      apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}
-      execute_simple(:silentx, kubectl_apply, apply_configmap_options)
+      if @dry_run
+        polly_dry_run = ["cat", "-"]
+        #polly_dry_run_options = {:stdin_data => deployment_spec.to_yaml}
 
-      #$stderr.write("2")
-      execute_simple(:silent, ["kubectl", "delete", "deployment/#{clean_name}", "--grace-period=1"], {})
-      execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{clean_name}"], {})
+        dry_bits = execute_simple(:async, polly_dry_run, {})
 
-      #$stderr.write("3")
-      apply_deployment_options = {:stdin_data => deployment_spec.to_yaml}
-      execute_simple(:silentx, kubectl_apply, apply_deployment_options)
+        dry_bits[0].write(configmap_manifest.to_yaml + deployment_spec.to_yaml)
+        dry_bits[0].close
 
-####
+        @runners << [job.run_name, clean_name, dry_bits]
+      else
+        #$stderr.write("1")
+        kubectl_apply = ["kubectl", "apply", "-f", "-"]
+        apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}
+        execute_simple(:silentx, kubectl_apply, apply_configmap_options)
 
-      polly_waitx = [
-                     "polly",
-                     "waitx",
-                     clean_name,
-                   ] + intend_to_run_cmd
+        #$stderr.write("2")
+        execute_simple(:silent, ["kubectl", "delete", "deployment/#{clean_name}", "--grace-period=1"], {})
+        execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{clean_name}"], {})
 
-#ci_run_cmd = polly sh inner-cmd
+        #$stderr.write("3")
+        apply_deployment_options = {:stdin_data => deployment_spec.to_yaml}
+        execute_simple(:silentx, kubectl_apply, apply_deployment_options)
 
-      ##TODO: debug logging
-      ##puts executor_hints.inspect
-      ##puts "POPPING JOB NOW"
-      ##if executor_hints[:detach]
-      ##  ci_run_cmd += sleep_cmd_args
-      ##else
-      ##  ci_run_cmd += run_cmd_args
-      ##end
-      ##unless @keep_completed
-      ##  ci_run_cmd += ["--rm", "true"]
-      ##end
-      ##if executor_hints[:detach]
-      ##  ci_run_cmd += ["--attach", "false"]
-      ##else
-      ##  ci_run_cmd += ["--attach", "true"]
-      ##end
-      #if @debug
-      #  puts ci_run_cmd.inspect
-      #end
+        polly_waitx = [
+                       "polly",
+                       "waitx",
+                       clean_name,
+                     ] + intend_to_run_cmd
 
-      #$stderr.write("8")
-
-      @runners << [job.run_name, clean_name, execute_simple(:async, polly_waitx, {})]
-
-      #get_logs = ["kubectl", "logs", "-f", "-l", "name=#{clean_name}", "--all-containers=true"]
-      #@runners << [job.run_name, clean_name, execute_simple(:async, get_logs, {})]
-      
-      #a = [job.run_name, clean_name, execute_simple(:async, ["kubectl", "wait", "--for=completed", "deployment/#{clean_name}"], {})]
-      #@runners << a
-      #puts a.inspect
-
-      #$stderr.write("9")
+        @runners << [job.run_name, clean_name, execute_simple(:async, polly_waitx, {})]
+      end
 
       @running_jobs[job.run_name] = job
 
