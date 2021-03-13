@@ -421,6 +421,17 @@ HEREDOC
 
   desc "certificates", ""
   def certificates
+    key = OpenSSL::PKey::RSA.new 2048
+    key_dsa = OpenSSL::PKey::DSA.new 2048
+    #type = key.ssh_type
+    #data = [ key.to_blob ].pack('m0')
+    #type_dsa = key_dsa.ssh_type
+    #data_dsa = [ key_dsa.to_blob ].pack('m0')
+    #openssh_format = "#{type_dsa} #{data_dsa}"
+
+    data = key.to_pem
+    data_dsa = key_dsa.to_pem
+
     workstation_ca_certificates = "/etc/ssl/certs/ca-certificates.crt"
 
     exe = ::Polly::Execute.new
@@ -467,6 +478,16 @@ HEREDOC
     c = Base64.strict_encode64(wca + root_ca.to_pem)
 
     polly_certificates = <<-HEREDOC
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "sshd"
+type: Opaque
+data:
+  rsa: #{Base64.strict_encode64(data)}
+  dsa: #{Base64.strict_encode64(data_dsa)}
+...
 ---
 apiVersion: v1
 kind: Secret
