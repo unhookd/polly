@@ -21,17 +21,29 @@
   run %q{locale-gen $LANGUAGE}
   run %q{dpkg-reconfigure locales}
 
-  apt %w{git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake}
+  apt %w{git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper}
 
-  run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app}
+  #TODO: ppa module / extra repo module
+  run %q{curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add}
+  run %q{apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"}
+  apt %w{kubectl}
+
+  run %q{groupadd --gid 134 abc-otf}
+  run %q{groupadd --gid 999 efg-nnn}
+  
+  run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn}
 
   #TODO: workdir module
   command("WORKDIR") {
     "/home/app/polly"
   }
+
   command("COPY") {
     "--chown=app . /home/app/polly"
   }
+
+  #TODO: this is hacked
+  run %q{ln -sfv /home/app/polly/bin/polly /usr/local/bin/polly}
 
   run %q{chown -R app /home/app}
 }
@@ -64,27 +76,38 @@
     "/home/app/polly"
   }
 
-  run %q{bundle install --path=~/vendor/bundle --jobs=4 --retry=3 --deployment --with "development"}
+  run %q{bundle config set --local path /home/app/vendor/bundle}
+  run %q{bundle config set --local jobs 4}
+  run %q{bundle config set --local retry 3}
+  run %q{bundle config set --local deploment true}
+  run %q{bundle config unset --local without}
+  run %q{bundle config set --local with development}
+  run %q{bundle install}
 
-  run %q{ssh-add -l}
+  #run %q{bundle install --path=~/vendor/bundle --jobs=4 --retry=3 --deployment --with "development"}
+
+  #run %q{ssh-add -l}
+
+  run %q{kubectl config set-context polly-ci}
+  run %q{kubectl config use-context polly-ci}
 }
 
 @plain_workflow = Plan.new
-@plain_workflow.add_circleci_job("bootstrap", [{"image"=>@bootstrap.from, "user"=> 0}], [{"run"=>{"name"=>"bootstrap", "command"=>"
-#{@bootstrap.command_list.join("\n")}
-groupadd --gid 134 docker-extra
-groupadd --gid 999 docker-extra-extra
-adduser app docker-extra
-adduser app docker-extra-extra
-adduser app docker
+#@plain_workflow.add_circleci_job("bootstrap-5", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-5", "command"=>"sleep 5"}}], {}, "/")
+#@plain_workflow.add_circleci_job("bootstrap-30", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-30", "command"=>"sleep 30"}}], {}, "/")
+#@plain_workflow.add_circleci_job("bootstrap-60", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-60", "command"=>"sleep 60"}}], {}, "/")
+@plain_workflow.add_circleci_job("bootstrap", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"bootstrap", "command"=>"
+id app || (#{@bootstrap.command_list.join("; ")})
 chown -R app /home/app
 su app -s /bin/test -- -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1000 $SSH_AUTH_SOCK && chgrp 1000 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && su app -s /bin/test -- -w $SSH_AUTH_SOCK)
 test -z $DOCKER_CERT_PATH || (chown -R 1000 $(dirname $DOCKER_CERT_PATH))
 su app -s /bin/bash -c '#{@deploy.command_list.join(" && ")}'
-su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s bin/polly -- build
+su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /usr/local/bin/polly -- build
+docker run --rm=true polly:latest bundle exec rspec
 "}}], {}, "/home/app/polly") #TODO: workingdir module
-@plain_workflow.add_circleci_job("primary", [{"image"=>"polly:latest"}], [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {"BUNDLE_PATH" => "/home/app/vendor/bundle"}, "/home/app/polly")
-@plain_workflow.depends("primary", "bootstrap")
+
+#@plain_workflow.add_circleci_job("primary", [{"image"=>"polly:latest"}], [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {"BUNDLE_PATH" => "/home/app/vendor/bundle"}, "/home/app/polly")
+#@plain_workflow.depends("primary", "bootstrap")
 
 #@plain_workflow = Plan.new
 #@plain_workflow.add_circleci_job("bootstrap", [{"image"=>@bootstrap.from, "user"=> 0}], [{"run"=>{"name"=>"bootstrap", "command"=>"date && env && true"}}], {}, "/home/app/polly") #TODO: workingdir module

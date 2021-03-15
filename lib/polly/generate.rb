@@ -22,6 +22,10 @@ module Polly
         end
       end
 
+      def all_images
+        @all_images
+      end
+
       #(job_run_name, docker_image, steps, job_env, working_directory)
 
       #def circleci_output
@@ -216,7 +220,10 @@ output_circleci = {
 
         comment "Generated #{Time.now}"
 
-        OpenStruct.new(:stage => @image_name, :from => @image_from, :command_list => @command_list)
+        new_image = OpenStruct.new(:stage => @image_name, :from => @image_from, :command_list => @command_list)
+        @all_images ||= []
+        @all_images << new_image
+        new_image
       end
 
       def stage(name, from)

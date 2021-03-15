@@ -2,7 +2,7 @@
 
 module Polly
   class Plan
-    DEFAULT_CONCURRENCY = 1
+    DEFAULT_CONCURRENCY = 4
     DEFAULT_CIRCLECI_CONFIG_YML_PATH = ".circleci/config.yml"
 
     attr_accessor :all_jobs
@@ -49,7 +49,7 @@ module Polly
     end
 
     def description
-      "the plan is as follows: #{self}"
+      "the plan is as follows: #{self} #{@all_jobs} #{@deps} #{@jobs_to_skip} #{@only_these_jobs}"
     end
 
     def add_job(job)
@@ -184,10 +184,11 @@ module Polly
         end
       else
         jobs_with_zero_req.slice(0, @concurrency - count_of_running_jobs).map { |job_run_name|
-          raise "not should ever happen, you found a bug" unless @all_jobs[job_run_name]
-
-          @started[job_run_name] = true
-          @all_jobs[job_run_name]
+          Proc.new {
+            raise "not should ever happen, you found a bug" unless @all_jobs[job_run_name]
+            @started[job_run_name] = true
+            @all_jobs[job_run_name]
+          }
         }.compact
       end
     end
@@ -274,9 +275,10 @@ module Polly
         if run = step["run"]
           name = run["name"]
 
-          pro_fd.write("\necho BEGIN #{name}\n")
+          #TODO: debug
+          #pro_fd.write("\necho BEGIN #{name}\n")
           pro_fd.write(run["command"])
-          pro_fd.write("\necho END #{name}\n")
+          #pro_fd.write("\necho END #{name}\n")
 
           count_of_steps += 1
 

@@ -40,7 +40,7 @@ module Polly
       if bytes && @channels[channel]
         @channels[channel][1] << bytes
       else
-        puts "unknown #{bytes.inspect} -- #{channel} -- #{@channels.keys}" if bytes
+        puts "unknown channel #{bytes.inspect} -- #{channel} -- #{@channels.keys}" if bytes
         true
       end
     end
