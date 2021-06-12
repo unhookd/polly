@@ -996,6 +996,175 @@ HEREDOC
     end
   end
 
+  desc "generates job kubernetes resources", ""
+  def vertical(workflow = "debug")
+    exe = ::Polly::Execute.new
+    current_sha = exe.current_revision
+
+    max_ci = ENV['MAX_CI'] || "1"
+    maxv = (ENV['MAXV'] || 2).to_i
+    total_nodes = (ENV['TOTAL_NODES'] || 1).to_i
+
+    job_verticals = []
+    vertical_index = 0
+    db_index = 0
+
+    vertical_lookup = YAML.load(File.read("vertical.yaml"))
+
+    default_image = "#{exe.current_app}:latest"
+
+    exec_lookup = vertical_lookup["vertical-stacks"][workflow]
+
+    exec_lookup.each { |container_name, container_lookup|
+      image = container_lookup["image"] || default_image
+      init_command = container_lookup["init"]
+      exec_command = container_lookup["exec"]
+      maxv_allowed = container_lookup["maximize"] ? maxv : 1
+
+      vertical_env = [
+        {
+          "name" => "MAX_CI",
+          "value" => max_ci
+        },
+        {
+          "name" => "CI_SHA1",
+          "value" => current_sha
+        },
+      ]
+
+      count_this_pod = 0
+      this_chunk = 0
+
+      containers = []
+
+      maxv_allowed.times { |i|
+        containers << {
+          "name" => "#{container_name}-#{i}",
+          "image" => image,
+          "imagePullPolicy" => "IfNotPresent",
+          "command" => exec_command,
+          "volumeMounts" => vertical_lookup["volume-mounts"],
+          "resources" => {
+            "requests" => {
+              "cpu" => "500m",
+              "memory" => "1.0G"
+            }
+          },
+          "env" => vertical_env + [
+            {
+              "name" => "MAXV",
+              "value" => maxv_allowed.to_s
+            },
+            {
+              "name" => "TEST_ENV_NUMBER",
+              "value" => i.to_s
+            },
+          ]
+        }
+
+        db_index += 1
+      }
+
+      this_index = 0
+      stack_index = 0
+
+      max_per_pod = maxv_allowed > 1 ? (containers.length / total_nodes).ceil : maxv_allowed
+
+      until containers.empty?
+        containers_this_pod = containers.shift(max_per_pod)
+        raise "wtf #{max_per_pod} #{containers.length}" if containers_this_pod.empty?
+
+        init_containers = []
+
+        if init_command
+          init_containers << {
+            "name" => "init-#{container_name}",
+            "image" => image,
+            "imagePullPolicy" => "IfNotPresent",
+            "command" => init_command,
+            "volumeMounts" => vertical_lookup["volume-mounts"],
+            "resources" => {
+            },
+            "env" => vertical_env + [
+              {
+                "name" => "MAXV",
+                "value" => 1.to_s # needs to be 0th
+              },
+              {
+                "name" => "TEST_ENV_NUMBER",
+                "value" => stack_index.to_s # needs to be 0th
+              },
+              {
+                "name" => "VERTICAL_DB",
+                "value" => container_name.gsub(/[^a-z0-9]/, '_') + stack_index.to_s
+              },
+              {
+                "name" => "VERTICAL_DB_INDEX",
+                "value" => db_index.to_s
+              },
+	          ]
+          }
+
+          db_index += 1
+        end
+
+        job_vertical = {
+          "apiVersion" => "batch/v1",
+          "kind" => "Job",
+          "metadata" => {
+            "name" => "#{container_name}-#{this_index}-#{current_sha[0..2]}",
+            "annotations" => {
+              "fluxcd.io/automated" => "true"
+            }
+          },
+          "spec" => {
+            "backoffLimit" => 0,
+            "template" => {
+              "metadata" => {
+                "labels" => {
+                  "app" => "vertical-ci",
+                  "vertical" => container_name
+                }
+              },
+              "spec" => {
+                "restartPolicy" => "Never",
+                "initContainers" => init_containers,
+                "containers" => containers_this_pod,
+                "volumes" => vertical_lookup["volumes"],
+                "hostAliases" => vertical_lookup["host-aliases"]
+              }
+            }
+          }
+        }
+
+        puts YAML.dump(job_vertical)
+
+        this_index += 1
+        stack_index += containers_this_pod.length
+      end
+
+      vertical_index += 1
+    }
+  end
+
+  desc "login [REPO]", "utility to authenticate to docker repo"
+  def login(repo_registry_url = nil)
+    exe = ::Polly::Execute.new
+    vertical_lookup = YAML.load(File.read("vertical.yaml"))
+    repo_registry = vertical_lookup["repo-registry"]
+
+    docker_login_password = IO.popen("aws ecr get-login-password").read
+    Process.wait
+    unless $?.success?
+      exit(1)
+    end
+
+    docker_login_cmd = ["docker", "login", "--username", "AWS", "--password-stdin", repo_registry]
+    options = {:stdin_data => docker_login_password}
+    o,e,s = exe.execute_simple(:output, docker_login_cmd, options)
+    puts [o, e, s]
+  end
+
   private
 
   def fetch_from_registry(path)
