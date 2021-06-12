@@ -19,6 +19,6 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_dependency "thor", "~> 0.20"
-
+  spec.add_dependency "net-ssh", "~> 6"
   spec.add_dependency "yajl-ruby", "~> 1.4"
 end

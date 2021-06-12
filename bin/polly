@@ -322,7 +322,7 @@ HEREDOC
     app = exe.current_app
     image_repo = Polly::Config.image_repo
 
-    generated_dockerfile_fd = nil
+    generated_dockerfile = nil
 
     if container_definition == "-" && File.exists?("Pollyfile")
       pollyfile_ruby = File.read("Pollyfile")
@@ -342,7 +342,7 @@ HEREDOC
         {"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
         "docker", "build", "--progress=plain", "--ssh", "default",
         options["no-cache"] ? "--no-cache" : nil, "-t",
-        app + ":" + version, ".", "-f", "-", generated_dockerfile_fd.nil? ? {:in => File.open(container_definition) } : {:in => generated_dockerfile_fd}
+        app + ":" + version, ".", "-f", "-", generated_dockerfile.nil? ? {:in => File.open(container_definition) } : {:in => generated_dockerfile}
       ].compact
 
       #Polly::Generate.all_images.each { |build_image|
