@@ -1,3 +1,9 @@
+# [1.7.0] - 2021-06-12 - Jon Bardin
+
+Add `polly vertical` and `polly login`, a set of tools used to run CI like workloads on kube clusters
+
+#######
+
 # [1.6.0] - 2020-11-07 - Jon Bardin
 
 fix version path
