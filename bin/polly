@@ -345,6 +345,13 @@ HEREDOC
         app + ":" + version, ".", "-f", "-", generated_dockerfile.nil? ? {:in => File.open(container_definition) } : {:in => generated_dockerfile}
       ].compact
 
+      #build_dockerfile = [
+      #  {"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
+      #  "docker", "build", "--progress=plain", "--ssh", "default",
+      #  options["no-cache"] ? "--no-cache" : nil, "-t",
+      #  app + ":" + version, ".", "-f", "-", generated_dockerfile_fd.nil? ? {:in => File.open(container_definition) } : {:in => generated_dockerfile_fd}
+      #].compact
+
       #Polly::Generate.all_images.each { |build_image|
       #  Polly::Build.buildkit_external(exe, app, build_image.stage, version, generated_dockerfile, options["no-cache"])
       #}

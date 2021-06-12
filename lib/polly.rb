@@ -9,7 +9,6 @@ require 'base64'
 require 'expect'
 require 'uri'
 require 'pathname'
-require 'net/ssh'
 
 module Polly
   POLLY = "polly"
