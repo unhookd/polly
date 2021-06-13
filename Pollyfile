@@ -85,7 +85,6 @@
   run %q{bundle install}
 
   #run %q{bundle install --path=~/vendor/bundle --jobs=4 --retry=3 --deployment --with "development"}
-
   #run %q{ssh-add -l}
 
   run %q{kubectl config set-context polly-ci}
@@ -93,10 +92,9 @@
 }
 
 @plain_workflow = Plan.new
-#@plain_workflow.add_circleci_job("bootstrap-5", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-5", "command"=>"sleep 5"}}], {}, "/")
-#@plain_workflow.add_circleci_job("bootstrap-30", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-30", "command"=>"sleep 30"}}], {}, "/")
-#@plain_workflow.add_circleci_job("bootstrap-60", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-60", "command"=>"sleep 60"}}], {}, "/")
-@plain_workflow.add_circleci_job("bootstrap", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"bootstrap", "command"=>"
+@plain_workflow.add_circleci_job("bootstrap",
+[{"image"=> @bootstrap.from, "user"=> "root"}],
+[{"run"=> {"name"=>"bootstrap", "command"=>"
 id app || (#{@bootstrap.command_list.join("; ")})
 chown -R app /home/app
 su app -s /bin/test -- -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1000 $SSH_AUTH_SOCK && chgrp 1000 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && su app -s /bin/test -- -w $SSH_AUTH_SOCK)
@@ -104,11 +102,21 @@ test -z $DOCKER_CERT_PATH || (chown -R 1000 $(dirname $DOCKER_CERT_PATH))
 su app -s /bin/bash -c '#{@deploy.command_list.join(" && ")}'
 su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /usr/local/bin/polly -- build
 docker run --rm=true polly:latest bundle exec rspec
-"}}], {}, "/home/app/polly") #TODO: workingdir module
+"}}], {}, "/home/app/polly")
 
-#@plain_workflow.add_circleci_job("primary", [{"image"=>"polly:latest"}], [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {"BUNDLE_PATH" => "/home/app/vendor/bundle"}, "/home/app/polly")
-#@plain_workflow.depends("primary", "bootstrap")
+@plain_workflow.add_circleci_job("primary",
+[{"image"=>"polly:latest"}],
+[{"run"=>{"name"=>"rspec", "command" => "
+set -e
+set -x
+bundle exec rspec
+"}}], {"BUNDLE_PATH" => "/home/app/vendor/bundle"}, "/home/app/polly")
+@plain_workflow.depends("primary", "bootstrap")
 
+#TODO: workingdir module
+#@plain_workflow.add_circleci_job("bootstrap-5", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-5", "command"=>"sleep 5"}}], {}, "/")
+#@plain_workflow.add_circleci_job("bootstrap-30", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-30", "command"=>"sleep 30"}}], {}, "/")
+#@plain_workflow.add_circleci_job("bootstrap-60", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-60", "command"=>"sleep 60"}}], {}, "/")
 #@plain_workflow = Plan.new
 #@plain_workflow.add_circleci_job("bootstrap", [{"image"=>@bootstrap.from, "user"=> 0}], [{"run"=>{"name"=>"bootstrap", "command"=>"date && env && true"}}], {}, "/home/app/polly") #TODO: workingdir module
 #@plain_workflow.add_circleci_job("primary", [{"image"=>@bootstrap.from}], [{"run"=>{"name"=>"rspec", "command"=>"date && env && true"}}], {"BUNDLE_PATH" => "/home/app/vendor/bundle"}, "/home/app/polly")

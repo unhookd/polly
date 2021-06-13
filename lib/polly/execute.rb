@@ -138,7 +138,7 @@ module Polly
 
       sleep_cmd_args = ["sleep", "infinity"]
       #TODO: figure out fail modes run_cmd_args = ["bash", "-x", "-e", "-o", "pipefail", run_shell_path]
-      run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash -e -o pipefail #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
+      run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
       #TODO: better input for cmd: [] support
       #run_cmd_args = ["bash", "-e", run_shell_path]
 
