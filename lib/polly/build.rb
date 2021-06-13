@@ -37,8 +37,8 @@ module Polly
     end
 
     def self.buildkit_internal(exe, app, build_image_stage, version, generated_dockerfile, force_no_cache)
-      tag = build_image_to_tag(app, build_image_stage, version)
-      stage = app + "-" + build_image_stage
+      tag = build_image_to_tag(app, build_image_stage.stage, version)
+      stage = app + "-" + build_image_stage.stage
 
       polly_dockerfile_config = []
       polly_dockerfile_config << <<-HEREDOC
@@ -141,8 +141,8 @@ spec:
         #- type=registry,ref=polly-registry:443/#{app}
         - --export-cache
         - type=local,dest=/polly-safe/buildkit,mode=max
-        - --output
-        - type=tar,dest=/polly-safe/buildkit/#{tag}.tar
+        #- --output
+        #- type=tar,dest=/polly-safe/buildkit/#{tag}.tar
         #- --output
         #- type=image,name=#{app}/#{tag},push=true
         ##- --output

@@ -217,25 +217,25 @@ class PollyTasks < Thor
 
     exe.systemx("git", "push", "-f", "polly", branch, "HEAD:#{branch}-#{Time.now.to_i}", "--exec=polly receive-pack")
 
-    #cat /var/tmp/polly-safe/buildkit/example-510b1e33549a9f97b9fce43f1a30d13afe208390.tar | docker import - example:latest
-    cat_image_cmd = [
-                     "kubectl", "exec", exe.polly_pod,
-                     "--",
-                     "cat", "/polly-safe/buildkit/#{exe.current_app}-#{exe.current_revision}.tar"
-                   ]
+    ##cat /var/tmp/polly-safe/buildkit/example-510b1e33549a9f97b9fce43f1a30d13afe208390.tar | docker import - example:latest
+    #cat_image_cmd = [
+    #                 "kubectl", "exec", exe.polly_pod,
+    #                 "--",
+    #                 "cat", "/polly-safe/buildkit/#{exe.current_app}-#{exe.current_revision}.tar"
+    #               ]
 
-    docker_tag_cmd = [
-                      "docker",
-                      "import",
-                      "-",
-                      "#{exe.current_app}:latest"
-                   ]
+    #docker_tag_cmd = [
+    #                  "docker",
+    #                  "import",
+    #                  "-",
+    #                  "#{exe.current_app}:latest"
+    #               ]
 
-    #options = {:stdin_data => docker_config_secret.join}
-    #o,e,s = exe.execute_simple(:output, apply_job, options)
-    #puts [o, e]
+    ##options = {:stdin_data => docker_config_secret.join}
+    ##o,e,s = exe.execute_simple(:output, apply_job, options)
+    ##puts [o, e]
 
-    status_list = Open3.pipeline(cat_image_cmd, docker_tag_cmd)
+    #status_list = Open3.pipeline(cat_image_cmd, docker_tag_cmd)
   end
 
   desc "receive-pack [ORIGIN]", "(internal) receive incoming git send-pack"
@@ -320,6 +320,7 @@ HEREDOC
     version = exe.current_revision
     branch = exe.current_branch
     app = exe.current_app
+    puts app.inspect
     image_repo = Polly::Config.image_repo
 
     generated_dockerfile = nil
@@ -335,6 +336,7 @@ HEREDOC
 
     if options["in-cluster"]
       Polly::Generate.all_images.each { |build_image|
+      puts app.inspect
         Polly::Build.buildkit_internal(exe, app, build_image, version, generated_dockerfile, options["no-cache"])
       }
     else
