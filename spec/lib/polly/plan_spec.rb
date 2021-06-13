@@ -131,7 +131,7 @@ describe Polly::Plan do
 
       expect(plan.has_unfinished_jobs?).to eq(true)
 
-      ready_to_start_jobs = (remap_jobs_ready_to_startplan.jobs_ready_to_start)
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
       expect(ready_to_start_jobs.count).to eq(2)
       expect(ready_to_start_jobs).to eq([job_a, job_d])
       job_a.fail!
