@@ -28,11 +28,5 @@ jobs:
         test -z $DOCKER_CERT_PATH || (chown -R 1001 $(dirname $DOCKER_CERT_PATH))
         su app -s /bin/bash -c 'bundle config set --local path /home/app/vendor/bundle && bundle config set --local jobs 4 && bundle config set --local retry 3 && bundle config set --local deploment true && bundle config set --local without development && bundle install'
         chown root:docker /var/run/docker.sock
-        #su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /bin/bash -c 'bundle exec polly build'
-        #docker run --rm=true polly:latest bundle exec rspec
-        #env
-        #ps aufx
-        ls -l /var/run/*
-        su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /bin/bash -c 'docker ps'
-
-        docker ps || true
+        su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /bin/bash -c 'bundle exec polly build'
+        docker run --rm=true polly:latest bundle exec rspec

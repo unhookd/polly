@@ -100,7 +100,7 @@ chown -R app /home/app
 su app -s /bin/test -- -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1000 $SSH_AUTH_SOCK && chgrp 1000 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && su app -s /bin/test -- -w $SSH_AUTH_SOCK)
 test -z $DOCKER_CERT_PATH || (chown -R 1000 $(dirname $DOCKER_CERT_PATH))
 su app -s /bin/bash -c '#{@deploy.command_list.join(" && ")}'
-su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /usr/local/bin/polly -- build
+su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /bin/bash -c 'bundle exec polly build'
 docker run --rm=true polly:latest bundle exec rspec
 "}}], {}, "/home/app/polly")
 
