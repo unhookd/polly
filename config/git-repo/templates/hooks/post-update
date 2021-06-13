@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# processes and installs git repo in polygond controller
+# processes and installs git repo in polly controller
 
 set -e
 set -x
@@ -12,22 +12,6 @@ then
   git symbolic-ref HEAD "${1}"
   git update-server-info
 
-  #if [ "refs/tags/polygond/build" = "${1}" ];
-  #then
-  #  echo "TODO: build docker image based on tag polygond kaniko ${1}"
-  #elif [ "refs/tags/polygond/test" = "${1}" ];
-  #then
-  #  echo "TODO: run tests based on tags"
-  #  #TMPCHECKOUT=$(mktemp -d)/$(basename $(pwd))
-  #  #git clone -l . ${TMPCHECKOUT}
-  #  #cd ${TMPCHECKOUT}
-  #  #unset GIT_DIR
-  #  #polygond test
-  #  #export GIT_DIR="."
-  #else
-  #  echo ...
-  #fi
-
   if [ -e /usr/local/bin/polly ];
   then
     TMPCHECKOUT=/polly-safe/tmp/$(mktemp -d)/$(basename $(pwd))
@@ -36,7 +20,7 @@ then
     cd ${TMPCHECKOUT}
     unset GIT_DIR
 
-    #polly build --in-cluster
+    polly build --in-cluster
     polly test
 
     export GIT_DIR="."
