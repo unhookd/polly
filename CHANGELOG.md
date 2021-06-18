@@ -1,3 +1,9 @@
+# [1.8.0] - 2021-06-18 - Jon Bardin
+
+Bits for bits
+
+#######
+
 # [1.7.0] - 2021-06-12 - Jon Bardin
 
 Add `polly vertical` and `polly login`, a set of tools used to run CI like workloads on kube clusters
