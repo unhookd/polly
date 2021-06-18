@@ -25,6 +25,8 @@ describe Polly::Job do
 
   context "direct job creation" do
     it "allows jobs to be directly created" do
+      expect(false).to eq(true)
+
       expect(job.run_name).to eq(valid_run_name)
       expect(job.valid?).to eq(true)
 
