@@ -493,8 +493,8 @@ HEREDOC
     wca = File.read(workstation_ca_certificates)
 
     a = Base64.strict_encode64(wca)
-    #b = Base64.strict_encode64(root_ca.to_pem)
-    #c = Base64.strict_encode64(wca + root_ca.to_pem)
+    b = Base64.strict_encode64(root_ca.to_pem)
+    c = Base64.strict_encode64(wca + root_ca.to_pem)
 
     polly_certificates = <<-HEREDOC
 ---
@@ -517,6 +517,17 @@ data:
   registry.polly.pem: #{Base64.strict_encode64(cert.to_pem)}
   registry.polly.key: #{Base64.strict_encode64(key.to_pem)}
 ...
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "ca-certificates"
+type: Opaque
+data:
+  ca.workstation.crt: #{a}
+  ca.polly.crt: #{b}
+  ca-certificates.crt: #{c}
+...
 HEREDOC
 #---
 #apiVersion: v1
@@ -527,17 +538,6 @@ HEREDOC
 #data:
 #  certificate.pem: #{Base64.strict_encode64(cert)}
 #  key.pem: #{Base64.strict_encode64(key)}
-#...
-#---
-#apiVersion: v1
-#kind: Secret
-#metadata:
-#  name: "ca-certificates"
-#type: Opaque
-#data:
-#  ca.workstation.crt: #{a}
-#  ca.polly.crt: #{b}
-#  ca-certificates.crt: #{c}
 #...
 
 

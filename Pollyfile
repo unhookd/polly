@@ -121,3 +121,21 @@ bundle exec rspec
 #@plain_workflow.add_circleci_job("bootstrap", [{"image"=>@bootstrap.from, "user"=> 0}], [{"run"=>{"name"=>"bootstrap", "command"=>"date && env && true"}}], {}, "/home/app/polly") #TODO: workingdir module
 #@plain_workflow.add_circleci_job("primary", [{"image"=>@bootstrap.from}], [{"run"=>{"name"=>"rspec", "command"=>"date && env && true"}}], {"BUNDLE_PATH" => "/home/app/vendor/bundle"}, "/home/app/polly")
 #@plain_workflow.depends("primary", "bootstrap")
+
+
+##gitch {
+##  "-y"
+##}
+##
+##gitch {<EOF
+###!/bin/sh
+##farts && foo
+##if [ false ];
+##then;
+##  echo;
+##fi
+##EOF
+##}
+##
+##
+##Polly.include(MyLocalModz.my_gitch)

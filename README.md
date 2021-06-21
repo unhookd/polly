@@ -100,9 +100,30 @@ TBD: manages authentication
 
 TBD: useful gitflow utilities
 
+#  polly gitch feature-7
+#  
+#    `git checkout -b feature-7 || git checkout feature-7`
+#  
+#  polly gitch -u
+#  
+#    `git push -u origin HEAD`
+#  
+#  polly gitch -m
+#  
+#    `git add . && git commit -m $MSG`
+#  
+#  polly gitch -y
+#  
+#    `git add -y . && git commit -y -m 'yolo' && git push -f -u -y origin master`
+
 # polly continuous
 
 TBD: internal process for looping
+
+```
+  while true
+    polly gitch -m -u
+```
 
 # polly watch
 
