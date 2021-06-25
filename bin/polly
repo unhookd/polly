@@ -586,7 +586,7 @@ HEREDOC
     obv.flush($stdout, $stderr, true)
   end
 
-  desc "init", ""
+  desc "init", "bootstraps project polly controller pod"
   option "re-init", :type => :boolean, :default => false
   option "with-registry", :type => :boolean, :default => false
   option "with-bootstrap", :type => :string, :default => "polly:latest"
@@ -975,10 +975,10 @@ HEREDOC
 
     o,e,s = exe.execute_simple(:output, kube_exec_cmd, {})
     #TODO
-    #puts [e, e, s] unless s
+    puts [e, e, s] unless s
   end
 
-  desc "logs", ""
+  desc "logs", "fetch logs from polly controller pod"
   def logs
     exe = ::Polly::Execute.new
     exec(*["kubectl", "logs", exe.polly_pod, "-f"].compact)
@@ -1007,7 +1007,7 @@ HEREDOC
     puts catalog["repositories"]
   end
 
-  desc "tags", ""
+  desc "tags", "TBD: fetch tags from internal registry"
   def tags
     exe = ::Polly::Execute.new
 
@@ -1018,8 +1018,9 @@ HEREDOC
     end
   end
 
-  desc "generate", ""
+  desc "generate", "emits CI structure yaml"
   option "--circle", :type => :boolean, :default => false
+  #TODO: cleanup these bits
   #option "pipeline-fu", :type => :string, :default => "circleci"
   #option "image-fu", :type => :string, :default => "buildkit"
   def generate(pollyfile = "Pollyfile")
