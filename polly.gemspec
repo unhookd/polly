@@ -21,4 +21,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency "thor", "~> 0.20"
   spec.add_dependency "net-ssh", "~> 6"
   spec.add_dependency "yajl-ruby", "~> 1.4"
+  spec.add_dependency "guard", "~> 2.16"
 end

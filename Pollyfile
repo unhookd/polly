@@ -122,7 +122,6 @@ bundle exec rspec
 #@plain_workflow.add_circleci_job("primary", [{"image"=>@bootstrap.from}], [{"run"=>{"name"=>"rspec", "command"=>"date && env && true"}}], {"BUNDLE_PATH" => "/home/app/vendor/bundle"}, "/home/app/polly")
 #@plain_workflow.depends("primary", "bootstrap")
 
-
 ##gitch {
 ##  "-y"
 ##}
@@ -139,3 +138,5 @@ bundle exec rspec
 ##
 ##
 ##Polly.include(MyLocalModz.my_gitch)
+
+#TODO: git hook integration
