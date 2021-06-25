@@ -1219,45 +1219,53 @@ HEREDOC
   def fetch_from_registry(path)
     exe = ::Polly::Execute.new
 
-    registry_label = "name=polly-registry"
+    #registry_label = "name=polly-registry"
 
-    random_port = 5000 + (rand * 1000).to_i
+    #random_port = 5000 + (rand * 1000).to_i
 
-    kubectl_port_forward_cmd = [
-                                 "kubectl",
-                                 "port-forward",
-                                 exe.polly_pod(registry_label),
-                                 "#{random_port}:443"
-                               ]
+    #kubectl_port_forward_cmd = [
+    #                             "kubectl",
+    #                             "port-forward",
+    #                             exe.polly_pod(registry_label),
+    #                             "#{random_port}:443"
+    #                           ]
 
-    options = {}
-    process_stdin, process_stdout, process_stderr, process_waiter = exe.execute_simple(:async, kubectl_port_forward_cmd, options)
+    #options = {}
+    #process_stdin, process_stdout, process_stderr, process_waiter = exe.execute_simple(:async, kubectl_port_forward_cmd, options)
 
-    process_stdout.expect("-> 443")
+    #process_stdout.expect("-> 443")
+
+    #TODO: ca-certificates
+    #"-k",
+    #"--cacert",
+    #ssl_cert_file,
+    #"--resolve",
+    #"polly-registry:5000:127.0.0.1",
+    #random_port https localhost port forward hacks
+
+    vertical_lookup = YAML.load(File.read("vertical.yaml"))
+    repo_registry = vertical_lookup["repo-registry"]
 
     curl_cmd = [
                          "curl",
+                         "-L",
                          "-s",
                          "-v",
-                         "-k",
                          "-m",
                          "999",
                          "--connect-timeout",
                          "999",
-                         #TODO: ca-certificates
-                         #"--cacert",
-                         #ssl_cert_file,
-                         #"--resolve",
-                         #"polly-registry:5000:127.0.0.1",
-                         "https://127.0.0.1:#{random_port}/#{path}"
+                         "https://#{repo_registry}/#{path}"
                        ]
+    puts curl_cmd.inspect
 
     options = {}
     o,e,s = exe.execute_simple(:output, curl_cmd, options)
+    puts [e, s].inspect
 
-    Process.kill(:INT, process_waiter.pid)
-    process_waiter.kill
-    process_waiter.join
+    #Process.kill(:INT, process_waiter.pid)
+    #process_waiter.kill
+    #process_waiter.join
     #exe.wait_child
 
     o
