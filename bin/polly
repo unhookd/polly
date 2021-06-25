@@ -1051,7 +1051,7 @@ HEREDOC
           "name" => "CI_SHA1",
           "value" => current_sha
         },
-      ]
+      ] + vertical_lookup["environment-overrides"]
 
       count_this_pod = 0
       this_chunk = 0
