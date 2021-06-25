@@ -6,7 +6,7 @@
 # To enable this hook, rename this file to "post-update".
 
 set -e
-#set -x
+set -x
 
 echo update ... $1 $2 $3
 

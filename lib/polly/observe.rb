@@ -37,8 +37,11 @@ module Polly
     end
 
     def stack_stdout(channel, bytes)
-      if bytes
+      if bytes && @channels[channel]
         @channels[channel][1] << bytes
+      else
+        puts "unknown channel #{bytes.inspect} -- #{channel} -- #{@channels.keys}" if bytes
+        true
       end
     end
 

@@ -14,16 +14,29 @@ polly understands circleci config and is able to plan and execute workflows on a
 
 # installation
 
+    sudo apt-get install ruby2* ruby2*-dev libruby2* ruby-bundler rubygems-integration build-essential --no-install-recommends
     cd ~/workspace
     git clone git@github.com:unhookd/polly.git
     cd polly
     make install #NOTE: will prompt for sudo password
 
+TBD: rebake this bootstrap script into github actions as test-suite cross-check
+
 # initial polly deploy to local kubeadm cluster
+
+We can re-bootstrap `polly` from scratch for development purposes, or just start in a given project directory
 
     cd ~/workspace/myproj
     polly build # build polly controller Dockerfile
-    polly init # install polly controller into desired kubernetes context
+
+# polly init
+
+Install the `polly` controller into your kube cluster.
+
+    kubectx
+    polly init
+    
+should install `polly` controller into desired kubernetes context
 
 # polly push
 
@@ -37,16 +50,29 @@ git remote controller will process inbound commits via `git-receive-pack`
 
 current local branch will be stored into bare repo
 
-event hooks are dispatched
+polly requires a valid git repo to work, and includes event hooks that are dispatched
 
     cd ~/workspace/myproj
-    git status # polly requires a valid git repo to work
+    git status
+    polly push
 
-    polly push # install current PWD as a project in the deployed polly controller
+installs a copy of the current PWD as a bare git repo checkout in the deployed `polly` controller
+
+# polly changelog
+
+the `polly changelog` command is a tool that appends to development journal CHANGELOG.md by default.
+
+Useful for creating notes, or making blank commits for pushing into a git+ops pipeline
+
+It can also be used to increment a VERSION file
+
+# polly version
+
+prints current polly version
 
 # polly test
 
-the `test` command will run the auto-detected workflow (currently supports detection of .circleci/config.yml)
+the `test` command will run the auto-detected workflow (currently supports `Pollyfile` and `.circleci/config.yml` declared suites)
 
     polly test --dry-run # emit plan for execution for detected ci workflow
 
@@ -65,17 +91,11 @@ the `dev` command is a tool to help local development by executing `Procfile`
 
     polly dev # will run commands in Procfile
 
-# polly changelog
-
-the `changelog` command is a tool that appends to development journal CHANGELOG.md by default.
-
-Useful for creating notes, or making blank commits for pushing into a git+ops pipeline
+The output is multiplexed and highlight on a per-process basis, this makes it useful for a variety of debugging uses.
 
 # polly build
 
-_requires_ `$PATH/docker` and access to a working `/var/lib/docker.sock`
-
-build `$APP:latest` using the `Dockerfile` from the HEAD version of the current working directory's git repo.
+build `$APP:latest` using the the detected packaging system, `Pollyfile` and `Dockerfile` are automatically detected, from the HEAD version of the current working directory's git repo.
 
 # polly sh
 
@@ -85,6 +105,12 @@ exec's into the polly controller deployement to provide a debugging interactive 
 
 prints logs of polly controller deployement for debugging
 
+# polly docker-config
+
+accepts on STDIN a `~/.docker/config.json` document, and creates a specific secret for allowin fetching from private repos in private clusters.
+
+TBD: allow STDIN creation of a variety of configMap/secretMap resources (SEE: `polly certificate`)
+
 # polly key
 
 TBD: manages authentication
@@ -93,9 +119,30 @@ TBD: manages authentication
 
 TBD: useful gitflow utilities
 
+#  polly gitch feature-7
+#  
+#    `git checkout -b feature-7 || git checkout feature-7`
+#  
+#  polly gitch -u
+#  
+#    `git push -u origin HEAD`
+#  
+#  polly gitch -m
+#  
+#    `git add . && git commit -m $MSG`
+#  
+#  polly gitch -y
+#  
+#    `git add -y . && git commit -y -m 'yolo' && git push -f -u -y origin master`
+
 # polly continuous
 
 TBD: internal process for looping
+
+```
+  while true
+    polly gitch -m -u
+```
 
 # polly watch
 
@@ -106,10 +153,3 @@ the `watch` command facilitates local CI workfow or C.T.R. style development pra
 # safety instructions
 
 do not expose or use polly unless you have thoroughly understood the risk.
-
-# notes
-
-* https://github.com/FiloSottile/mkcert
-* https://www.atlassian.com/git/tutorials/setting-up-a-repository/git-init
-* https://github.com/GoogleContainerTools/kaniko
-* https://github.com/erikhuda/thor

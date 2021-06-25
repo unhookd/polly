@@ -1,0 +1,34 @@
+workflows:
+  version: 2
+  polly:
+    jobs:
+    - bootstrap
+    - primary:
+        requires:
+        - bootstrap
+
+defaults: &defaults
+  #working_directory: /home/app/current
+  #environment: &environment_defaults
+  #  CUSTOM: "settings"
+  docker:
+    - image: &default_build_image polly:latest
+
+version: 2
+jobs:
+  bootstrap:
+    docker:
+      - image: &bootstrap_build_image ubuntu:latest
+    steps:
+      - run:
+          name: bootstrap
+          command: |
+            true
+
+  primary:
+    <<: *defaults
+    steps:
+      - run:
+          name: rspec
+          command: |
+            bundle exec rspec

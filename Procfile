@@ -1,4 +1,4 @@
-nol: polly debug-io 1.1 --no-newlines --stdout-chunk=o --stderr-chunk=e --chunk-count=128
-abc: polly debug-io 1.3
-efgh: polly debug-io 1.5
-ijklm: polly debug-io 1.7
+test-x: sleep 3 && echo 1
+test-y: sleep 2 && echo 2
+test-z: sleep 1 && echo 3
+version: polly version

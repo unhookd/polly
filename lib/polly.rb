@@ -4,15 +4,22 @@ require 'json'
 require 'tempfile'
 require 'strscan'
 require 'date'
+require 'openssl'
+require 'base64'
+require 'expect'
+require 'uri'
+require 'pathname'
 
 module Polly
   POLLY = "polly"
-  VERSION = "0.1.0"
 
   class Error < StandardError; end
 
-  autoload 'Plan', 'polly/plan'
+  autoload 'Build', 'polly/build'
+  autoload 'Config', 'polly/config'
   autoload 'Execute', 'polly/execute'
+  autoload 'Generate', 'polly/generate'
   autoload 'Job', 'polly/job'
   autoload 'Observe', 'polly/observe'
+  autoload 'Plan', 'polly/plan'
 end

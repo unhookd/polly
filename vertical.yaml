@@ -1,0 +1,20 @@
+app: polly
+repo-registry: ghcr.io/unhookd/polly
+vertical-stacks:
+  default:
+    rspec:
+      exec: ["bundle", "exec", "rspec"]
+      maximize: true
+environment-overrides:
+- name: "FOO"
+  value: "BAR"
+volume-mounts:
+- mountPath: "/home/app/current/tmp"
+  name: "tmp"
+volumes:
+- emptyDir: {}
+  name: "tmp"
+host-aliases:
+- ip: "127.0.0.1"
+  hostnames:
+  - polly-ci
