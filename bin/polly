@@ -464,7 +464,7 @@ HEREDOC
 #    obv.flush($stdout, $stderr, true)
 #  end
 
-  desc "certificates", ""
+  desc "certificates", "installs some common ca certificate secret material into cluster"
   def certificates
     key = OpenSSL::PKey::RSA.new 2048
     key_dsa = OpenSSL::PKey::DSA.new 2048
@@ -984,7 +984,7 @@ HEREDOC
     exec(*["kubectl", "logs", exe.polly_pod, "-f"].compact)
   end
 
-  desc "dev", ""
+  desc "dev [PROCFILE]", "runs processes as outlined in Procfile"
   option "prepare", :type => :boolean, :default => false
   option "only-prepare", :type => :boolean, :default => false
   option "rename", :type => :string
