@@ -30,7 +30,7 @@ jobs:
         #export SSH_AUTH_SOCK=/tmp/ssh-auth.sock
         #ssh-agent -a $SSH_AUTH_SOCK > /dev/null
 
-        chown -R app /home/app
+        chown -R app . # /home/app
         #su app -s /bin/test -- -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1001 $SSH_AUTH_SOCK && chgrp 1001 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && su app -s /bin/test -- -w $SSH_AUTH_SOCK)
         #test -z $DOCKER_CERT_PATH || (chown -R 1001 $(dirname $DOCKER_CERT_PATH))
         #chown root:docker /var/run/docker.sock
