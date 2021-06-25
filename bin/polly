@@ -1172,6 +1172,7 @@ HEREDOC
     }
   end
 
+  #TODO: detect other repo categories to login different mech
   desc "login [REPO]", "utility to authenticate to docker repo"
   def login(repo_registry_url = nil)
     exe = ::Polly::Execute.new
