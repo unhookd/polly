@@ -1,3 +1,9 @@
+# [1.12.0] - 2021-06-25 - Jon Bardin
+
+Add vertical and continous wip bits
+
+#######
+
 # [1.11.0] - 2021-06-24 - Jon Bardin
 
 Add more readme
