@@ -1,3 +1,9 @@
+# [2.0.0] - 2021-06-25 - Jon Bardin
+
+initial prototype of development tooling
+
+#######
+
 # [1.12.0] - 2021-06-25 - Jon Bardin
 
 Add vertical and continous wip bits
