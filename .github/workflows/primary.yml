@@ -37,14 +37,14 @@ jobs:
 ##        chown root:docker /var/run/docker.sock
 ##        su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /bin/bash -c 'bundle exec polly build'
 ##        docker run --rm=true polly:latest bundle exec rspec
-#
-#    - name: Log in to the Container registry
-#      uses: docker/login-action@v1
-#      with:
-#        registry: ${{ env.REGISTRY }}
-#        username: ${{ github.actor }}
-#        password: ${{ secrets.GITHUB_TOKEN }}
-#
+
+    - name: Log in to the Container registry
+      uses: docker/login-action@v1
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
 #    - name: Extract metadata (tags, labels) for Docker
 #      id: meta
 #      uses: docker/metadata-action@v3
