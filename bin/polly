@@ -923,14 +923,14 @@ HEREDOC
     puts [o, e, s]
   end
 
-  desc "sh", ""
+  desc "sh", "debug shell into polly controller"
   def sh(sh_cmd = "bash")
     exe = ::Polly::Execute.new
 
     exec(*["kubectl", "exec", exe.polly_pod, "-i", $stdin.tty? ? "-t" : nil, "--", sh_cmd].compact)
   end
 
-  desc "waitx", ""
+  desc "waitx", "TBD: wait for pod availability, execute subsequent command"
   def waitx(clean_name, *cmd)
     exe = ::Polly::Execute.new
 
@@ -977,7 +977,7 @@ HEREDOC
   end
 
   ##TODO: --in-vivo split
-  desc "repositories", ""
+  desc "repositories", "TBD: fetch internal registries"
   def repositories
     catalog_json = fetch_from_registry("v2/_catalog")
     catalog = JSON.load(catalog_json)
@@ -1021,8 +1021,8 @@ HEREDOC
     end
   end
 
-  desc "generates job kubernetes resources", ""
-  def vertical(workflow = "debug")
+  desc "vertical [WORKFLOW]", "emit kubernetes resources for a simple job based CI"
+  def vertical(workflow = "default")
     exe = ::Polly::Execute.new
     current_sha = exe.current_revision
 
