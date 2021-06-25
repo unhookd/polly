@@ -315,21 +315,25 @@ HEREDOC
   option "explain", :type => :boolean, :default => false
   option "in-cluster", :type => :boolean, :default => false
   def build(container_definition="-")
+    default_pollyfile = "Pollyfile"
+    default_dockerfile = "Dockerfile"
+
     exe = ::Polly::Execute.new(options)
 
     version = exe.current_revision
     branch = exe.current_branch
     app = exe.current_app
-    puts app.inspect
     image_repo = Polly::Config.image_repo
 
     generated_dockerfile = nil
 
-    if container_definition == "-" && File.exists?("Pollyfile")
-      pollyfile_ruby = File.read("Pollyfile")
+    if container_definition == "-" && File.exists?(default_pollyfile)
+      pollyfile_ruby = File.read(default_pollyfile)
       #TODO: ??? Polly::Generate.options = options
-      Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
+      Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, default_pollyfile)
       generated_dockerfile = Polly::Generate.read_output
+    elsif container_definition == "-" && File.exists?(default_dockerfile)
+      generated_dockerfile = File.read(default_dockerfile)
     else
       generated_dockerfile = File.read(container_definition)
     end
