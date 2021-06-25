@@ -60,6 +60,29 @@ class PollyTasks < Thor
     obv.flush($stdout, $stderr, true)
   end
 
+  desc "continuous", "TBD: some sort of re-conceptulization of a CI in kube system"
+  def continuous
+    require "rubygems"
+    require "bundler/setup"
+    require "guard"
+    require "guard/cli"
+
+    Guard::Cli::Environments::Valid.new({}).start_guard
+
+    inner_dsl = Guard::Dsl.new
+    dsl = Guard::RSpec::Dsl.new(inner_dsl)
+    rspec = dsl.rspec
+    inner_dsl.guard :rspec, cmd: "bundle exec rspec" do
+      inner_dsl.watch(rspec.spec_helper) { rspec.spec_dir }
+      ##watch(rspec.spec_support) { rspec.spec_dir }
+      ##watch(rspec.spec_files)
+
+      ## Ruby files
+      #ruby = dsl.ruby
+      #dsl.watch_spec_files_for(ruby.lib_files)
+    end
+  end
+
   desc "test [PIPELINE]", "Run the CI pipeline"
   option "concurrency", :type => :numeric, :default => Polly::Plan::DEFAULT_CONCURRENCY, :desc => "Number of divergent paths to process simultaneously"
   option "config", :type => :string, :default => "Pollyfile", :desc => "Declaration of config"
