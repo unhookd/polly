@@ -1,3 +1,9 @@
+# [1.9.0] - 2021-06-24 - Jon Bardin
+
+Add initial simpler github action package publishing
+
+#######
+
 # [1.8.0] - 2021-06-18 - Jon Bardin
 
 Bits for bits
