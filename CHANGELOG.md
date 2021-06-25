@@ -1,3 +1,9 @@
+# [1.11.0] - 2021-06-24 - Jon Bardin
+
+Add more readme
+
+#######
+
 # [1.9.0] - 2021-06-24 - Jon Bardin
 
 Add initial simpler github action package publishing
@@ -49,5 +55,14 @@ new version here
 # [1.1.0] - 2019-10-21 - Jon Bardin
 
 Add fixed `polly changelog` tool
+
+#######
+
+# [0.0.0] - 0001-01-01 - Jon Bardin
+
+* https://github.com/FiloSottile/mkcert
+* https://www.atlassian.com/git/tutorials/setting-up-a-repository/git-init
+* https://github.com/GoogleContainerTools/kaniko
+* https://github.com/erikhuda/thor
 
 #######
