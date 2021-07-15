@@ -2,10 +2,11 @@
 
 module Polly
   class Plan
-    DEFAULT_CONCURRENCY = 1
+    DEFAULT_CONCURRENCY = 4
     DEFAULT_CIRCLECI_CONFIG_YML_PATH = ".circleci/config.yml"
 
     attr_accessor :all_jobs
+    attr_accessor :deps
 
     def initialize(revision = nil, upto_these_jobs = nil, options = {})
       @all_jobs = {}
@@ -48,7 +49,7 @@ module Polly
     end
 
     def description
-      "the plan is as follows: #{self}"
+      "the plan is as follows: #{self} #{@all_jobs} #{@deps} #{@jobs_to_skip} #{@only_these_jobs}"
     end
 
     def add_job(job)
@@ -183,10 +184,11 @@ module Polly
         end
       else
         jobs_with_zero_req.slice(0, @concurrency - count_of_running_jobs).map { |job_run_name|
-          raise "not should ever happen, you found a bug" unless @all_jobs[job_run_name]
-
-          @started[job_run_name] = true
-          @all_jobs[job_run_name]
+          Proc.new {
+            raise "not should ever happen, you found a bug" unless @all_jobs[job_run_name]
+            @started[job_run_name] = true
+            @all_jobs[job_run_name]
+          }
         }.compact
       end
     end
@@ -195,9 +197,10 @@ module Polly
       @completed[job.run_name] = !job.failed?
     end
 
-    def load_circleci(config_yml_path = DEFAULT_CIRCLECI_CONFIG_YML_PATH)
-      #TODO: enhance support for known circleci templates
-      raw_yaml = (File.read(config_yml_path) || "")
+    #TODO: enhance support for known circleci templates
+    def load_circleci(raw_yaml = File.read(DEFAULT_CIRCLECI_CONFIG_YML_PATH))
+      raise "empty config" if raw_yaml.nil? || raw_yaml.empty?
+
       yaml_template_rendered = raw_yaml.gsub("$CIRCLE_SHA1", @revision)
       circle_yaml = YAML.load(yaml_template_rendered)
 
@@ -218,6 +221,8 @@ module Polly
           image = circleci_like_parameters["docker"]
         end
 
+        #TODO: Regen module
+        #puts "add_circleci_job(#{job_run_name.inspect}, #{image.inspect}, #{circleci_like_parameters["steps"].inspect}, #{circleci_like_parameters["environment"].inspect}, #{circleci_like_parameters["working_directory"].inspect}"
         add_circleci_job(job_run_name, image, circleci_like_parameters["steps"], circleci_like_parameters["environment"], circleci_like_parameters["working_directory"])
       }
 
@@ -234,6 +239,8 @@ module Polly
             if add_job_to_stack.call(job_run_name)
               if job_run_name_or_reqs[job_run_name]
                 job_run_name_or_reqs[job_run_name]["requires"].each { |dep_job_run_name|
+                  #TODO: Regen module
+                  #puts "depends(#{job_run_name.inspect}, #{dep_job_run_name.inspect})"
                   depends(job_run_name, dep_job_run_name)
                 }
               end
@@ -260,17 +267,18 @@ module Polly
           next
         end
 
-        if step == "setup-remote-docker"
-          executor_hints[:setup_remote_docker] = true
+        if setup_remote_docker = step["setup-remote-docker"] || step["setup_remote_docker"]
+          executor_hints[:setup_remote_docker] = setup_remote_docker
           next
         end
 
         if run = step["run"]
           name = run["name"]
 
-          pro_fd.write("\necho BEGIN #{name}\n")
+          #TODO: debug
+          #pro_fd.write("\necho BEGIN #{name}\n")
           pro_fd.write(run["command"])
-          pro_fd.write("\necho END #{name}\n")
+          #pro_fd.write("\necho END #{name}\n")
 
           count_of_steps += 1
 
@@ -281,21 +289,26 @@ module Polly
       pro_fd.rewind
 
       circleci_env = {
-        "CI" => "true",
-        "CIRCLE_NODE_INDEX" => "0",
-        "CIRCLE_NODE_TOTAL" => "1",
-        "CIRCLE_SHA1" => @revision,
-        "RACK_ENV" => "test",
-        "RAILS_ENV" => "test",
-        "CIRCLE_ARTIFACTS" => "/var/tmp/artifacts",
-        "CIRCLE_TEST_REPORTS" => "/var/tmp/reports",
-        "SSH_ASKPASS" => "false",
-        "CIRCLE_WORKING_DIRECTORY" => "/home/app/current",
-        "PATH" => "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games",
-        #TODO: parse all of the executor models
-        "TZ" => "Etc/UCT",
+        #"CI" => "true",
+        #"CIRCLE_NODE_INDEX" => "0",
+        #"CIRCLE_NODE_TOTAL" => "1",
+        #"FART" => "farts",
+        #"RACK_ENV" => "test",
+        #"RAILS_ENV" => "test",
+        #"CIRCLE_ARTIFACTS" => "/var/tmp/artifacts",
+        #"CIRCLE_TEST_REPORTS" => "/var/tmp/reports",
+        #"SSH_ASKPASS" => "false",
+        #"CIRCLE_WORKING_DIRECTORY" => "/home/app/current",
+        #"PATH" => "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games",
+        ##TODO: parse all of the executor models
+        #"TZ" => "Etc/UCT",
+        #"SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]
         #TODO: "HTTP_PROXY_HOST" => "#{http_proxy_service_ip}:8111"
       }
+
+      if @revision && !@revision.empty?
+        circleci_env["CIRCLE_SHA1"] = @revision
+      end
 
       if job_env
         circleci_env.merge!(job_env)

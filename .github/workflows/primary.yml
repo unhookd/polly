@@ -2,29 +2,77 @@ name: primary
 
 on: [push]
 
-jobs:
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
+jobs:
   build:
- 
-    runs-on: ubuntu-18.04
- 
+    runs-on: ubuntu-20.04
+
+    permissions:
+      contents: read
+      packages: write
+
+    container:
+      image: ubuntu:focal-20200606
+      options: "--user 0"
+
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
+
     - name: bootstrap
       run: |
         set -e
 
-        #TODO: remove this hack when github actions virtual-environment is fixed
-        sudo apt remove -y -f php7.3-fpm php7.2-fpm msodbcsql17
+        id app || (export  DEBIAN_FRONTEND=noninteractive; export  LC_ALL=C.UTF-8; export  LANG=en_US; export  LANGUAGE=en_US; export  ACCEPT_EULA=y; apt-get update; apt-get install -y locales locales-all; apt-get clean; rm -rf /var/lib/apt/lists/*; locale-gen --purge en_US; /bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale; locale-gen $LANGUAGE; dpkg-reconfigure locales; apt-get update; apt-get install -y git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper; apt-get clean; rm -rf /var/lib/apt/lists/*; curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add; apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"; apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*; groupadd --gid 134 abc-otf; groupadd --gid 999 efg-nnn; useradd --uid 1001 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn; ln -sfv /home/app/polly/bin/polly /usr/local/bin/polly; chown -R app /home/app)
 
-        sudo bash bin/bootstrap.sh
+        #export SSH_AUTH_SOCK=/tmp/ssh-auth.sock
+        #ssh-agent -a $SSH_AUTH_SOCK > /dev/null
 
-    - name: rspec
+        chown -R app . # /home/app
+        #su app -s /bin/test -- -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1001 $SSH_AUTH_SOCK && chgrp 1001 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && su app -s /bin/test -- -w $SSH_AUTH_SOCK)
+        #test -z $DOCKER_CERT_PATH || (chown -R 1001 $(dirname $DOCKER_CERT_PATH))
+        #chown root:docker /var/run/docker.sock
+        #su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /bin/bash -c 'bundle exec polly build'
+        su app -s /bin/bash -c 'bundle config set --local path /home/app/vendor/bundle && bundle config set --local jobs 4 && bundle config set --local retry 3 && bundle config set --local deploment true && bundle config set --local without development && bundle install'
+        su app -s /bin/bash -c 'bundle exec polly generate' > Dockerfile
+        #docker run --rm=true polly:latest bundle exec rspec
+
+    - name: Log in to the Container registry
+      uses: docker/login-action@v1
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata (tags, labels) for Docker
+      id: meta
+      uses: docker/metadata-action@v3
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+
+    - name: Set up Docker Buildx
+      id: buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Inspect builder
       run: |
-        set -e
+        echo "Name:      ${{ steps.buildx.outputs.name }}"
+        echo "Endpoint:  ${{ steps.buildx.outputs.endpoint }}"
+        echo "Status:    ${{ steps.buildx.outputs.status }}"
+        echo "Flags:     ${{ steps.buildx.outputs.flags }}"
+        echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
 
-        bundle install --path=vendor/bundle
-
-        bundle exec rspec
-
-        ./bin/polly version
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}

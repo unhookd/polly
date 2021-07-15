@@ -4,6 +4,10 @@ describe Polly::Plan do
   let(:valid_revision) { "abc123" }
   let(:valid_concurrency_option) { { "concurrency" => 640 } }
 
+  def remap_jobs_ready_to_start(jrts)
+    jrts.collect { |jp| jp.call }
+  end
+
   context "direct planning" do
     it "can coordinate two interdependent jobs" do
       plan = described_class.new(valid_revision)
@@ -16,11 +20,11 @@ describe Polly::Plan do
       plan.depends(job_b.run_name, job_a.run_name)
       expect(plan.has_unfinished_jobs?).to eq(true)
 
-      ready_to_start_jobs = plan.jobs_ready_to_start
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
       expect(ready_to_start_jobs).to eq([job_a])
       plan.complete_job!(job_a)
 
-      ready_to_start_jobs = plan.jobs_ready_to_start
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
       expect(ready_to_start_jobs).to eq([job_b])
       plan.complete_job!(job_b)
 
@@ -41,11 +45,11 @@ describe Polly::Plan do
       plan.add_job(job_d)
       expect(plan.has_unfinished_jobs?).to eq(true)
 
-      ready_to_start_jobs = plan.jobs_ready_to_start
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
       expect(ready_to_start_jobs).to eq([job_b])
       plan.complete_job!(job_b)
 
-      ready_to_start_jobs = plan.jobs_ready_to_start
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
       expect(ready_to_start_jobs).to eq([job_c])
       plan.complete_job!(job_c)
 
@@ -64,13 +68,13 @@ describe Polly::Plan do
       plan.add_job(job_d)
       expect(plan.has_unfinished_jobs?).to eq(true)
 
-      ready_to_start_jobs = plan.jobs_ready_to_start
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
       expect(ready_to_start_jobs).to eq([job_b, job_c, job_d])
       plan.complete_job!(job_b)
       plan.complete_job!(job_c)
       plan.complete_job!(job_d)
 
-      ready_to_start_jobs = plan.jobs_ready_to_start
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
       expect(ready_to_start_jobs).to eq([])
 
       expect(plan.has_unfinished_jobs?).to eq(false)
@@ -98,7 +102,7 @@ describe Polly::Plan do
 
       expect(plan.has_unfinished_jobs?).to eq(true)
 
-      ready_to_start_jobs = plan.jobs_ready_to_start
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
       expect(ready_to_start_jobs).to eq([job_a])
       job_a.fail!
       plan.complete_job!(job_a)
@@ -127,7 +131,7 @@ describe Polly::Plan do
 
       expect(plan.has_unfinished_jobs?).to eq(true)
 
-      ready_to_start_jobs = plan.jobs_ready_to_start
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
       expect(ready_to_start_jobs.count).to eq(2)
       expect(ready_to_start_jobs).to eq([job_a, job_d])
       job_a.fail!
@@ -136,7 +140,7 @@ describe Polly::Plan do
 
       expect(plan.has_unfinished_jobs?).to eq(true)
       
-      ready_to_start_jobs = plan.jobs_ready_to_start
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
       expect(ready_to_start_jobs).to eq([job_e])
       plan.complete_job!(job_e)
       expect(plan.has_unfinished_jobs?).to eq(false)
@@ -160,7 +164,7 @@ describe Polly::Plan do
 
       expect(plan.has_unfinished_jobs?).to eq(true)
 
-      ready_to_start_jobs = plan.jobs_ready_to_start
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
       expect(ready_to_start_jobs).to eq([job_c, job_d])
       plan.complete_job!(job_c)
       plan.complete_job!(job_d)
@@ -186,7 +190,7 @@ describe Polly::Plan do
 
       expect(plan.has_unfinished_jobs?).to eq(true)
 
-      ready_to_start_jobs = plan.jobs_ready_to_start
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
       expect(ready_to_start_jobs).to eq([job_c, job_d])
     end
 
@@ -214,28 +218,28 @@ describe Polly::Plan do
 
       expect(plan.has_unfinished_jobs?).to eq(true)
 
-      ready_to_start_jobs = plan.jobs_ready_to_start
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
       expect(ready_to_start_jobs).to eq([job_c])
       
       plan.complete_job!(job_c)
 
       expect(plan.has_unfinished_jobs?).to eq(true)
 
-      ready_to_start_jobs = plan.jobs_ready_to_start
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
       expect(ready_to_start_jobs).to eq([job_d])
 
       plan.complete_job!(job_d)
 
       expect(plan.has_unfinished_jobs?).to eq(true)
 
-      ready_to_start_jobs = plan.jobs_ready_to_start
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
       expect(ready_to_start_jobs).to eq([job_e])
 
       plan.complete_job!(job_e)
 
       expect(plan.has_unfinished_jobs?).to eq(true)
 
-      ready_to_start_jobs = plan.jobs_ready_to_start
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
       expect(ready_to_start_jobs).to eq([job_f])
 
       plan.complete_job!(job_f)
@@ -245,21 +249,43 @@ describe Polly::Plan do
   end
 
   context "loading from circleci like yaml config" do
-    it "constructs a plan with correct dependency tree based on provided yaml" do
-      plan = described_class.new(valid_revision)
+    def plain_workflow(plan)
+      expect(plan.has_unfinished_jobs?).to eq(true)
 
-      plan.load_circleci
+      expect(plan.all_jobs.count).to eq(2)
+
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
+      expect(ready_to_start_jobs).to eq([plan.all_jobs["bootstrap"]])
+
+      plan.complete_job!(plan.all_jobs["bootstrap"])
 
       expect(plan.has_unfinished_jobs?).to eq(true)
 
-      expect(plan.all_jobs.count).to eq(1)
-
-      ready_to_start_jobs = plan.jobs_ready_to_start
+      ready_to_start_jobs = remap_jobs_ready_to_start(plan.jobs_ready_to_start)
       expect(ready_to_start_jobs).to eq([plan.all_jobs["primary"]])
 
       plan.complete_job!(plan.all_jobs["primary"])
-
       expect(plan.has_unfinished_jobs?).to eq(false)
+    end
+
+    it "constructs a plan with correct dependency tree based on provided yaml" do
+      plan = described_class.new(valid_revision)
+
+      plan.load_circleci(File.read("spec/fixtures/dot-circleci/config.yml"))
+
+      plain_workflow(plan)
+    end
+
+    it "constructs a plan with correct dependency tree based on provided yaml" do
+      plan = described_class.new(valid_revision)
+
+      puts "debug stuff here 3"
+
+      plan.add_circleci_job("bootstrap", "ubuntu:latest", [{"run"=>{"name"=>"bootstrap", "command"=>"true\n"}}], {}, nil)
+      plan.add_circleci_job("primary", "polly:latest", [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {}, nil)
+      plan.depends("primary", "bootstrap")
+
+      plain_workflow(plan)
     end
   end
 
