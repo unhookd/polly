@@ -211,6 +211,45 @@ output_circleci = {
         run "apt-add-repository ppa:" + r
       end
 
+      def prototype1
+        @prototype1 = true
+        @bootstrap = image {
+          stage "bootstrap", "ubuntu:focal-20210827"
+          command("USER") {
+            "root"
+          }
+          apt %w{curl mysql-client-8.0 mysql-server-core-8.0 ruby2* libruby2* ruby-bundler rubygems-integration rake git build-essential default-libmysqlclient-dev}
+          run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app}
+          command("WORKDIR") {
+            "/home/app"
+          }
+        }
+        @deploy = image {
+          stage "deploy", @bootstrap.stage
+          command("USER") {
+            "app"
+          }
+          run %q{mkdir -p ~/.ssh}
+          run %q{ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts}
+          run %q{bundle config set --local path /home/app/vendor/bundle}
+          run %q{bundle config set --local jobs 4}
+          run %q{bundle config set --local retry 3}
+          #TODO: figure out conventional bundling strategy
+          #run %q{bundle config set --local deploment true}
+          #run %q{bundle config set --local without development}
+          command("COPY") {
+            "--chown=app Gemfile VERSION binlogik.gemspec /home/app"
+          }
+          command("COPY") {
+            "--chown=app bin /home/app/bin"
+          }
+          run %q{bundle install}
+          command("COPY") {
+            "--chown=app . /home/app"
+          }
+        }
+      end
+
       def image(type = :dockerfile)
         @command_list = []
 

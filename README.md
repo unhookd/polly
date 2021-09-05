@@ -8,6 +8,10 @@ There are also the notion of the `polly` deployment "itself", known as `$POLLY`.
 
 polly can be used to debug several types of ci platforms, to facilitate local CI, and as a general purpose dev tool.
 
+# safety instructions
+
+Do not expose polly to a kubernetes cluster unless you have thoroughly understood the risk.
+
 # .circleci/config.yml
 
 polly understands circleci config and is able to plan and execute workflows on a local or remote kubernetes cluster
@@ -150,6 +154,28 @@ the `watch` command facilitates local CI workfow or C.T.R. style development pra
 
     #TODO polly watch
 
-# safety instructions
+# polly prototype1
 
-do not expose or use polly unless you have thoroughly understood the risk.
+#TODO
+#kubectl delete -f kubernetes --wait=false || true
+#
+#polly build
+#
+#kubectl delete -f kubernetes || true
+#kubectl delete pod binlogik --wait || true
+#
+#kubectl apply -f kubernetes
+#
+#cleanup() {
+#  echo -n " ... please wait ... "
+#  kubectl delete pod binlogik
+#  exit
+#}
+#
+#trap cleanup INT TERM
+#
+#while ! kubectl logs binlogik -c binlogik -f --pod-running-timeout=60s
+#do
+#  sleep 1
+#  echo -n ","
+#done
