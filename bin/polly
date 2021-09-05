@@ -385,6 +385,8 @@ HEREDOC
       #  Polly::Build.buildkit_external(exe, app, build_image.stage, version, generated_dockerfile, options["no-cache"])
       #}
 
+      raise if version.empty?
+
       Polly::Build.buildkit_external(exe, app, "wkndr", version, generated_dockerfile, options["no-cache"])
 
       tag_dockerfile = ["docker", "tag", app + ":wkndr-" + version, app + ":latest"]
