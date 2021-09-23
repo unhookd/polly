@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile-upstream:master-experimental
+FROM ubuntu:focal-20200606 AS bootstrap 
+
+USER root
+ENV DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8 LANG=en_US LANGUAGE=en_US ACCEPT_EULA=y
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; apt-get update; apt-get install -y locales locales-all; apt-get clean; rm -rf /var/lib/apt/lists/*
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; locale-gen --purge en_US
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; /bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; locale-gen $LANGUAGE
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; dpkg-reconfigure locales
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; apt-get update; apt-get install -y git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper; apt-get clean; rm -rf /var/lib/apt/lists/*
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; groupadd --gid 134 abc-otf
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; groupadd --gid 999 efg-nnn
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn
+
+USER app
+WORKDIR /home/app/.polly
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; echo "source 'https://rubygems.org'" > Gemfile; echo "gem 'polly', git: 'https://github.com/unhookd/polly.git', branch: '3.0-rc1'" >> Gemfile
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; bundle install --path=/home/app/.polly/vendor/bundle
+
+USER root
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; ln -sfv $(bundle info --path=polly)/bin/polly /usr/local/bin/polly
+
+USER app
+WORKDIR /home/app

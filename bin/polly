@@ -219,46 +219,50 @@ class PollyTasks < Thor
 
     #exe.systemx(*bootstrap_recv_pack)
 
-    raise "no polly" if exe.polly_pod.empty?
-
-    git_repo_template_install_cmd = [
-                     "kubectl", "cp", 
-                     File.join($polly_dir, "config/git-repo/templates"),
-                     "#{exe.polly_pod}:/usr/share/git-core/"
-                   ]
-
-    exe.systemx(*git_repo_template_install_cmd)
+    #unless exe.polly_pod
+    #  git_repo_template_install_cmd = [
+    #                   "kubectl", "cp", 
+    #                   File.join($polly_dir, "config/git-repo/templates"),
+    #                   "#{exe.polly_pod}:/usr/share/git-core/"
+    #                 ]
+    #  exe.systemx(*git_repo_template_install_cmd)
+    #end
 
     git_init_cmd = [
-                     "kubectl", "exec", exe.polly_pod,
-                     "-i",
-                     "--",
-                     "git", "init", "--bare", "/polly-safe/git/#{exe.current_app}"
+                     "git", "init", "--bare", "/polly-safe/git/#{exe.current_app}",
+                     "--template=#{File.join($polly_dir, "config/git-repo/templates")}"
                    ]
+
+    #unless exe.polly_pod
+    #  git_init_cmd = [
+    #                   "kubectl", "exec", exe.polly_pod,
+    #                   "-i",
+    #                   "--",
+    #                   *git_init_cmd
+    #                 ]
+    #end
 
     exe.systemx(*git_init_cmd)
 
+    #TODO: specify the remote follow branch with a toggle possibly???
     exe.systemx("git", "push", "-f", "polly", branch, "HEAD:#{branch}-#{Time.now.to_i}", "--exec=polly receive-pack")
 
-    ##cat /var/tmp/polly-safe/buildkit/example-510b1e33549a9f97b9fce43f1a30d13afe208390.tar | docker import - example:latest
-    #cat_image_cmd = [
-    #                 "kubectl", "exec", exe.polly_pod,
-    #                 "--",
-    #                 "cat", "/polly-safe/buildkit/#{exe.current_app}-#{exe.current_revision}.tar"
-    #               ]
-
-    #docker_tag_cmd = [
-    #                  "docker",
-    #                  "import",
-    #                  "-",
-    #                  "#{exe.current_app}:latest"
-    #               ]
-
-    ##options = {:stdin_data => docker_config_secret.join}
-    ##o,e,s = exe.execute_simple(:output, apply_job, options)
-    ##puts [o, e]
-
-    #status_list = Open3.pipeline(cat_image_cmd, docker_tag_cmd)
+    #####cat /var/tmp/polly-safe/buildkit/example-510b1e33549a9f97b9fce43f1a30d13afe208390.tar | docker import - example:latest
+    ####cat_image_cmd = [
+    ####                 "kubectl", "exec", exe.polly_pod,
+    ####                 "--",
+    ####                 "cat", "/polly-safe/buildkit/#{exe.current_app}-#{exe.current_revision}.tar"
+    ####               ]
+    ####docker_tag_cmd = [
+    ####                  "docker",
+    ####                  "import",
+    ####                  "-",
+    ####                  "#{exe.current_app}:latest"
+    ####               ]
+    #####options = {:stdin_data => docker_config_secret.join}
+    #####o,e,s = exe.execute_simple(:output, apply_job, options)
+    #####puts [o, e]
+    ####status_list = Open3.pipeline(cat_image_cmd, docker_tag_cmd)
   end
 
   desc "receive-pack [ORIGIN]", "(internal) receive incoming git send-pack"
@@ -275,12 +279,19 @@ class PollyTasks < Thor
   def receive_pack(origin = nil)
     exe = ::Polly::Execute.new
 
-    git_push_cmd = [
-                     "kubectl", "exec", exe.polly_pod,
-                     "-i",
-                     "--",
-                     "git", "receive-pack", "/polly-safe/git/#{exe.current_app}"
-                   ]
+    git_rp_cmd = [
+                   "git", "receive-pack", "/polly-safe/git/#{exe.current_app}"
+                 ]
+
+
+    #unless exe.polly_pod
+    #  git_rp_cmd = [
+    #                 "kubectl", "exec", exe.polly_pod,
+    #                 "-i",
+    #                 "--",
+    #                 *git_rp_cmd
+    #               ]
+    #end
 
     #git_push_cmd = [
     #  "kubectl", "run", "-i", "--rm", "polly-bootstrap",
@@ -304,7 +315,7 @@ class PollyTasks < Thor
     #
     ##"--env=GIT_TRACE_PACKET=true",
 
-    exec(*git_push_cmd)
+    exec(*git_rp_cmd)
   end
 
   desc "docker-config", "installs docker-config-json secret"
@@ -1022,10 +1033,11 @@ HEREDOC
   end
 
   desc "generate", "emits CI structure yaml"
-  option "--mirror", :type => :string, :default => "dockerfile"
+  option "mirror", :type => :string, :default => "dockerfile"
   #TODO: cleanup these bits
   #option "pipeline-fu", :type => :string, :default => "circleci"
   #option "image-fu", :type => :string, :default => "buildkit"
+  option "bootstrap", :type => :string, :default => "pollyfile" #TODO
   def generate(pollyfile = "Pollyfile")
     obv = ::Polly::Observe.new
     exe = ::Polly::Execute.new(options)
@@ -1035,7 +1047,7 @@ HEREDOC
     Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, pollyfile)
 
     case options["mirror"]
-      when "circle"
+      when "circleci"
         pollyfile_ruby = File.read("Pollyfile")
         Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
         generated_circleci_config_yml = YAML.dump(Polly::Generate.read_circleci_output)

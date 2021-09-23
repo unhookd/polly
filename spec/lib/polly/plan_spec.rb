@@ -279,7 +279,7 @@ describe Polly::Plan do
     it "constructs a plan with correct dependency tree based on provided yaml" do
       plan = described_class.new(valid_revision)
 
-      puts "debug stuff here 3"
+      #TODO: more testing, wtf was this for ???? puts "debug stuff here 3"
 
       plan.add_circleci_job("bootstrap", "ubuntu:latest", [{"run"=>{"name"=>"bootstrap", "command"=>"true\n"}}], {}, nil)
       plan.add_circleci_job("primary", "polly:latest", [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {}, nil)

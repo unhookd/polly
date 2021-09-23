@@ -132,15 +132,24 @@ module Polly
         end
       end
 
-      build_run_dir = "/var/tmp/run"
+      build_run_dir = "/polly-safe/run"
       build_manifest_dir = File.join(build_run_dir, clean_name, current_revision)
       run_shell_path = File.join(build_manifest_dir, "run.sh")
 
       sleep_cmd_args = ["sleep", "infinity"]
-      #TODO: figure out fail modes run_cmd_args = ["bash", "-x", "-e", "-o", "pipefail", run_shell_path]
-      run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
-      #TODO: better input for cmd: [] support
-      #run_cmd_args = ["bash", "-e", run_shell_path]
+
+      #####TODO: figure out fail modes run_cmd_args = ["bash", "-x", "-e", "-o", "pipefail", run_shell_path]
+      if false
+        run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
+      end
+
+      #####TODO: better input for cmd: [] support
+      ######run_cmd_args = ["bash", "-e", run_shell_path]
+
+      FileUtils.mkdir_p(build_manifest_dir)
+      File.write(run_shell_path, job.parameters[:command])
+
+      run_cmd_args = ["bash", "-e", "-x", "-o", "pipefail", run_shell_path]
 
       intend_to_run_cmd = nil
 
@@ -236,12 +245,13 @@ module Polly
       #  securityContext:
       #    runAsUser: 1000
       #    runAsGroup: 1000
+      #TODO: clean up these bits, work towards rootless build systems
         "securityContext" => {
           #"privileged" => true, #TODO: figure out un-privd case, use kaniko???
           "runAsUser" => username_to_uid(first_docker_executor_hint["user"]),
           #"runAsGroup" => 134
           "fsGroup" => 999,
-          "supplementalGroups" => [1000, 999, File.stat("/var/run/docker.sock").gid] #TODO: fix this hack
+          "supplementalGroups" => [999, 1000, File.exists?("/var/run/docker.sock") ? File.stat("/var/run/docker.sock").gid : 1001] #TODO: fix this hack
         },
         "containers" => [
           {
@@ -360,53 +370,58 @@ module Polly
       #puts YAML.dump(configmap_manifest) if @debug
       #puts "PREPOP JOB"
 
-      #TODO: better safety checks
-      puts :a
-      check_current_kube_context_is_safe!
-      puts :b
+      ##TODO: better safety checks
+      #puts :a
+      #check_current_kube_context_is_safe!
+      #puts :b
 
-      kubectl_apply = ["kubectl", "apply", "-f", "-"]
-      apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}
-      execute_simple(:silentx, kubectl_apply, apply_configmap_options)
-
-      execute_simple(:silent, ["kubectl", "delete", "deployment/#{clean_name}", "--grace-period=1"], {})
-      execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{clean_name}"], {})
-
-      deployment_spec["spec"]["template"]["spec"] = container_spec
-
-      apply_deployment_options = {:stdin_data => deployment_spec.to_yaml}
-      execute_simple(:silentx, kubectl_apply, apply_deployment_options)
-
-      if @dry_run
-        polly_dry_run = ["cat", "-"]
-        polly_dry_run_options = {:stdin_data => deployment_spec.to_yaml}
-
-        dry_bits = execute_simple(:async, polly_dry_run, polly_dry_run_options)
-
-        dry_bits[0].write(configmap_manifest.to_yaml + deployment_spec.to_yaml)
-        dry_bits[0].close
-
-        @runners << [job.run_name, clean_name, dry_bits]
-      else
-        #$stderr.write("1")
+      if false
         kubectl_apply = ["kubectl", "apply", "-f", "-"]
         apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}
         execute_simple(:silentx, kubectl_apply, apply_configmap_options)
 
-        #$stderr.write("2")
         execute_simple(:silent, ["kubectl", "delete", "deployment/#{clean_name}", "--grace-period=1"], {})
         execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{clean_name}"], {})
 
-        #$stderr.write("3")
+        deployment_spec["spec"]["template"]["spec"] = container_spec
+
         apply_deployment_options = {:stdin_data => deployment_spec.to_yaml}
         execute_simple(:silentx, kubectl_apply, apply_deployment_options)
 
-        polly_waitx = [
-                       "polly",
-                       "waitx",
-                       clean_name,
-                     ] + intend_to_run_cmd
+        if @dry_run
+          polly_dry_run = ["cat", "-"]
+          polly_dry_run_options = {:stdin_data => deployment_spec.to_yaml}
 
+          dry_bits = execute_simple(:async, polly_dry_run, polly_dry_run_options)
+
+          dry_bits[0].write(configmap_manifest.to_yaml + deployment_spec.to_yaml)
+          dry_bits[0].close
+
+          @runners << [job.run_name, clean_name, dry_bits]
+        else
+          #$stderr.write("1")
+          kubectl_apply = ["kubectl", "apply", "-f", "-"]
+          apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}
+          execute_simple(:silentx, kubectl_apply, apply_configmap_options)
+
+          #$stderr.write("2")
+          execute_simple(:silent, ["kubectl", "delete", "deployment/#{clean_name}", "--grace-period=1"], {})
+          execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{clean_name}"], {})
+
+          #$stderr.write("3")
+          apply_deployment_options = {:stdin_data => deployment_spec.to_yaml}
+          execute_simple(:silentx, kubectl_apply, apply_deployment_options)
+
+          polly_waitx = [
+                         "polly",
+                         "waitx",
+                         clean_name,
+                       ] + intend_to_run_cmd
+
+          @runners << [job.run_name, clean_name, execute_simple(:async, polly_waitx, {})]
+        end
+      else
+        polly_waitx = intend_to_run_cmd
         @runners << [job.run_name, clean_name, execute_simple(:async, polly_waitx, {})]
       end
 
@@ -547,16 +562,16 @@ module Polly
           @runners.each { |job_namish, pod_name, cmd_io|
             if job_thang.run_name == job_namish
               unless jobs_to_keep_completed.include?(job_thang) || jobs_to_detach.include?(job_thang.run_name)
-                get_logs = ["kubectl", "logs", "-l", "name=#{pod_name}", "--all-containers=true"]
-                #@all_exited = false
-                get_log_runners << [job_namish, "logs-#{pod_name}", execute_simple(:async, get_logs, {})]
-                #o,e,s = execute_simple(:output, get_logs, {})
-                #io_this_loop << [job_namish, o, e]
-                #execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {})
-                get_log_runners << [job_namish, "delete-#{pod_name}", execute_simple(:async, ["kubectl", "delete", "deployment/#{pod_name}"], {})]
-
-#puts "wtf"
-
+                if false
+                  get_logs = ["kubectl", "logs", "-l", "name=#{pod_name}", "--all-containers=true"]
+                  ########@all_exited = false
+                  get_log_runners << [job_namish, "logs-#{pod_name}", execute_simple(:async, get_logs, {})]
+                  #######o,e,s = execute_simple(:output, get_logs, {})
+                  #######io_this_loop << [job_namish, o, e]
+                  #######execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {})
+                  get_log_runners << [job_namish, "delete-#{pod_name}", execute_simple(:async, ["kubectl", "delete", "deployment/#{pod_name}"], {})]
+                end
+                #puts "wtf"
                 #wait_child
               end
             end
@@ -586,7 +601,11 @@ module Polly
 
         #TODO: handle better --wait-for flags
         unless (@keep_completed || @detach_failed)
-          @runners.collect { |job_run_name, pod_name, cmd_io| execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {}) }
+          @runners.collect { |job_run_name, pod_name, cmd_io|
+            if false
+              execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {})
+            end
+          }
         end
 
         return false if @all_exited

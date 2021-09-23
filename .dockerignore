@@ -1,5 +1,6 @@
 .git
 .bundle
+Gemfile.lock
 vendor
 .circleci
 .github
