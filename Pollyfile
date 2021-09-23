@@ -21,7 +21,7 @@
   run %q{locale-gen $LANGUAGE}
   run %q{dpkg-reconfigure locales}
 
-  apt %w{git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper}
+  apt %w{vim git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper}
 
   #TODO: ppa module / extra repo module
   run %q{curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add}
@@ -33,16 +33,24 @@
   
   run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn}
 
-  run %q{mkdir -p /polly-safe/git}
+  run %q{mkdir -p /polly-safe/git /polly-safe/run /polly-safe/app}
   run %q{chown -Rv app. /polly-safe}
 
   #TODO: workdir module
   command("WORKDIR") {
-    "/home/app/polly"
+    "/polly-safe/app"
   }
 
   #TODO: this is hacked
-  run %q{ln -sfv /home/app/polly/bin/polly /usr/local/bin/polly}
+  run %q{ln -sfv /polly-safe/app/bin/polly /usr/local/bin/polly}
+
+#TODO: zero-bootstrap mode via docker run polly:latest polly generate ????
+#TODO: zero-bootstrap mode via polly via apt-package repo ppa.......
+#WORKDIR /home/app/.polly
+#RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; echo "source 'https://rubygems.org'" > Gemfile; echo "gem 'polly', git: 'https://github.com/unhookd/polly.git', branch: '3.0-rc1'" >> Gemfile
+#RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; bundle install --path=/home/app/.polly/vendor/bundle
+#USER root
+#RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; ln -sfv $(bundle info --path=polly)/bin/polly /usr/local/bin/polly
 
   run %q{chown -R app /home/app}
 
@@ -65,15 +73,31 @@
   #run %q{bundle config set --local without development}
   #run %q{bundle install}
 
-  #TODO: more 
+  #TODO: more prototype-z detection
   command("COPY") {
-    "--chown=app Gemfile polly.gemspec VERSION /home/app/polly"
+    "--chown=app Gemfile polly.gemspec VERSION /polly-safe/app/"
   }
 
   run %q{bundle install --path=vendor/bundle --jobs=4 --retry=3 --without=development}
 
   command("COPY") {
-    "--chown=app . /home/app/polly"
+    "--chown=app Pollyfile Thorfile /polly-safe/app/"
+  }
+
+  command("COPY") {
+    "--chown=app config /polly-safe/app/config/"
+  }
+
+  command("COPY") {
+    "--chown=app lib /polly-safe/app/lib"
+  }
+
+  command("COPY") {
+    "--chown=app bin /polly-safe/app/bin"
+  }
+
+  command("WORKDIR") {
+    "/home/app"
   }
 }
 
@@ -181,3 +205,23 @@ echo bundle exec rspec
 #######Polly.include(MyLocalModz.my_gitch)
 #####
 ######TODO: local ring0 git hook integration
+
+#### more prototype-z #!/usr/bin/env ruby
+#### more prototype-z   
+#### more prototype-z # image declares container artifacts
+#### more prototype-z @bootstrap = image {
+#### more prototype-z   stage "bootstrap", "polly:latest"
+#### more prototype-z 
+#### more prototype-z   command("WORKDIR") {
+#### more prototype-z     "/home/app"
+#### more prototype-z   }
+#### more prototype-z }
+#### more prototype-z 
+#### more prototype-z workflow_image = "polly:latest"
+#### more prototype-z 
+#### more prototype-z @plain_workflow = Plan.new
+#### more prototype-z @plain_workflow.add_circleci_job("bootstrap",
+#### more prototype-z [{"image"=>workflow_image,"user"=>"root"}],
+#### more prototype-z [{"run"=>{"name"=>"bootstrap","command"=>"
+#### more prototype-z echo website
+#### more prototype-z "}}],{},"/home/app")
