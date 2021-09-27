@@ -159,7 +159,7 @@ workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
 }
 
 @gitch_pipeline = continuous {
-  #test @plain_workflow
+  test @plain_workflow
 }
 
 #TODO: figure out all of the below crap
