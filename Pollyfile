@@ -33,8 +33,8 @@
   
   run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn}
 
-  run %q{mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app}
-  run %q{chown -Rv app. /polly}
+  run %q{mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /__w/polly/polly}
+  run %q{chown -Rv app. /polly /__w/polly/polly}
 
   #TODO: workdir module
   command("WORKDIR") {

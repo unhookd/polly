@@ -16,7 +16,7 @@ jobs:
 
     container:
       #image: ubuntu:focal-20200606
-      #options: "--user 0"
+      options: "--user 0"
       #image: ghcr.io/unhookd/polly@sha256:50ea8e98ddb3f1760725fbcbbd542447971b785691109abf4a155f8a4cba970c
       #image: ghcr.io/unhookd/polly@sha256:76652050ee2b568d88ebf2a1efe46cdcd4b47c4cdb30667ac1fc9749ca8d0d87
       image: ghcr.io/unhookd/polly@sha256:427e2e56643b4deab87443390400967470a3e139b9d780968ef9fcc7d50a84b4
