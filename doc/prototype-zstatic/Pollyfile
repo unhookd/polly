@@ -18,5 +18,6 @@
 }
 
 @gitch_pipeline = continuous {
+  #TODO: build @bootstrap_artifact w/ --in-cluster
   test @plain_workflow
 }
