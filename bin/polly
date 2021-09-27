@@ -345,8 +345,9 @@ class PollyTasks < Thor
 
     #exe.systemx(*git_init_cmd)
     o,e,s = exe.execute_simple(:output, git_init_cmd, {})
+    puts o
     unless s
-      puts [o, e]
+      puts e
       exit(1)
     end
     exe.wait_child
@@ -388,14 +389,15 @@ class PollyTasks < Thor
     #
     ##"--env=GIT_TRACE_PACKET=true",
 
-    #exec(*git_rp_cmd)
+    exec(*git_rp_cmd)
 
-    o,e,s = exe.execute_simple(:output, git_rp_cmd, {})
-    exe.wait_child
-    unless s
-      puts [o, e]
-      exit(1)
-    end
+    options = {:stdin_data => $stdin.read}
+    #o,e,s = exe.execute_simple(:output, git_rp_cmd, options)
+    #exe.wait_child
+    #unless s
+    #  puts [o, e]
+    #  exit(1)
+    #end
   end
 
   desc "docker-config", "installs docker-config-json secret"

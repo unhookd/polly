@@ -11,7 +11,8 @@
     "bootstrap",
     [{"image"=>"polly:latest","user"=>"root"}],
     [{"run"=>{"name"=>"bootstrap","command"=>"
-      echo static build
+      echo sleeping 15
+      sleep 15
     "}}],{},"/home/app"
   )
 }

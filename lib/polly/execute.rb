@@ -73,7 +73,7 @@ module Polly
       @revision ||= begin
         #TODO: handle error cases
         current_sha = IO.popen("git rev-parse --verify HEAD").read.strip
-        #wait_child
+        wait_child
         current_sha
       end
     end
@@ -87,7 +87,7 @@ module Polly
     def current_branch
       @current_branch ||= begin
         a = IO.popen("git rev-parse --abbrev-ref HEAD").read.strip
-        #wait_child
+        wait_child
         a
       end
     end
@@ -140,9 +140,6 @@ module Polly
       sleep_cmd_args = ["sleep", "infinity"]
 
       #####TODO: figure out fail modes run_cmd_args = ["bash", "-x", "-e", "-o", "pipefail", run_shell_path]
-      if true #TODO: bits
-        run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
-      end
 
       #####TODO: better input for cmd: [] support
       ######run_cmd_args = ["bash", "-e", run_shell_path]
@@ -150,7 +147,10 @@ module Polly
       FileUtils.mkdir_p(build_manifest_dir)
       File.write(run_shell_path, job.parameters[:command])
 
-      run_cmd_args = ["bash", "-e", "-x", "-o", "pipefail", run_shell_path]
+      #run_cmd_args = ["bash", "-e", "-x", "-o", "pipefail", run_shell_path]
+      #if true #TODO: bits
+      run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
+      #end
 
       intend_to_run_cmd = nil
 
