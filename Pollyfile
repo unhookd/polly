@@ -143,7 +143,9 @@
 
 workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
 
-@plain_workflow = plan {
+@plain_workflow = Plan.new
+#{
+
   #job("bootstrap",
   #[{"image"=>workflow_image,"user"=>"root"}],
   #[{"run"=>{"name"=>"bootstrap","command"=>"
@@ -152,18 +154,17 @@ workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
 
   #TODO: polly build && docker run -it polly:latest bash -c "cd /polly/app/doc/prototype-zstatic && polly gitch -i && polly gitch -m && polly push --local"
 
-  job("primary",
+  @plain_workflow.add_circleci_job("primary",
   [{"image"=>workflow_image}],
   [
     {"run"=>{"name"=>"bundler","command"=>"bundle install --path=vendor/bundle --with=development"}},
     {"run"=>{"name"=>"rspec","command"=>"bundle exec rspec"}}
   ],{},"/home/app/polly")
-}
 
 
-@gitch_pipeline = continuous {
-  test @plain_workflow
-}
+#@gitch_pipeline = continuous {
+#  test @plain_workflow
+#}
 
 #TODO: figure out all of the below crap
 #id app || (#{@bootstrap.command_list.join("; ")})
