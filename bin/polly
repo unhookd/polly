@@ -96,20 +96,16 @@ class PollyTasks < Thor
     exe = ::Polly::Execute.new
 
     if feature
-      if exe.systemx("git", "checkout", "-b", feature)
+      if exe.system("git", "checkout", "-b", feature)
       else
-        unless exe.systemx("git", "checkout", feature)
-          exit(1)
-        end
+        exe.systemx("git", "checkout", feature)
+        exit(0)
       end
-      exit(0)
     end
 
     if options["u"] === true
       if exe.systemx("git", "push", "-u", "origin", "HEAD")
         exit(0)
-      else
-        exit(1)
       end
     end
 
@@ -117,16 +113,8 @@ class PollyTasks < Thor
       if exe.systemx("git", "add", ".")
         if exe.systemx("git", "commit", "-m", (msg.length > 1) ? msg : "wip")
           exit(0)
-        else
-          puts :b
-          puts $?.inspect
         end
-      else
-        puts :a
-        puts $?.inspect
       end
-
-      exit(1)
     end
 
     if options["y"]
