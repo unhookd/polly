@@ -37,7 +37,7 @@ module Polly
               {
                 "run" => {
                   "name" => job_spec.run_name,
-                  "command" => job_spec.parameters[:command]
+                  "command" => job_spec.parameters[:command].strip
                 }
               }
             ].compact

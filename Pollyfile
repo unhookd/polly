@@ -150,12 +150,14 @@ workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
   #polly version
   #"}}],{},"/home/app/polly")
 
+  #TODO: polly build && docker run -it polly:latest bash -c "cd /polly/app/doc/prototype-zstatic && polly gitch -i && polly gitch -m && polly push --local"
+
   job("primary",
   [{"image"=>workflow_image}],
-  [{"run"=>{"name"=>"rspec","command"=>"
-  bundle install --path=vendor/bundle --with=development
-  bundle exec rspec
-  "}}],{},"/home/app/polly")
+  [
+    {"run"=>{"name"=>"bundler","command"=>"bundle install --path=vendor/bundle --with=development"}},
+    {"run"=>{"name"=>"rspec","command"=>"bundle exec rspec"}}
+  ],{},"/home/app/polly")
 }
 
 
