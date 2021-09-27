@@ -51,6 +51,7 @@ module Polly
       unless status
         Kernel.exit(1)
       end
+      status
     end
 
     def check_current_kube_context_is_safe!

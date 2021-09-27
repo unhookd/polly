@@ -93,9 +93,7 @@ class PollyTasks < Thor
   option "m", :type => :string, :default => nil
   option "y", :type => :boolean, :default => false
   def gitch(feature = nil)
-    puts options.inspect
-
-    exe = ::Polly::Execute.new(options)
+    exe = ::Polly::Execute.new
 
     if feature
       if exe.systemx("git", "checkout", "-b", feature)
@@ -119,7 +117,13 @@ class PollyTasks < Thor
       if exe.systemx("git", "add", ".")
         if exe.systemx("git", "commit", "-m", (msg.length > 1) ? msg : "wip")
           exit(0)
+        else
+          puts :b
+          puts $?.inspect
         end
+      else
+        puts :a
+        puts $?.inspect
       end
 
       exit(1)
