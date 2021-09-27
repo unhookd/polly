@@ -140,7 +140,7 @@ module Polly
       sleep_cmd_args = ["sleep", "infinity"]
 
       #####TODO: figure out fail modes run_cmd_args = ["bash", "-x", "-e", "-o", "pipefail", run_shell_path]
-      if false
+      if true #TODO: bits
         run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
       end
 
@@ -376,7 +376,7 @@ module Polly
       #check_current_kube_context_is_safe!
       #puts :b
 
-      if false
+      if true
         kubectl_apply = ["kubectl", "apply", "-f", "-"]
         apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}
         execute_simple(:silentx, kubectl_apply, apply_configmap_options)
@@ -563,7 +563,7 @@ module Polly
           @runners.each { |job_namish, pod_name, cmd_io|
             if job_thang.run_name == job_namish
               unless jobs_to_keep_completed.include?(job_thang) || jobs_to_detach.include?(job_thang.run_name)
-                if false
+                if true #TODO
                   get_logs = ["kubectl", "logs", "-l", "name=#{pod_name}", "--all-containers=true"]
                   ########@all_exited = false
                   get_log_runners << [job_namish, "logs-#{pod_name}", execute_simple(:async, get_logs, {})]
@@ -603,7 +603,7 @@ module Polly
         #TODO: handle better --wait-for flags
         unless (@keep_completed || @detach_failed)
           @runners.collect { |job_run_name, pod_name, cmd_io|
-            if false
+            if true #TODO
               execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {})
             end
           }
