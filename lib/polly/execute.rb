@@ -649,9 +649,9 @@ module Polly
       exit_proc = lambda { |stdout, stderr, wait_thr_value, exit_or_not, silent=false|
         if !wait_thr_value.success?
           #TODO: integrate Observe here for fatal halt error log
-          puts caller
-          puts stdout
-          puts stderr
+          #puts caller
+          #puts stdout
+          #puts stderr
 
           if exit_or_not
             #TODO: integrate Observe here for fatal halt error log
