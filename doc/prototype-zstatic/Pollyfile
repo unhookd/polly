@@ -12,3 +12,8 @@
 [{"run"=>{"name"=>"bootstrap","command"=>"
 echo static build
 "}}],{},"/home/app")
+
+#ci {
+#  build
+#  test @plain_workflow
+#}

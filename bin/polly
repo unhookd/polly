@@ -89,6 +89,7 @@ class PollyTasks < Thor
   end
 
   desc "gitch [FEATURE]", "git commit utilities"
+  option "i", :type => :boolean, :default => false
   option "u", :type => :boolean, :default => false
   option "m", :type => :string, :default => nil
   option "y", :type => :boolean, :default => false
@@ -99,6 +100,12 @@ class PollyTasks < Thor
       if exe.system("git", "checkout", "-b", feature)
       else
         exe.systemx("git", "checkout", feature)
+        exit(0)
+      end
+    end
+
+    if options["i"] === true
+      if exe.systemx("git", "init")
         exit(0)
       end
     end
@@ -228,6 +235,7 @@ class PollyTasks < Thor
   end
 
   desc "push [BRANCH]", "Push the latest commit into the Polly container"
+  option "local", :type => :boolean, :default => false
   def push(branch = nil)
     exe = ::Polly::Execute.new
 
@@ -267,24 +275,11 @@ class PollyTasks < Thor
     #  exe.systemx(*git_repo_template_install_cmd)
     #end
 
-    git_init_cmd = [
-                     "git", "init", "--bare", "/polly-safe/git/#{exe.current_app}",
-                     "--template=#{File.join($polly_dir, "config/git-repo/templates")}"
-                   ]
-
-    #unless exe.polly_pod
-    #  git_init_cmd = [
-    #                   "kubectl", "exec", exe.polly_pod,
-    #                   "-i",
-    #                   "--",
-    #                   *git_init_cmd
-    #                 ]
-    #end
-
-    exe.systemx(*git_init_cmd)
+    # /polly-safe/app/config/git-repo/templates
+    # File.join($polly_dir, "config/git-repo/templates")
 
     #TODO: specify the remote follow branch with a toggle possibly???
-    exe.systemx("git", "push", "-f", "polly", branch, "HEAD:#{branch}-#{Time.now.to_i}", "--exec=polly receive-pack")
+    exe.systemx("git", "push", "-f", "polly", branch, "HEAD:#{branch}-#{Time.now.to_i}", "--exec=polly receive-pack#{options['local'] ? " --local" : ""}")
 
     #####cat /var/tmp/polly-safe/buildkit/example-510b1e33549a9f97b9fce43f1a30d13afe208390.tar | docker import - example:latest
     ####cat_image_cmd = [
@@ -306,6 +301,7 @@ class PollyTasks < Thor
 
   desc "receive-pack [ORIGIN]", "(internal) receive incoming git send-pack"
   option "bootstrap", :type => :boolean, :default => false
+  option "local", :type => :boolean, :default => false
   long_desc <<-LONGDESC
     Internal command, invoked via polly push.
 
@@ -318,19 +314,44 @@ class PollyTasks < Thor
   def receive_pack(origin = nil)
     exe = ::Polly::Execute.new
 
+    git_init_cmd = [
+                     "git", "init", "--bare", "/polly/safe/git/#{exe.current_app}",
+                     "--template=/polly/app/config/git-repo/templates"
+                   ]
+
+    unless options["local"]
+      # exe.polly_pod
+
+      git_init_cmd = [
+                       "kubectl", "exec", exe.polly_pod,
+                       "-i",
+                       "--",
+                       *git_init_cmd
+                     ]
+    end
+
+    #exe.systemx(*git_init_cmd)
+    o,e,s = exe.execute_simple(:output, git_init_cmd, {})
+    unless s
+      puts [o, e]
+      exit(1)
+    end
+
     git_rp_cmd = [
-                   "git", "receive-pack", "/polly-safe/git/#{exe.current_app}"
+                   "git", "receive-pack", "/polly/safe/git/#{exe.current_app}"
                  ]
 
 
-    #unless exe.polly_pod
-    #  git_rp_cmd = [
-    #                 "kubectl", "exec", exe.polly_pod,
-    #                 "-i",
-    #                 "--",
-    #                 *git_rp_cmd
-    #               ]
-    #end
+    unless options["local"]
+      # exe.polly_pod
+
+      git_rp_cmd = [
+                     "kubectl", "exec", exe.polly_pod,
+                     "-i",
+                     "--",
+                     *git_rp_cmd
+                   ]
+    end
 
     #git_push_cmd = [
     #  "kubectl", "run", "-i", "--rm", "polly-bootstrap",
@@ -859,7 +880,7 @@ spec:
         securityContext:
           runAsUser: 0
         volumeMounts:
-          - mountPath: /polly-safe
+          - mountPath: /polly/safe
             name: polly-mount
           - mountPath: /etc/ssl/private
             name: registry-certificates
@@ -898,7 +919,7 @@ data:
     version: 0.1
     storage:
       filesystem:
-        rootdirectory: /polly-safe/registry
+        rootdirectory: /polly/safe/registry
 ...
 ---
 apiVersion: apps/v1
@@ -936,7 +957,7 @@ spec:
       containers:
       - name: polly-registry
         volumeMounts:
-          - mountPath: /polly-safe
+          - mountPath: /polly/safe
             name: polly-mount
           - mountPath: /etc/ssl/private
             name: registry-certificates

@@ -33,6 +33,8 @@ module Polly
       #end
 
       def read_circleci_output
+      #TODO: reselect this from CI{} blocks
+
         #@circleci_output.rewind
         #@circleci_output.read
         #puts @plain_workflow

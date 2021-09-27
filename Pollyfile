@@ -33,16 +33,16 @@
   
   run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn}
 
-  run %q{mkdir -p /polly-safe/git /polly-safe/run /polly-safe/app}
-  run %q{chown -Rv app. /polly-safe}
+  run %q{mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app}
+  run %q{chown -Rv app. /polly}
 
   #TODO: workdir module
   command("WORKDIR") {
-    "/polly-safe/app"
+    "/polly/app"
   }
 
   #TODO: this is hacked
-  run %q{ln -sfv /polly-safe/app/bin/polly /usr/local/bin/polly}
+  run %q{ln -sfv /polly/app/bin/polly /usr/local/bin/polly}
 
 #TODO: zero-bootstrap mode via docker run polly:latest polly generate ????
 #TODO: zero-bootstrap mode via polly via apt-package repo ppa.......
@@ -75,29 +75,29 @@
 
   #TODO: more prototype-z detection
   command("COPY") {
-    "--chown=app Gemfile polly.gemspec VERSION /polly-safe/app/"
+    "--chown=app Gemfile polly.gemspec VERSION /polly/app/"
   }
 
   run %q{bundle install --path=vendor/bundle --jobs=4 --retry=3 --without=development}
 
   command("COPY") {
-    "--chown=app Pollyfile Thorfile /polly-safe/app/"
+    "--chown=app Pollyfile Thorfile /polly/app/"
   }
 
   command("COPY") {
-    "--chown=app config /polly-safe/app/config/"
+    "--chown=app config /polly/app/config/"
   }
 
   command("COPY") {
-    "--chown=app lib /polly-safe/app/lib"
+    "--chown=app lib /polly/app/lib"
   }
 
   command("COPY") {
-    "--chown=app bin /polly-safe/app/bin"
+    "--chown=app bin /polly/app/bin"
   }
 
   command("COPY") {
-    "--chown=app doc /polly-safe/app/doc"
+    "--chown=app doc /polly/app/doc"
   }
 
   command("WORKDIR") {

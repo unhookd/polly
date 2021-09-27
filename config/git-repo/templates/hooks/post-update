@@ -12,15 +12,17 @@ then
   git symbolic-ref HEAD "${1}"
   git update-server-info
 
+  #TODO: safe to assume polly cli installed in ENV?
   if [ -e /usr/local/bin/polly ];
   then
-    TMPCHECKOUT=/polly-safe/tmp/$(mktemp -d)/$(basename $(pwd))
+    #polly-safe
+    TMPCHECKOUT=/polly/safe/tmp/$(mktemp -d)/$(basename $(pwd))
     mkdir -p $(dirname ${TMPCHECKOUT})
     git clone -l . ${TMPCHECKOUT}
     cd ${TMPCHECKOUT}
     unset GIT_DIR
 
-    #TODO: polly publish
+    polly continuous
 
     export GIT_DIR="."
   fi
