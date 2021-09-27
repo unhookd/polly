@@ -585,7 +585,7 @@ module Polly
         @runners << lr
       }
 
-#      $stderr.write("G")
+      $stderr.write("G")
 
       return jobs_to_mark_as_completed, io_this_loop
     end
@@ -624,7 +624,7 @@ module Polly
 
       unless (@keep_completed || @detach_failed)
         #$stderr.write("deleting deployment...")
-        @runners.collect { |job_run_name, pod_name, cmd_io| execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {}) }
+        @runners.collect { |job_run_name, pod_name, cmd_io| execute_simple(:silent, ["kubectl", "delete", "--wait=false", "deployment/#{pod_name}"], {}) }
       end
 
       #while (!@detach_failed && !@keep_completed && @runners.any? { |job_run_name, pod_name, cmd_io|
@@ -651,8 +651,8 @@ module Polly
         if !wait_thr_value.success?
           #TODO: integrate Observe here for fatal halt error log
           #puts caller
-          #puts stdout
-          #puts stderr
+          puts stdout
+          puts stderr
 
           if exit_or_not
             #TODO: integrate Observe here for fatal halt error log
