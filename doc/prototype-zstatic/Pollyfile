@@ -1,19 +1,21 @@
 #!/usr/bin/env ruby
   
-@bootstrap = image {
+@bootstrap_artifact = image {
   stage "bootstrap", "polly:latest"
 
   run %q{echo static build}
 }
 
-@plain_workflow = Plan.new
-@plain_workflow.add_circleci_job("bootstrap",
-[{"image"=>"polly:latest","user"=>"root"}],
-[{"run"=>{"name"=>"bootstrap","command"=>"
-echo static build
-"}}],{},"/home/app")
+@plain_workflow = plan {
+  job(
+    "bootstrap",
+    [{"image"=>"polly:latest","user"=>"root"}],
+    [{"run"=>{"name"=>"bootstrap","command"=>"
+      echo static build
+    "}}],{},"/home/app"
+  )
+}
 
-#ci {
-#  build
-#  test @plain_workflow
-#}
+@gitch_pipeline = continuous {
+  test @plain_workflow
+}

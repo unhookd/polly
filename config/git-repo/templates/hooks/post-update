@@ -22,7 +22,10 @@ then
     cd ${TMPCHECKOUT}
     unset GIT_DIR
 
-    polly continuous
+    GENERATED_CI=$(polly continuous)
+    if [ $? -eq 0 ]; then
+      bash -x -e -c "${GENERATED_CI}"
+    fi
 
     export GIT_DIR="."
   fi

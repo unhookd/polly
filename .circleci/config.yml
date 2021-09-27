@@ -32,7 +32,7 @@ jobs:
         name: primary
         command: |2
 
-          echo bundle install --path=vendor/bundle --with=development
-          echo bundle exec rspec
+          bundle install --path=vendor/bundle --with=development
+          bundle exec rspec
     docker:
     - image: ghcr.io/unhookd/polly:3.0-rc1

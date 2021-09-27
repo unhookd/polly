@@ -133,7 +133,7 @@ module Polly
         end
       end
 
-      build_run_dir = "/polly-safe/run"
+      build_run_dir = "/polly/safe/run"
       build_manifest_dir = File.join(build_run_dir, clean_name, current_revision)
       run_shell_path = File.join(build_manifest_dir, "run.sh")
 
@@ -212,7 +212,7 @@ module Polly
             "args" => [
               #origin = "/polly-safe/git/#{app}"
               #"http://polly-app:8080/#{current_app}"
-              "clone", "-b", current_branch, "/polly-safe/git/#{current_app}", "."
+              "clone", "-b", current_branch, "/polly/safe/git/#{current_app}", "."
             ],
             "env" => { "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
             "securityContext" => {
@@ -226,7 +226,7 @@ module Polly
                 "name" => "scratch-dir"
               },
               {
-                "mountPath" => "/polly-safe/git/#{current_app}",
+                "mountPath" => "/polly/safe/git/#{current_app}",
                 "name" => "git-repo"
               },
             ]

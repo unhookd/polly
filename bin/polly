@@ -129,6 +129,19 @@ class PollyTasks < Thor
     end
   end
 
+  desc "continuous", ""
+  option "config", :type => :string, :default => "Pollyfile", :desc => "Declaration of config"
+  def continuous
+    config = options["config"]
+
+    #TODO: switch plan based on detected hueristics here
+    if File.exists?(config)
+      pollyfile_ruby = File.read(config)
+      Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, config)
+      puts Polly::Generate.read_shell_commands
+    end
+  end
+
   desc "test [PIPELINE]", "Run the CI pipeline"
   option "concurrency", :type => :numeric, :default => Polly::Plan::DEFAULT_CONCURRENCY, :desc => "Number of divergent paths to process simultaneously"
   option "config", :type => :string, :default => "Pollyfile", :desc => "Declaration of config"
@@ -141,6 +154,7 @@ class PollyTasks < Thor
   option "skip", :type => :string, :default => nil, :desc => "Don't run specified jobs (comma-separated list)"
   option "only", :type => :string, :default => nil, :desc => "Only run specified jobs (comma-separated list)"
   option "no-init", :type => :boolean, :default => false, :desc => "Do not run pod initialization (eg git-checkout container) before each job (this can speed up debug looping)"
+  option "ident", :type => :string, :default => nil, :desc => "todo"
   def test(run_pipeline_upto_these_jobs = nil)
     start_time = Time.now
 
@@ -161,7 +175,7 @@ class PollyTasks < Thor
       if config.include?("Pollyfile")
         pollyfile_ruby = File.read(config)
         Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, config)
-        generated_circleci_config_yml = YAML.dump(Polly::Generate.read_circleci_output)
+        generated_circleci_config_yml = YAML.dump(Polly::Generate.read_circleci_output(options["ident"]))
         plan.load_circleci(generated_circleci_config_yml)
       else
         plan.load_circleci(File.read(config))
@@ -180,6 +194,7 @@ class PollyTasks < Thor
     while exe.running? || plan.has_unfinished_jobs?
       #$stderr.write("!")
       #started_this_loop = []
+
       plan.jobs_ready_to_start.each do |job_proc|
         job_to_start = job_proc.call
         

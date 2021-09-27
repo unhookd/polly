@@ -143,13 +143,23 @@
 
 workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
 
-@plain_workflow = Plan.new
-@plain_workflow.add_circleci_job("bootstrap",
-[{"image"=>workflow_image,"user"=>"root"}],
-[{"run"=>{"name"=>"bootstrap","command"=>"
-polly version
-"}}],{},"/home/app/polly")
+@plain_workflow = plan {
+  job("bootstrap",
+  [{"image"=>workflow_image,"user"=>"root"}],
+  [{"run"=>{"name"=>"bootstrap","command"=>"
+  polly version
+  "}}],{},"/home/app/polly")
 
+
+  job("primary",
+  [{"image"=>workflow_image}],
+  [{"run"=>{"name"=>"rspec","command"=>"
+  bundle install --path=vendor/bundle --with=development
+  bundle exec rspec
+  "}}],{},"/home/app/polly", "bootstrap")
+}
+
+#TODO: figure out all of the below crap
 #id app || (#{@bootstrap.command_list.join("; ")})
 #chown -R app /home/app
 #su app -s /bin/test -- -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1000 $SSH_AUTH_SOCK && chgrp 1000 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && su app -s /bin/test -- -w $SSH_AUTH_SOCK)
@@ -158,13 +168,6 @@ polly version
 ##su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /bin/bash -c 'bundle exec polly build'
 ##docker run --rm=true polly:latest bundle exec rspec
 
-@plain_workflow.add_circleci_job("primary",
-[{"image"=>workflow_image}],
-[{"run"=>{"name"=>"rspec","command"=>"
-bundle install --path=vendor/bundle --with=development
-bundle exec rspec
-"}}],{},"/home/app/polly")
-@plain_workflow.depends("primary", "bootstrap")
 
 #"}}],{"BUNDLE_PATH"=>"/home/app/vendor/bundle"},"/home/app/polly")
 
