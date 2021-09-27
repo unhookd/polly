@@ -351,6 +351,7 @@ class PollyTasks < Thor
       puts [o, e]
       exit(1)
     end
+    exe.wait_child
 
     git_rp_cmd = [
                    "git", "receive-pack", "/polly/safe/git/#{exe.current_app}"

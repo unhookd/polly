@@ -24,7 +24,8 @@ then
 
     GENERATED_CI=$(polly continuous)
     if [ $? -eq 0 ]; then
-      bash -x -e -c "${GENERATED_CI}"
+      bash -x -e -c "${GENERATED_CI}" &
+      wait
     fi
 
     export GIT_DIR="."
