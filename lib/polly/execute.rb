@@ -444,7 +444,7 @@ module Polly
       # wait for changes or errors on all stdout/stderr descriptors
       _r, _w, _e = IO.select(process_fds, nil, process_fds, 0.5)
 
-      $stderr.write("A")
+      #$stderr.write("A")
 
       @all_exited = true
 
@@ -616,9 +616,9 @@ module Polly
     end
 
     def wait_for_cleanup
-      #$stderr.write($/)
-      #$stderr.write("cleaning up, please wait...")
-      #$stderr.write($/)
+      $stderr.write($/)
+      $stderr.write("cleaning up, please wait...")
+      $stderr.write($/)
 
       all_ok = @runners.all? { |job_run_name, pod_name, cmd_io| cmd_io.empty? || (!cmd_io[3].alive? && cmd_io[3].value.success?) }
 
@@ -637,7 +637,7 @@ module Polly
         sleep 0.1
       end
 
-      #wait_child unless (@keep_completed || @detach_failed)
+      wait_child unless (@keep_completed || @detach_failed)
 
       trap 'INT', 'DEFAULT'
 
