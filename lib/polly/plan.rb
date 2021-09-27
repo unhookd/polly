@@ -254,7 +254,7 @@ module Polly
       end
     end
 
-    def add_circleci_job(job_run_name, docker_params, steps, job_env, working_directory, pre_calc_dep = nil)
+    def add_circleci_job(job_run_name, docker_params, steps, job_env, working_directory) #, pre_calc_dep = nil)
       executor_hints = {
         :docker => docker_params #TODO: || "polly:latest"
       }
@@ -329,9 +329,9 @@ module Polly
         new_job = Job.new(job_run_name, valid_parameters)
         add_job(new_job)
 
-        if pre_calc_dep
-          depends(job_run_name, pre_calc_dep)
-        end
+        #if pre_calc_dep
+        #  depends(job_run_name, pre_calc_dep)
+        #end
       end
     end
   end
