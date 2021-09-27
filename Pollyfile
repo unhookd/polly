@@ -144,19 +144,18 @@
 workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
 
 @plain_workflow = plan {
-  job("bootstrap",
-  [{"image"=>workflow_image,"user"=>"root"}],
-  [{"run"=>{"name"=>"bootstrap","command"=>"
-  polly version
-  "}}],{},"/home/app/polly")
-
+  #job("bootstrap",
+  #[{"image"=>workflow_image,"user"=>"root"}],
+  #[{"run"=>{"name"=>"bootstrap","command"=>"
+  #polly version
+  #"}}],{},"/home/app/polly")
 
   job("primary",
   [{"image"=>workflow_image}],
   [{"run"=>{"name"=>"rspec","command"=>"
   bundle install --path=vendor/bundle --with=development
   bundle exec rspec
-  "}}],{},"/home/app/polly", "bootstrap")
+  "}}],{},"/home/app/polly")
 }
 
 @gitch_pipeline = continuous {
