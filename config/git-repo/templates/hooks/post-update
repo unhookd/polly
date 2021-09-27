@@ -20,15 +20,7 @@ then
     cd ${TMPCHECKOUT}
     unset GIT_DIR
 
-    #TODO: !!!
-    #polly build --in-cluster
-
-
-    polly test
-
-
-    #TODO: !!!
-    #ls -l
+    #TODO: polly publish
 
     export GIT_DIR="."
   fi

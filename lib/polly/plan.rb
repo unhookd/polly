@@ -250,9 +250,9 @@ module Polly
       end
     end
 
-    def add_circleci_job(job_run_name, docker_image, steps, job_env, working_directory)
+    def add_circleci_job(job_run_name, docker_params, steps, job_env, working_directory)
       executor_hints = {
-        :docker => docker_image
+        :docker => docker_params #TODO: || "polly:latest"
       }
 
       #steps = circleci_like_parameters["steps"]

@@ -60,26 +60,73 @@ class PollyTasks < Thor
     obv.flush($stdout, $stderr, true)
   end
 
-  desc "continuous", "TBD: some sort of re-conceptulization of a CI in kube system"
-  def continuous
-    require "rubygems"
-    require "bundler/setup"
-    require "guard"
-    require "guard/cli"
+  desc "tcr", "TBD: some sort of re-conceptulization of a TCR + kube build"
+  def tcr
+    #TODO
+    #
+    # watch files
+    #  run command based on pattern match of filename and Pollyfile case switch
+    #
+    #require "rubygems"
+    #require "bundler/setup"
+    #require "guard"
+    #require "guard/cli"
 
-    Guard::Cli::Environments::Valid.new({}).start_guard
+    #Guard::Cli::Environments::Valid.new({}).start_guard
 
-    inner_dsl = Guard::Dsl.new
-    dsl = Guard::RSpec::Dsl.new(inner_dsl)
-    rspec = dsl.rspec
-    inner_dsl.guard :rspec, cmd: "bundle exec rspec" do
-      inner_dsl.watch(rspec.spec_helper) { rspec.spec_dir }
-      ##watch(rspec.spec_support) { rspec.spec_dir }
-      ##watch(rspec.spec_files)
+    #inner_dsl = Guard::Dsl.new
+    #dsl = Guard::RSpec::Dsl.new(inner_dsl)
+    #rspec = dsl.rspec
+    #inner_dsl.guard :rspec, cmd: "bundle exec rspec" do
+    #  inner_dsl.watch(rspec.spec_helper) { rspec.spec_dir }
+    #  ##watch(rspec.spec_support) { rspec.spec_dir }
+    #  ##watch(rspec.spec_files)
 
-      ## Ruby files
-      #ruby = dsl.ruby
-      #dsl.watch_spec_files_for(ruby.lib_files)
+    #  ## Ruby files
+    #  #ruby = dsl.ruby
+    #  #dsl.watch_spec_files_for(ruby.lib_files)
+    #end
+  end
+
+  desc "gitch [FEATURE]", "git commit utilities"
+  option "u", :type => :boolean, :default => false
+  option "m", :type => :string, :default => nil
+  option "y", :type => :boolean, :default => false
+  def gitch(feature = nil)
+    puts options.inspect
+
+    exe = ::Polly::Execute.new(options)
+
+    if feature
+      if exe.systemx("git", "checkout", "-b", feature)
+      else
+        unless exe.systemx("git", "checkout", feature)
+          exit(1)
+        end
+      end
+      exit(0)
+    end
+
+    if options["u"] === true
+      if exe.systemx("git", "push", "-u", "origin", "HEAD")
+        exit(0)
+      else
+        exit(1)
+      end
+    end
+
+    if msg = options["m"]
+      if exe.systemx("git", "add", ".")
+        if exe.systemx("git", "commit", "-m", (msg.length > 1) ? msg : "wip")
+          exit(0)
+        end
+      end
+
+      exit(1)
+    end
+
+    if options["y"]
+      #TODO: `git add -y . && git commit -y -m 'yolo' && git push -f -u -y origin master`
     end
   end
 
