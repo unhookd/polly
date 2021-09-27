@@ -153,11 +153,12 @@ workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
   job("primary",
   [{"image"=>workflow_image}],
   [{"run"=>{"name"=>"rspec","command"=>"
+  bundle install --path=vendor/bundle --with=development
+  echo 123 456
   true
   "}}],{},"/home/app/polly")
 }
 
-#echo bundle install --path=vendor/bundle --with=development
 #echo bundle exec rspec
 
 @gitch_pipeline = continuous {
