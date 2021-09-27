@@ -377,17 +377,17 @@ module Polly
       #puts :b
 
       if true
-        kubectl_apply = ["kubectl", "apply", "-f", "-"]
-        apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}
-        execute_simple(:silentx, kubectl_apply, apply_configmap_options)
+        #kubectl_apply = ["kubectl", "apply", "-f", "-"]
+        #apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}
+        #execute_simple(:silentx, kubectl_apply, apply_configmap_options)
 
-        execute_simple(:silent, ["kubectl", "delete", "deployment/#{clean_name}", "--grace-period=1"], {})
-        execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{clean_name}"], {})
+        #execute_simple(:silent, ["kubectl", "delete", "deployment/#{clean_name}", "--grace-period=1"], {})
+        #execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{clean_name}"], {})
 
-        deployment_spec["spec"]["template"]["spec"] = container_spec
+        #deployment_spec["spec"]["template"]["spec"] = container_spec
 
-        apply_deployment_options = {:stdin_data => deployment_spec.to_yaml}
-        execute_simple(:silentx, kubectl_apply, apply_deployment_options)
+        #apply_deployment_options = {:stdin_data => deployment_spec.to_yaml}
+        #execute_simple(:silentx, kubectl_apply, apply_deployment_options)
 
         if @dry_run
           polly_dry_run = ["cat", "-"]
@@ -444,7 +444,7 @@ module Polly
       # wait for changes or errors on all stdout/stderr descriptors
       _r, _w, _e = IO.select(process_fds, nil, process_fds, 0.5)
 
-      #$stderr.write("A")
+      $stderr.write("A")
 
       @all_exited = true
 
