@@ -627,15 +627,15 @@ module Polly
         @runners.collect { |job_run_name, pod_name, cmd_io| execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {}) }
       end
 
-      while (!@detach_failed && !@keep_completed && @runners.any? { |job_run_name, pod_name, cmd_io|
-        #TODO:
-        #execute_simple(:silent, ["kubectl", "get", "pod/#{pod_name}"], {})
-        #execute_simple(:silent, ["kubectl", "wait", "pod/#{pod_name}"], {})
-        execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{pod_name}"], {})
-      }) do
-        $stdout.write("@")
-        sleep 0.1
-      end
+      #while (!@detach_failed && !@keep_completed && @runners.any? { |job_run_name, pod_name, cmd_io|
+      #  #TODO:
+      #  #execute_simple(:silent, ["kubectl", "get", "pod/#{pod_name}"], {})
+      #  #execute_simple(:silent, ["kubectl", "wait", "pod/#{pod_name}"], {})
+      #  #execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{pod_name}"], {})
+      #}) do
+      #  $stdout.write("@")
+      #  sleep 0.1
+      #end
 
       wait_child unless (@keep_completed || @detach_failed)
 
