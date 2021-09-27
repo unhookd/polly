@@ -22,11 +22,12 @@ then
     cd ${TMPCHECKOUT}
     unset GIT_DIR
 
-    GENERATED_CI=$(polly continuous)
-    if [ $? -eq 0 ]; then
-      bash -x -e -c "${GENERATED_CI}" &
-      wait
-    fi
+    #GENERATED_CI=$(polly continuous)
+    #if [ $? -eq 0 ]; then
+    #  bash -x -e -c "${GENERATED_CI}" &
+    #  wait
+    #fi
+    echo testing for bad git defunct
 
     export GIT_DIR="."
   fi

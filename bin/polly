@@ -335,8 +335,6 @@ class PollyTasks < Thor
                    ]
 
     unless options["local"]
-      # exe.polly_pod
-
       git_init_cmd = [
                        "kubectl", "exec", exe.polly_pod,
                        "-i",
@@ -356,7 +354,6 @@ class PollyTasks < Thor
     git_rp_cmd = [
                    "git", "receive-pack", "/polly/safe/git/#{exe.current_app}"
                  ]
-
 
     unless options["local"]
       # exe.polly_pod
