@@ -28,14 +28,17 @@
   run %q{apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"}
   apt %w{kubectl}
 
-  run %q{groupadd --gid 134 abc-otf}
-  run %q{groupadd --gid 999 efg-nnn}
-  run %q{groupadd --gid 1001 xyz-mno}
+  run %q{groupadd --gid 121 alpha}
+  run %q{groupadd --gid 134 beta}
+  run %q{groupadd --gid 999 gamma}
+  run %q{groupadd --gid 1000 theta}
+  run %q{groupadd --gid 1001 zeta}
   
-  run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn,xyz-mno}
+  run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,alpha,beta,gamma,theta,zeta}
+  run %q{useradd --uid 1001 --home-dir /home/worker --create-home --shell /bin/false worker --groups docker,alpha,beta,gamma,theta,zeta}
 
   run %q{mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app}
-  run %q{chown -Rv app. /polly}
+  run %q{chown -Rv app.alpha /polly}
 
   #TODO: workdir module
   command("WORKDIR") {
