@@ -30,12 +30,12 @@
 
   run %q{groupadd --gid 134 abc-otf}
   run %q{groupadd --gid 999 efg-nnn}
+  run %q{groupadd --gid 1001 xyz-mno}
   
-  run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn}
+  run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn,xyz-mno}
 
-  run %q{git init --bare /__w/polly/polly/.git}
   run %q{mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app}
-  run %q{chown -Rv app. /polly /__w}
+  run %q{chown -Rv app. /polly}
 
   #TODO: workdir module
   command("WORKDIR") {

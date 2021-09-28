@@ -24,13 +24,14 @@ jobs:
       #image: ghcr.io/unhookd/polly@sha256:3eabe6f08a919638aa401730134a0797b3b2deaaa652d7f46112e4a7fafc972f
       #image: ghcr.io/unhookd/polly@sha256:a5b8e11a780c8482a97736b8a4f7944ee202fa8c2919a9620baa171290bfab08
       image: ghcr.io/unhookd/polly@sha256:c6ce34ceb6a1464b44ea611ba5989c445f6208a553b67b5e2f153a602de56ef7
-      options: "--user 1000"
+      options: "--user 0"
 
     steps:
     - uses: actions/checkout@v2
 
     - name: bootstrap
       run: |
+        ls -la /__w /__w/polly /__w/polly/polly
         polly generate > Dockerfile
 
     - name: Log in to the Container registry
