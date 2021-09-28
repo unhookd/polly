@@ -19,14 +19,14 @@ jobs:
       #options: "--user 0"
 
       image: ghcr.io/unhookd/polly@sha256:db6f8db2cd35753e67047412ce46345d51c353ad58decd24427fbc22cc297428
-      #options: "--user 0"
+      options: "--user 0"
 
     steps:
     - uses: actions/checkout@v2
 
     - name: bootstrap
       run: |
-        ls -la /__w /__w/polly /__w/polly/polly
+        ls -la /home /__w /__w/polly /__w/polly/polly
         polly generate > Dockerfile
 
     - name: Log in to the Container registry
