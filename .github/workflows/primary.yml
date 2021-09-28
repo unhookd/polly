@@ -5,6 +5,7 @@ on: [push]
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  GITHUB_WORKSPACE: "/home/app"
 
 jobs:
   build:
