@@ -35,7 +35,7 @@
   run %q{groupadd --gid 1001 zeta}
   
   run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,alpha,beta,gamma,theta,zeta}
-  run %q{useradd --uid 1001 --home-dir /home/worker --create-home --shell /bin/false worker --groups docker,alpha,beta,gamma,theta,zeta}
+  run %q{useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/false runner --groups docker,alpha,beta,gamma,theta,zeta}
 
   run %q{mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app}
   run %q{chown -Rv app.alpha /polly}
@@ -226,3 +226,12 @@ workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
 #    #polly build --in-cluster
 #    #ls -l
 #}
+
+#NOTE: the user-id mismatch between polly-app and github-runner 1000:1001 ... could be refactored
+# https://github.com/actions/checkout/issues/197
+# https://github.com/actions/checkout/blob/master/src/git-directory-helper.ts
+# https://github.com/actions/runner/issues/711
+# https://docs.github.com/en/actions/learn-github-actions/environment-variables
+# https://github.com/actions/runner/issues/691
+# https://github.com/actions/checkout/issues/211
+# https://github.com/actions/checkout/issues/211

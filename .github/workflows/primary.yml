@@ -26,7 +26,6 @@ jobs:
 
     - name: bootstrap
       run: |
-        ls -la /home /__w /__w/polly /__w/polly/polly
         polly generate > Dockerfile
 
     - name: Log in to the Container registry
