@@ -15,10 +15,11 @@ jobs:
       packages: write
 
     container:
+      #TODO: --reboot bootstrap step to polly generate --mirror=github
       #image: ubuntu:focal-20200606
       #options: "--user 0"
 
-      image: ghcr.io/unhookd/polly@sha256:db6f8db2cd35753e67047412ce46345d51c353ad58decd24427fbc22cc297428
+      image: ghcr.io/unhookd/polly@sha256:7e0f17815d1370fde142b4fad16df550501061823be7d31de1920042ce512aa1
       options: "--user 1001"
 
     steps:
