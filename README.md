@@ -164,3 +164,7 @@ the `watch` command facilitates local CI workfow or T.C.R. style development pra
 #  sleep 1
 #  echo -n ","
 #done
+
+# prototypez
+
+#TODO: list known prototypical workflows

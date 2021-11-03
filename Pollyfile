@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 # image declares container artifacts
-@bootstrap = image {
+@bootstrap_artifact = image {
   stage "bootstrap", "ubuntu:focal-20200606"
 
   command("USER") {
@@ -141,6 +141,7 @@
 #  run %q{kubectl config use-context polly-ci}
 #}
 
+#TODO: workflow_image auto-detection???
 # ghcr.io/unhookd/polly:3.0-rc1
 # @bootstrap.from
 # polly:latest
@@ -165,6 +166,7 @@ workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
 }
 
 @gitch_pipeline = continuous {
+  #publish @bootstrap_artifact
   test @plain_workflow
 }
 

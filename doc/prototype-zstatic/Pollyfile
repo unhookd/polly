@@ -3,7 +3,7 @@
 @bootstrap_artifact = image {
   stage "bootstrap", "polly:latest"
 
-  run %q{echo static build}
+  run %q{echo '<!doctype html><html lang="en"><meta charset=utf-8><title>hello</title>' > index.html}
 }
 
 @plain_workflow = plan {
