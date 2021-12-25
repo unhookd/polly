@@ -1088,11 +1088,22 @@ HEREDOC
     exe = ::Polly::Execute.new
 
     if options["rename"]
-      Process.setproctitle(options["rename"])
+      exe.rename(options["rename"])
     end
 
-    exe.execute_procfile(ENV['PWD'], "Prepfile") if (options["prepare"] || options["only-prepare"])
-    exe.execute_procfile(ENV['PWD'], procfile) unless options["only-prepare"]
+    if (options["prepare"] || options["only-prepare"])
+      if File.exists("Prepfile")
+        prepfile_lines = File.readlines(prepfile)
+        exe.execute_procfile(ENV['PWD'], prepfile_lines)
+      end
+    end
+
+    unless options["only-prepare"]
+      if File.exists?(procfile)
+        procfile_lines = File.readlines(procfile)
+        exe.execute_procfile(ENV['PWD'], procfile_lines)
+      end
+    end
   end
 
   ##TODO: --in-vivo split

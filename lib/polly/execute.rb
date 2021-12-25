@@ -696,9 +696,19 @@ module Polly
       Process.wait rescue Errno::ECHILD
     end
 
-    def execute_procfile(working_directory, procfile = "Procfile")
-      obv = ::Polly::Observe.new
+    def rename(proctitle)
+      Process.setproctitle(proctitle)
+    end
 
+    def on_runloop(&block)
+      @runloop_callback = block
+    end
+
+    def on_interrupt(&block)
+      @interrupt_callback = block
+    end
+
+    def execute_procfile(working_directory, procfile, obv = ::Polly::Observe.new)
       time_started = Time.now
       chunk = 65432
       exiting = false
@@ -707,29 +717,34 @@ module Polly
       kill_threshold = term_threshold + 5 #NOTE: timing controls exit status
       total_kill_count = kill_threshold + 7
       select_timeout = 0.5
-      needs_winsize_update = false
+      #needs_winsize_update = false
       trapped = false
       self_reader, self_write = IO.pipe
 
-      trap 'INT' do
-        self_write.write_nonblock("\0")
+      if @interrupt_callback
+        trap 'INT', @interrupt_callback
+      else
+        trap 'INT' do
+          self_write.write_nonblock("\0")
 
-        if exiting && exit_grace_counter < kill_threshold
-          exit_grace_counter += 1
+          if exiting && exit_grace_counter < kill_threshold
+            exit_grace_counter += 1
+          end
+
+          exiting = true
+          trapped = true
+          select_timeout = 0.5
         end
-
-        exiting = true
-        trapped = true
-        select_timeout = 0.5
       end
 
-      trap 'WINCH' do
-        needs_winsize_update = true
-      end
+      #TODO: wtf is WINCH related to, should apps handle it????
+      #trap 'WINCH' do
+      #  needs_winsize_update = true
+      #end
 
       Dir.chdir(working_directory || Dir.mktmpdir)
 
-      pipeline_commands = File.readlines(procfile).collect { |line|
+      pipeline_commands = procfile.collect { |line|
         process_name, process_cmd = line.split(":", 2)
         process_name.strip!
         process_cmd.strip!
@@ -794,6 +809,10 @@ module Polly
           end
         end
 
+        if @runloop_callback
+          @runloop_callback.call(pipeline_commands)
+        end
+
         ready_for_reading, _w, _e = IO.select(process_stdouts + process_stderrs, nil, nil, select_timeout)
 
         self_reader.read_nonblock(chunk) rescue nil
@@ -836,14 +855,16 @@ module Polly
             process_result = process_waiter.value
 
             $stdout.write($/)
-            $stdout.write("#{process_name} exited... #{process_result.success?}")
+            $stdout.write("#{process_name} exited... #{process_result.success?} #{process_result}")
             $stdout.write($/)
           end
         }
       end
 
-      trap 'INT', 'DEFAULT'
-      trap 'WINCH', 'DEFAULT'
+      #unless @interrupt_callback
+        trap 'INT', 'DEFAULT'
+        #trap 'WINCH', 'DEFAULT'
+      #end
 
       pipeline_commands.each { |pipeline_command|
         process_name = pipeline_command[:process_name]
@@ -856,7 +877,7 @@ module Polly
 
       obv.flush($stdout, $stderr, true)
 
-      $stdout.write(" ... exiting")
+      $stdout.write(" ... exiting procfile sequence")
       $stdout.write($/)
     end
 
