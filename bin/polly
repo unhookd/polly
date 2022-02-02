@@ -467,7 +467,10 @@ HEREDOC
 #  end
 
   desc "certificates", "installs some common ca certificate secret material into cluster"
-  def certificates
+  def certificates(inbound_ssh_key, inbound_ssh_key_pub)
+    inbound_ssh_key = File.read(inbound_ssh_key)
+    inbound_ssh_key_pub = File.read(inbound_ssh_key_pub)
+
     key = OpenSSL::PKey::RSA.new 2048
     key_dsa = OpenSSL::PKey::DSA.new 2048
 
@@ -512,7 +515,6 @@ HEREDOC
     ef.issuer_certificate = root_ca
     cert.add_extension(ef.create_extension("keyUsage","digitalSignature", true))
     cert.add_extension(ef.create_extension("subjectKeyIdentifier","hash", false))
-    #cert.add_extension(ef.create_extension("subjectAltName", "IP:10.32.0.8", false))
     cert.add_extension(ef.create_extension("subjectAltName", "DNS:polly-registry", false))
     cert.sign(root_key, OpenSSL::Digest::SHA256.new)
 
@@ -525,16 +527,39 @@ HEREDOC
     b = Base64.strict_encode64(root_ca.to_pem)
     c = Base64.strict_encode64(wca + root_ca.to_pem)
 
+    #blob = [key.public_key.to_s].pack("m*").gsub(/\s/, "")
+    #blob = [Net::SSH::Buffer.from(:raw, key.public_key.to_der).to_s].pack("m*").gsub(/\s/, "")
+    #known_hosts = "wkstation-service ssh-rsa #{blob}"
+    #fff = Net::SSH::HostKeyEntries::PubKey.new(key.public_key.der)
+    #puts fff.inspect
+    #FileUtils.rm("/var/tmp/cheese.known_hosts")
+    #kn = Net::SSH::KnownHosts.new("/var/tmp/cheese.known_hosts")
+    #kn.add("wkstation-service", key)
+    #known_hosts = File.read("/var/tmp/cheese.known_hosts")
+    #puts known_hosts.inspect
+
+    #type = key.ssh_type
+    #data2 = [ key.to_blob ].pack('m0')
+    #openssh_format = "#{type} #{data2}"
+    ##puts openssh_format
+
+    FileUtils.rm("/var/tmp/sshd_rsa") if File.exists?("/var/tmp/sshd_rsa")
+    File.write("/var/tmp/sshd_rsa", data)
+
     polly_certificates = <<-HEREDOC
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: "sshd"
+  name: sshd
 type: Opaque
 data:
   rsa: #{Base64.strict_encode64(data)}
   dsa: #{Base64.strict_encode64(data_dsa)}
+  dsa_pub: #{Base64.strict_encode64(key_dsa.public_key.to_s)}
+  rsa_pub: #{Base64.strict_encode64(key.public_key.to_s)}
+  ssh_key: #{Base64.strict_encode64(inbound_ssh_key)}
+  ssh_key_pub: #{Base64.strict_encode64(inbound_ssh_key_pub)}
 ...
 ---
 apiVersion: v1
