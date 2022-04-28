@@ -281,9 +281,9 @@ module Polly
 
           #TODO: debug
           #TODO: fix multi-step build-out/generation
-          pro_fd.write("\necho BEGIN #{name}\n")
+          #pro_fd.write("\necho BEGIN #{name}\n")
           pro_fd.write(run["command"])
-          pro_fd.write("\necho END #{name}\n")
+          pro_fd.write("\n")
 
           count_of_steps += 1
 
