@@ -585,7 +585,7 @@ module Polly
         @runners << lr
       }
 
-      $stderr.write("G")
+      #$stderr.write("G")
 
       return jobs_to_mark_as_completed, io_this_loop
     end
