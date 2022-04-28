@@ -110,6 +110,7 @@ workflow_image = "polly:latest"
   job("primary",
     [{"image"=>workflow_image}],
     [
+      {"run"=>{"name"=>"demo","command"=>"echo DEMO!!!!"}},
       {"run"=>{"name"=>"config","command"=>"bundle config set --local path vendor/bundle"}},
       {"run"=>{"name"=>"bundler","command"=>"bundle install"}},
       {"run"=>{"name"=>"rspec","command"=>"bundle exec rspec"}}
