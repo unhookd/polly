@@ -2,7 +2,7 @@
 
 # image declares container artifacts
 @bootstrap_artifact = image {
-  stage "bootstrap", "ubuntu:focal-20200606"
+  stage "bootstrap", "ubuntu:jammy-20220421"
 
   command("USER") {
     "root"
@@ -21,7 +21,7 @@
   run %q{locale-gen $LANGUAGE}
   run %q{dpkg-reconfigure locales}
 
-  apt %w{vim git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper}
+  apt %w{vim git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby3* libruby3* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper}
 
   #TODO: ppa module / extra repo module
   run %q{curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add}
@@ -82,7 +82,9 @@
     "--chown=app Gemfile polly.gemspec VERSION /polly/app/"
   }
 
-  run %q{bundle install --path=vendor/bundle --jobs=4 --retry=3 --without=development}
+  run %q{bundle config set --local path vendor/bundle}
+  run %q{bundle config set --local without development}
+  run %q{bundle install --jobs=4 --retry=3}
 
   command("COPY") {
     "--chown=app Pollyfile Thorfile /polly/app/"

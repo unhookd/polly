@@ -65,8 +65,11 @@ module Polly
       end
 
       def command(c)
-        emit c + " "
-        emit yield if block_given?
+        emit c
+        if block_given?
+          emit " "
+          emit yield
+        end
         emit $/
       end
 
