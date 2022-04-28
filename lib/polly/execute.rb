@@ -192,7 +192,8 @@ module Polly
             "metadata" => {
               "labels" => {
                 #TODO: abstract this
-                "name" => clean_name
+                "name" => clean_name,
+                "app" => "polly-ci"
               },
               "annotations" => {}
             }
