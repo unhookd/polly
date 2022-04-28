@@ -45,16 +45,8 @@
     "/polly/app"
   }
 
-  #TODO: this is hacked
-  run %q{ln -sfv /polly/app/bin/polly /usr/local/bin/polly}
-
-#TODO: zero-bootstrap mode via docker run polly:latest polly generate ????
-#TODO: zero-bootstrap mode via polly via apt-package repo ppa.......
-#WORKDIR /home/app/.polly
-#RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; echo "source 'https://rubygems.org'" > Gemfile; echo "gem 'polly', git: 'https://github.com/unhookd/polly.git', branch: '3.0-rc1'" >> Gemfile
-#RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; bundle install --path=/home/app/.polly/vendor/bundle
-#USER root
-#RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; ln -sfv $(bundle info --path=polly)/bin/polly /usr/local/bin/polly
+  ##TODO: this is hacked
+  ##run %q{ln -sfv /polly/app/bin/polly /usr/local/bin/polly}
 
   run %q{chown -R app /home/app}
 
@@ -65,26 +57,14 @@
   run %q{git config --global user.email "you@example.com"}
   run %q{git config --global user.name "Your Name"}
 
-  ##TODO: user module
-  #command("USER") {
-  #  "app"
-  #}
-
-  #run %q{bundle config set --local path /home/app/vendor/bundle}
-  #run %q{bundle config set --local jobs 4}
-  #run %q{bundle config set --local retry 3}
-  #run %q{bundle config set --local deploment true}
-  #run %q{bundle config set --local without development}
-  #run %q{bundle install}
-
   #TODO: more prototype-z detection
   command("COPY") {
     "--chown=app Gemfile polly.gemspec VERSION /polly/app/"
   }
 
-  run %q{bundle config set --local path vendor/bundle}
-  run %q{bundle config set --local without development}
-  run %q{bundle install --jobs=4 --retry=3}
+  #run %q{bundle config set --local path vendor/bundle}
+  #run %q{bundle config set --local without development}
+  #run %q{bundle install --jobs=4 --retry=3}
 
   command("COPY") {
     "--chown=app Pollyfile Thorfile /polly/app/"
@@ -106,136 +86,37 @@
     "--chown=app doc /polly/app/doc"
   }
 
+  run %q{gem build polly.gemspec}
+
+  command("USER") {
+    "root"
+  }
+
+  run %q{gem install polly-2.14.0.gem}
+
+  command("USER") {
+    "app"
+  }
+
   command("WORKDIR") {
     "/home/app"
   }
 }
 
-#@deploy = image {
-#  stage "deploy", @bootstrap.stage
-#}
-
-#@test = image {
-#  stage "test", @deploy.stage
-#
-#  #TODO: user module
-#  command("USER") {
-#    "app"
-#  }
-#
-#  #TODO: workdir module
-#  command("WORKDIR") {
-#    "/home/app/polly"
-#  }
-#
-#  run %q{bundle config set --local path /home/app/vendor/bundle}
-#  run %q{bundle config set --local jobs 4}
-#  run %q{bundle config set --local retry 3}
-#  run %q{bundle config set --local deploment true}
-#  run %q{bundle config unset --local without}
-#  run %q{bundle config set --local with development}
-#  run %q{bundle install}
-#
-#  #run %q{bundle install --path=~/vendor/bundle --jobs=4 --retry=3 --deployment --with "development"}
-#  #run %q{ssh-add -l}
-#
-#  run %q{kubectl config set-context polly-ci}
-#  run %q{kubectl config use-context polly-ci}
-#}
-
-#TODO: workflow_image auto-detection???
-# ghcr.io/unhookd/polly:3.0-rc1
-# @bootstrap.from
-# polly:latest
-
-workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
+#workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
+workflow_image = "polly:latest"
 
 @plain_workflow = plan {
-  #job("bootstrap",
-  #[{"image"=>workflow_image,"user"=>"root"}],
-  #[{"run"=>{"name"=>"bootstrap","command"=>"
-  #polly version
-  #"}}],{},"/home/app/polly")
-
-  #TODO: polly build && docker run -it polly:latest bash -c "cd /polly/app/doc/prototype-zstatic && polly gitch -i && polly gitch -m && polly push --local"
-
   job("primary",
-  [{"image"=>workflow_image}],
-  [
-    {"run"=>{"name"=>"bundler","command"=>"bundle install --path=vendor/bundle --with=development"}},
-    {"run"=>{"name"=>"rspec","command"=>"bundle exec rspec"}}
-  ],{},"/home/app/polly")
+    [{"image"=>workflow_image}],
+    [
+      {"run"=>{"name"=>"bundler","command"=>"bundle install --path=vendor/bundle --with=development"}},
+      {"run"=>{"name"=>"rspec","command"=>"bundle exec rspec"}}
+    ],{},"/home/app/polly"
+  )
 }
 
 @gitch_pipeline = continuous {
   #publish @bootstrap_artifact
   test @plain_workflow
 }
-
-#TODO: figure out all of the below crap
-#id app || (#{@bootstrap.command_list.join("; ")})
-#chown -R app /home/app
-#su app -s /bin/test -- -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1000 $SSH_AUTH_SOCK && chgrp 1000 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && su app -s /bin/test -- -w $SSH_AUTH_SOCK)
-#test -z $DOCKER_CERT_PATH || (chown -R 1000 $(dirname $DOCKER_CERT_PATH))
-##su app -s /bin/bash -c '#{@deploy.command_list.join(" && ")}'
-##su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /bin/bash -c 'bundle exec polly build'
-##docker run --rm=true polly:latest bundle exec rspec
-
-
-#"}}],{"BUNDLE_PATH"=>"/home/app/vendor/bundle"},"/home/app/polly")
-
-        # docker pull ghcr.io/unhookd/polly:3.0-rc1
-        # docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/unhookd/polly:3.0-rc1
-        # image: ubuntu:focal-20200606
-
-        #id app || (export  DEBIAN_FRONTEND=noninteractive; export  LC_ALL=C.UTF-8; export  LANG=en_US; export  LANGUAGE=en_US; export  ACCEPT_EULA=y; apt-get update; apt-get install -y locales locales-all; apt-get clean; rm -rf /var/lib/apt/lists/*; locale-gen --purge en_US; /bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale; locale-gen $LANGUAGE; dpkg-reconfigure locales; apt-get update; apt-get install -y git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper; apt-get clean; rm -rf /var/lib/apt/lists/*; curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add; apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"; apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*; groupadd --gid 134 abc-otf; groupadd --gid 999 efg-nnn; useradd --uid 1001 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn; ln -sfv /home/app/polly/bin/polly /usr/local/bin/polly; chown -R app /home/app)
-        #chown -R app .
-        #su app -s /bin/bash -c 'bundle config set --local path /home/app/vendor/bundle && bundle config set --local jobs 4 && bundle config set --local retry 3 && bundle config set --local deploment true && bundle config set --local without development && bundle install'
-        #su app -s /bin/bash -c 'bundle exec polly generate' > Dockerfile
-
-
-
-######TODO: workingdir module
-######@plain_workflow.add_circleci_job("bootstrap-5", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-5", "command"=>"sleep 5"}}], {}, "/")
-######@plain_workflow.add_circleci_job("bootstrap-30", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-30", "command"=>"sleep 30"}}], {}, "/")
-######@plain_workflow.add_circleci_job("bootstrap-60", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-60", "command"=>"sleep 60"}}], {}, "/")
-######@plain_workflow = Plan.new
-######@plain_workflow.add_circleci_job("bootstrap", [{"image"=>@bootstrap.from, "user"=> 0}], [{"run"=>{"name"=>"bootstrap", "command"=>"date && env && true"}}], {}, "/home/app/polly") #TODO: workingdir module
-######@plain_workflow.add_circleci_job("primary", [{"image"=>@bootstrap.from}], [{"run"=>{"name"=>"rspec", "command"=>"date && env && true"}}], {"BUNDLE_PATH" => "/home/app/vendor/bundle"}, "/home/app/polly")
-######@plain_workflow.depends("primary", "bootstrap")
-#####
-#######gitch {
-#######  "-y"
-#######}
-#######
-#######gitch {<EOF
-########!/bin/sh
-#######farts && foo
-#######if [ false ];
-#######then;
-#######  echo;
-#######fi
-#######EOF
-#######}
-#######
-#######
-#######Polly.include(MyLocalModz.my_gitch)
-#####
-######TODO: local ring0 git hook integration
-
-
-#Publish.publish {
-#    #TODO: !!!
-#    #TODO: !!!
-#    #polly build --in-cluster
-#    #ls -l
-#}
-
-#NOTE: the user-id mismatch between polly-app and github-runner 1000:1001 ... could be refactored
-# https://github.com/actions/checkout/issues/197
-# https://github.com/actions/checkout/blob/master/src/git-directory-helper.ts
-# https://github.com/actions/runner/issues/711
-# https://docs.github.com/en/actions/learn-github-actions/environment-variables
-# https://github.com/actions/runner/issues/691
-# https://github.com/actions/checkout/issues/211
-# https://github.com/actions/checkout/issues/211

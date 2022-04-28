@@ -14,12 +14,13 @@ jobs:
     - run:
         name: primary
         command: |-
-          echo BEGIN bundler
-          bundle install --path=vendor/bundle --with=development
-          echo END bundler
-
-          echo BEGIN rspec
-          bundle exec rspec
-          echo END rspec
+          sleep 90
+          #echo BEGIN bundler
+          #bundle install --path=vendor/bundle --with=development
+          #echo END bundler
+          #echo BEGIN rspec
+          #bundle exec rspec
+          #echo END rspec
     docker:
-    - image: ghcr.io/unhookd/polly:3.0-rc1
+    #- image: ghcr.io/unhookd/polly:3.0-rc1
+    - image: polly:latest
