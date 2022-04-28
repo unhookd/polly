@@ -8,13 +8,14 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     permissions:
       contents: read
       packages: write
 
     container:
+      #TODO: !!!!
       #TODO: --reboot bootstrap step to polly generate --mirror=github
       #image: ubuntu:focal-20200606
       #options: "--user 0"
