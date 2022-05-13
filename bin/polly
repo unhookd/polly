@@ -466,7 +466,8 @@ HEREDOC
 #    obv.flush($stdout, $stderr, true)
 #  end
 
-  desc "certificates", "installs some common ca certificate secret material into cluster"
+  desc "certificates [PRIVATE_KEY] [PUBLIC_KEY]", "installs some common ca certificate secret material into cluster"
+  option "namespace", :type => :string, :default => "default"
   def certificates(inbound_ssh_key, inbound_ssh_key_pub)
     inbound_ssh_key = File.read(inbound_ssh_key)
     inbound_ssh_key_pub = File.read(inbound_ssh_key_pub)
@@ -583,6 +584,7 @@ data:
   ca-certificates.crt: #{c}
 ...
 HEREDOC
+
 #---
 #apiVersion: v1
 #kind: Secret
@@ -598,8 +600,8 @@ HEREDOC
     obv = ::Polly::Observe.new
     obv.register_channels(["certificates"])
 
-    delete_polly_certificates = ["kubectl", "delete", "-f", "-"]
-    create_polly_certificates = ["kubectl", "create", "-f", "-"]
+    delete_polly_certificates = ["kubectl", "delete", "--namespace=#{options['namespace']}", "-f", "-"]
+    create_polly_certificates = ["kubectl", "create", "--namespace=#{options['namespace']}", "-f", "-"]
 
     options = {:stdin_data => polly_certificates}
     o,e,s = exe.execute_simple(:output, delete_polly_certificates, options)
@@ -1074,6 +1076,10 @@ HEREDOC
   end
 
   desc "vertical [WORKFLOW]", "emit kubernetes resources for a simple job based CI"
+  option "reset", :type => :boolean, :default => false
+  option "build", :type => :boolean, :default => false
+  option "create", :type => :boolean, :default => false
+  option "generate", :type => :boolean, :default => false
   def vertical(workflow = "default")
     exe = ::Polly::Execute.new
     current_sha = exe.current_revision
@@ -1087,16 +1093,27 @@ HEREDOC
     db_index = 0
 
     vertical_lookup = YAML.load(File.read("vertical.yaml"))
+    repo_registry = vertical_lookup["repo-registry"]
+    build_index = vertical_lookup["build-index"]
+    namespace = vertical_lookup["namespace"]
 
-    default_image = "#{exe.current_app}:latest"
+    service_layer_shards = vertical_lookup["service-layer-shards"]
+    service_layer_decorate_envs = vertical_lookup["service-layer-decorate-envs"]
+
+    default_image = "#{repo_registry}:#{current_sha}-#{build_index}"
+
+    all_jobs_yaml = ""
 
     exec_lookup = vertical_lookup["vertical-stacks"][workflow]
+
+    offset = 0
 
     exec_lookup.each { |container_name, container_lookup|
       image = container_lookup["image"] || default_image
       init_command = container_lookup["init"]
       exec_command = container_lookup["exec"]
-      maxv_allowed = container_lookup["maximize"] ? maxv : 1
+      maxv_inner = container_lookup["maxv"] || maxv
+      maxv_allowed = container_lookup["maximize"] ? maxv_inner : 1
 
       vertical_env = [
         {
@@ -1111,10 +1128,61 @@ HEREDOC
 
       count_this_pod = 0
       this_chunk = 0
+      stack_index = 0
 
       containers = []
 
+      first_expandeded_foo = nil
+
       maxv_allowed.times { |i|
+        expanded_vertical_env = []
+
+        vertical_env.each { |kvo|
+          if service_layer_shards && service_layer_decorate_envs.include?(kvo["name"])
+            service_shard = i % service_layer_shards
+
+            existing_uri = URI.parse(kvo["value"])
+
+            host = (kvo["value"])
+            scheme = ""
+            port = ""
+            begin
+              if url_host = existing_uri.host
+                host = url_host
+                scheme = existing_uri.scheme + "://"
+                if existing_uri.port
+                  port = ":#{existing_uri.port}"
+                end
+              end
+            rescue URI::BadURIError => e
+            end
+
+            expanded_vertical_env << {
+              "name" => kvo["name"],
+              "value" => scheme + host + "-" + service_shard.to_s + "." + host + port
+            }
+          else
+            expanded_vertical_env << kvo
+          end
+        }
+
+        #expanded_vertical_env = deep_clone(vertical_env)
+
+        #if service_layer_shards && service_layer_decorate_envs
+
+        #  service_layer_decorate_envs.each { |key|
+        #    #puts [key,
+        #    #   expanded_vertical_env[key],
+        #    #service_shard].inspect
+        #    #expanded_vertical_env[key] = "#{expanded_vertical_env[key]}-#{service_shard}"
+        #    a = expanded_vertical_env.find { |kvo|
+        #      kvo["name"] == key
+        #    }
+        #
+        #    a["value"] = a["value"] + "-" + service_shard.to_s
+        #  }
+        #end
+
         containers << {
           "name" => "#{container_name}-#{i}",
           "image" => image,
@@ -1123,27 +1191,34 @@ HEREDOC
           "volumeMounts" => vertical_lookup["volume-mounts"],
           "resources" => {
             "requests" => {
-              "cpu" => "500m",
-              "memory" => "1.0G"
+              "cpu" => "250m",
+              "memory" => "500m"
+            },
+            "limits" => {
+              "cpu" => "8000m",
+              "memory" => "10.0G"
             }
           },
-          "env" => vertical_env + [
+          "env" => expanded_vertical_env + [
             {
               "name" => "MAXV",
               "value" => maxv_allowed.to_s
             },
             {
               "name" => "TEST_ENV_NUMBER",
-              "value" => i.to_s
+              "value" => ((offset * maxv) + i).to_s
             },
           ]
         }
+
+        if i == 0
+          first_expandeded_foo = expanded_vertical_env
+        end
 
         db_index += 1
       }
 
       this_index = 0
-      stack_index = 0
 
       max_per_pod = maxv_allowed > 1 ? (containers.length / total_nodes).ceil : maxv_allowed
 
@@ -1161,24 +1236,32 @@ HEREDOC
             "command" => init_command,
             "volumeMounts" => vertical_lookup["volume-mounts"],
             "resources" => {
+              "requests" => {
+                "cpu" => "1000m",
+                "memory" => "400m"
+              },
+              "limits" => {
+                "cpu" => "4000m",
+                "memory" => "8.0G"
+              }
             },
-            "env" => vertical_env + [
+            "env" => first_expandeded_foo + [
               {
                 "name" => "MAXV",
                 "value" => 1.to_s # needs to be 0th
               },
               {
                 "name" => "TEST_ENV_NUMBER",
-                "value" => stack_index.to_s # needs to be 0th
+                "value" => ((offset * maxv) + stack_index).to_s # needs to be 0th
               },
-              {
-                "name" => "VERTICAL_DB",
-                "value" => container_name.gsub(/[^a-z0-9]/, '_') + stack_index.to_s
-              },
-              {
-                "name" => "VERTICAL_DB_INDEX",
-                "value" => db_index.to_s
-              },
+              #{
+              #  "name" => "VERTICAL_DB",
+              #  "value" => container_name.gsub(/[^a-z0-9]/, '_') + stack_index.to_s
+              #},
+              #{
+              #  "name" => "VERTICAL_DB_INDEX",
+              #  "value" => db_index.to_s
+              #},
 	          ]
           }
 
@@ -1189,10 +1272,7 @@ HEREDOC
           "apiVersion" => "batch/v1",
           "kind" => "Job",
           "metadata" => {
-            "name" => "#{container_name}-#{this_index}-#{current_sha[0..2]}",
-            "annotations" => {
-              "fluxcd.io/automated" => "true"
-            }
+            "name" => "#{container_name}-#{this_index}-#{current_sha[0..2]}"
           },
           "spec" => {
             "backoffLimit" => 0,
@@ -1207,6 +1287,8 @@ HEREDOC
                 "restartPolicy" => "Never",
                 "initContainers" => init_containers,
                 "containers" => containers_this_pod,
+                "nodeSelector" => vertical_lookup["node-selector"],
+                "tolerations" => vertical_lookup["tolerations"],
                 "volumes" => vertical_lookup["volumes"],
                 "hostAliases" => vertical_lookup["host-aliases"]
               }
@@ -1214,14 +1296,48 @@ HEREDOC
           }
         }
 
-        puts YAML.dump(job_vertical)
+        all_jobs_yaml += YAML.dump(job_vertical)
 
         this_index += 1
-        stack_index += containers_this_pod.length
       end
 
+      stack_index += 1 #containers_this_pod.length
+
       vertical_index += 1
+      offset += 1
     }
+
+    if options["build"]
+      buildctl_local_cmd = [
+        "buildctl",
+        "--addr", "kube-pod://buildkitd-0?namespace=#{namespace}",
+        "build",
+        "--ssh", "default=#{Dir.home}/.ssh/id_rsa",
+        "--frontend", "dockerfile.v0",
+        "--local", "context=.", "--local", "dockerfile=.",
+        "--output", "type=image,name=#{default_image},push=true"
+      ]
+
+      system(*buildctl_local_cmd)
+    end
+
+    if options["reset"]
+      delete_vertical_ci = ["kubectl", "delete", "--namespace", namespace, "jobs", "-l", "app=vertical-ci"]
+      delete_options = {}
+      o,e,s = exe.execute_simple(:output, delete_vertical_ci, delete_options)
+      puts [o, e, s]
+    end
+
+    if options["create"]
+      create_vertical_ci = ["kubectl", "create", "--namespace", namespace, "-f", "-"]
+      create_options = {:stdin_data => all_jobs_yaml}
+      o,e,s = exe.execute_simple(:output, create_vertical_ci, create_options)
+      puts [o, e]
+    end
+
+    if options["generate"]
+      puts all_jobs_yaml
+    end
   end
 
   #TODO: detect other repo categories to login different mech
