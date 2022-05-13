@@ -1,3 +1,9 @@
+# [2.15.0] - 2022-04-28 - Jon Bardin
+
+Add better tag support
+
+#######
+
 # [2.14.0] - 2021-06-25 - Jon Bardin
 
 lol this should work ok
