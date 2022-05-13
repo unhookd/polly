@@ -3,7 +3,7 @@ repo-registry: ghcr.io/unhookd/polly
 vertical-stacks:
   default:
     rspec:
-      exec: ["bundle", "exec", "rspec"]
+      exec: ["polly", "help"]
       maximize: true
 environment-overrides:
 - name: "FOO"

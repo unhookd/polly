@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 
 # image declares container artifacts
-@bootstrap = image {
-  stage "bootstrap", "ubuntu:focal-20200606"
+@bootstrap_artifact = image {
+  stage "bootstrap", "ubuntu:jammy-20220421"
 
   command("USER") {
     "root"
@@ -21,122 +21,103 @@
   run %q{locale-gen $LANGUAGE}
   run %q{dpkg-reconfigure locales}
 
-  apt %w{git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper}
+  apt %w{vim git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby3* libruby3* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper}
 
   #TODO: ppa module / extra repo module
   run %q{curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add}
   run %q{apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"}
   apt %w{kubectl}
 
-  run %q{groupadd --gid 134 abc-otf}
-  run %q{groupadd --gid 999 efg-nnn}
+  run %q{groupadd --gid 121 alpha}
+  run %q{groupadd --gid 134 beta}
+  run %q{groupadd --gid 999 gamma}
+  run %q{groupadd --gid 1000 theta}
+  run %q{groupadd --gid 1001 zeta}
   
-  run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn}
+  run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,alpha,beta,gamma,theta,zeta}
+  run %q{useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/false runner --groups docker,alpha,beta,gamma,theta,zeta}
+
+  run %q{mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app}
+  run %q{chown -Rv app.alpha /polly}
 
   #TODO: workdir module
   command("WORKDIR") {
-    "/home/app/polly"
+    "/polly/app"
+  }
+
+  ##TODO: this is hacked
+  ##run %q{ln -sfv /polly/app/bin/polly /usr/local/bin/polly}
+
+  run %q{chown -R app /home/app}
+
+  command("USER") {
+    "app"
+  }
+
+  run %q{git config --global user.email "you@example.com"}
+  run %q{git config --global user.name "Your Name"}
+
+  #TODO: more prototype-z detection
+  command("COPY") {
+    "--chown=app Gemfile polly.gemspec VERSION /polly/app/"
+  }
+
+  #run %q{bundle config set --local path vendor/bundle}
+  #run %q{bundle config set --local without development}
+  #run %q{bundle install --jobs=4 --retry=3}
+
+  command("COPY") {
+    "--chown=app Pollyfile Thorfile /polly/app/"
   }
 
   command("COPY") {
-    "--chown=app . /home/app/polly"
+    "--chown=app config /polly/app/config/"
   }
 
-  #TODO: this is hacked
-  run %q{ln -sfv /home/app/polly/bin/polly /usr/local/bin/polly}
+  command("COPY") {
+    "--chown=app lib /polly/app/lib"
+  }
 
-  run %q{chown -R app /home/app}
-}
+  command("COPY") {
+    "--chown=app bin /polly/app/bin"
+  }
 
-@deploy = image {
-  stage "deploy", @bootstrap.stage
-  #TODO: user module
+  command("COPY") {
+    "--chown=app doc /polly/app/doc"
+  }
+
+  run %q{gem build polly.gemspec}
+
+  command("USER") {
+    "root"
+  }
+
+  run %q{gem install polly-2.14.0.gem}
+
   command("USER") {
     "app"
   }
 
-  run %q{bundle config set --local path /home/app/vendor/bundle}
-  run %q{bundle config set --local jobs 4}
-  run %q{bundle config set --local retry 3}
-  run %q{bundle config set --local deploment true}
-  run %q{bundle config set --local without development}
-  run %q{bundle install}
-}
-
-@test = image {
-  stage "test", @deploy.stage
-
-  #TODO: user module
-  command("USER") {
-    "app"
-  }
-
-  #TODO: workdir module
   command("WORKDIR") {
-    "/home/app/polly"
+    "/home/app"
   }
-
-  run %q{bundle config set --local path /home/app/vendor/bundle}
-  run %q{bundle config set --local jobs 4}
-  run %q{bundle config set --local retry 3}
-  run %q{bundle config set --local deploment true}
-  run %q{bundle config unset --local without}
-  run %q{bundle config set --local with development}
-  run %q{bundle install}
-
-  #run %q{bundle install --path=~/vendor/bundle --jobs=4 --retry=3 --deployment --with "development"}
-  #run %q{ssh-add -l}
-
-  run %q{kubectl config set-context polly-ci}
-  run %q{kubectl config use-context polly-ci}
 }
 
-@plain_workflow = Plan.new
-@plain_workflow.add_circleci_job("bootstrap",
-[{"image"=> @bootstrap.from, "user"=> "root"}],
-[{"run"=> {"name"=>"bootstrap", "command"=>"
-id app || (#{@bootstrap.command_list.join("; ")})
-chown -R app /home/app
-su app -s /bin/test -- -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1000 $SSH_AUTH_SOCK && chgrp 1000 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && su app -s /bin/test -- -w $SSH_AUTH_SOCK)
-test -z $DOCKER_CERT_PATH || (chown -R 1000 $(dirname $DOCKER_CERT_PATH))
-su app -s /bin/bash -c '#{@deploy.command_list.join(" && ")}'
-su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /bin/bash -c 'bundle exec polly build'
-docker run --rm=true polly:latest bundle exec rspec
-"}}], {}, "/home/app/polly")
+#workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
+workflow_image = "polly:latest"
 
-@plain_workflow.add_circleci_job("primary",
-[{"image"=>"polly:latest"}],
-[{"run"=>{"name"=>"rspec", "command" => "
-set -e
-set -x
-bundle exec rspec
-"}}], {"BUNDLE_PATH" => "/home/app/vendor/bundle"}, "/home/app/polly")
-@plain_workflow.depends("primary", "bootstrap")
+@plain_workflow = plan {
+  job("primary",
+    [{"image"=>workflow_image}],
+    [
+      {"run"=>{"name"=>"config","command"=>"bundle config set --local path vendor/bundle"}},
+      {"run"=>{"name"=>"bundler","command"=>"bundle install"}},
+      {"run"=>{"name"=>"rspec","command"=>"bundle exec rspec"}}
+    ],{},"/home/app/polly"
+  )
+}
 
-#TODO: workingdir module
-#@plain_workflow.add_circleci_job("bootstrap-5", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-5", "command"=>"sleep 5"}}], {}, "/")
-#@plain_workflow.add_circleci_job("bootstrap-30", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-30", "command"=>"sleep 30"}}], {}, "/")
-#@plain_workflow.add_circleci_job("bootstrap-60", [{"image"=>@bootstrap.from, "user"=> "root"}], [{"run"=>{"name"=>"sleep-60", "command"=>"sleep 60"}}], {}, "/")
-#@plain_workflow = Plan.new
-#@plain_workflow.add_circleci_job("bootstrap", [{"image"=>@bootstrap.from, "user"=> 0}], [{"run"=>{"name"=>"bootstrap", "command"=>"date && env && true"}}], {}, "/home/app/polly") #TODO: workingdir module
-#@plain_workflow.add_circleci_job("primary", [{"image"=>@bootstrap.from}], [{"run"=>{"name"=>"rspec", "command"=>"date && env && true"}}], {"BUNDLE_PATH" => "/home/app/vendor/bundle"}, "/home/app/polly")
-#@plain_workflow.depends("primary", "bootstrap")
-
-##gitch {
-##  "-y"
-##}
-##
-##gitch {<EOF
-###!/bin/sh
-##farts && foo
-##if [ false ];
-##then;
-##  echo;
-##fi
-##EOF
-##}
-##
-##
-##Polly.include(MyLocalModz.my_gitch)
-
-#TODO: git hook integration
+@gitch_pipeline = continuous {
+  #publish @bootstrap_artifact
+  test @plain_workflow
+}

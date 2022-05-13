@@ -11,10 +11,6 @@ module Polly
         @output ||= StringIO.new # $stdout
       end
 
-      #def command_list
-      #  @command_list ||= []
-      #end
-
       def read_output
         if @output
           @output.rewind
@@ -26,154 +22,42 @@ module Polly
         @all_images
       end
 
-      #(job_run_name, docker_image, steps, job_env, working_directory)
+      def read_circleci_output(ident = nil)
+        jobs_repacked = {}
 
-      #def circleci_output
-      #  @circleci_output ||= StringIO.new # $stdout
-      #end
+        @pl_wk = ident.nil? ? @workflows_by_ident[@workflows_by_ident.keys.first] : @workflows_by_ident[ident]
 
-      def read_circleci_output
-        #@circleci_output.rewind
-        #@circleci_output.read
-        #puts @plain_workflow
-
-    #puts YAML.dump(@plain_workflow.all_jobs)
-    #puts YAML.dump(@plain_workflow.deps)
-    #puts "!!!"
-
-#{
-#"workflows"=>{
-#  "version"=>2, 
-#   "polly"=>{
-#     "jobs"=>[]}},
-#"version"=>2,
-#"jobs"=>{}
-#}
-
-jobs_repacked = {}
-
-@plain_workflow.all_jobs.each { |job_name, job_spec|
-	jobs_repacked[job_name] = {
-    "environment" => job_spec.parameters[:environment],
-    "working_directory" => job_spec.parameters[:working_directory],
-    "steps" => [
-      "checkout",
-      (job_name.include?("bootstrap") ? {"setup_remote_docker" => { "version" => "19.03.12" }} : nil),
-      {
-        "run" => {
-          "name" => job_spec.run_name,
-          "command" => job_spec.parameters[:command]
+        @pl_wk.all_jobs.each { |job_name, job_spec|
+          jobs_repacked[job_name] = {
+            "environment" => job_spec.parameters[:environment],
+            "working_directory" => job_spec.parameters[:working_directory],
+            "steps" => [
+              "checkout",
+              (job_name.include?("bootstrap") ? {"setup_remote_docker" => { "version" => "19.03.12" }} : nil),
+              {
+                "run" => {
+                  "name" => job_spec.run_name,
+                  "command" => job_spec.parameters[:command].strip
+                }
+              }
+            ].compact
+          }.merge({
+            "docker" => job_spec.parameters[:executor_hints][:docker]
+          })
+          jobs_repacked[job_name].delete("environment") unless jobs_repacked[job_name]["environment"] && !jobs_repacked[job_name]["environment"].empty?
+          jobs_repacked[job_name].delete("working_directory") unless jobs_repacked[job_name]["working_directory"]
         }
-      }
-    ].compact
-  }.merge({
-    "docker" => job_spec.parameters[:executor_hints][:docker]
-  })
-  jobs_repacked[job_name].delete("environment") unless jobs_repacked[job_name]["environment"] && !jobs_repacked[job_name]["environment"].empty?
-  jobs_repacked[job_name].delete("working_directory") unless jobs_repacked[job_name]["working_directory"]
-}
 
-#bootstrap: !ruby/object:Polly::Job
-#  run_name: bootstrap                              
-#  parameters:                                                                                             
-#    :environment:
-#      CI: 'true'
-#      CIRCLE_NODE_INDEX: '0'
-#      CIRCLE_NODE_TOTAL: '1'
-#      CIRCLE_SHA1:     
-#      RACK_ENV: test
-#      RAILS_ENV: test
-#      CIRCLE_ARTIFACTS: "/var/tmp/artifacts"
-#      CIRCLE_TEST_REPORTS: "/var/tmp/reports"
-#      SSH_ASKPASS: 'false'
-#      CIRCLE_WORKING_DIRECTORY: "/home/app/current"
-#      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games"
-#      TZ: Etc/UCT
-#    :command: |2
-#                                                     
-#      echo BEGIN bootstrap
-#      true                        
-#                                                                                                          
-#      echo END bootstrap                                                                                  
-#    :working_directory:                                                                                   
-#    :executor_hints:                                                                                      
-#      :docker:                                                                                            
-#      - image: ubuntu:latest                      
-#primary: !ruby/object:Polly::Job                                                                                                                                                                                     
-#  run_name: primary               
-#  parameters:                                       
-#    :environment:                                   
-#      CI: 'true'                                                                                          
-#      CIRCLE_NODE_INDEX: '0'                                                                              
-#      CIRCLE_NODE_TOTAL: '1'
-#      CIRCLE_SHA1:                                                                                        
-#      RACK_ENV: test
-#      RAILS_ENV: test                                                                                     
-#      CIRCLE_ARTIFACTS: "/var/tmp/artifacts"
-#      CIRCLE_TEST_REPORTS: "/var/tmp/reports"                                                             
-#      SSH_ASKPASS: 'false'                                                                                                                                                                                           
-#      CIRCLE_WORKING_DIRECTORY: "/home/app/current"
-#      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games"
-#      TZ: Etc/UCT
-#    :command: |2
-#
-#      echo BEGIN rspec
-#      bundle exec rspec
-#
-#      echo END rspec
-#    :working_directory: 
-#    :executor_hints:
-#      :docker:
-#      - image: polly:latest
-#jobs:
-#  primary:
-#		docker:
-#			- image: &build_image ubuntu:bionic-20180526
-#    steps:
-#      - checkout
-#
-#      - run:
-#          name: bootstrap
-#nil
-#workflows:
-#  version: 2
-#    build:
-## example
-#
-# bootstrap: []
-# primary:
-# - bootstrap
-#     - bootstrap
-# =>
-# - bootstrap:
-#     requires: []
-# - primary:
-#     requires:
-#     - bootstrap
-## example
-#
-#  bootstrap:
-#    docker:
-#      - image: &bootstrap_build_image ubuntu:latest
-#    steps:
-#      - run:
-#          name: bootstrap
-        
-###TODO: debug File.read("spec/fixtures/dot-circleci/config.yml")
-
-#puts @plain_workflow.deps.inspect
-#raise "Wtf"
-
-output_circleci = {
-  "workflows" => {
-    "version" => 2,
-    "polly" => {
-      "jobs" => @plain_workflow.deps.collect { |k, v| {k => {"requires" => v}} }
-    }
-  },
-  "version" => 2,
-  "jobs" => jobs_repacked
-}
+        output_circleci = {
+          "workflows" => {
+            "version" => 2,
+            "polly" => {
+              "jobs" => @pl_wk.deps.collect { |k, v| {k => {"requires" => v}} }
+            }
+          },
+          "version" => 2,
+          "jobs" => jobs_repacked
+        }
       end
 
       def emit(bytes)
@@ -181,8 +65,11 @@ output_circleci = {
       end
 
       def command(c)
-        emit c + " "
-        emit yield if block_given?
+        emit c
+        if block_given?
+          emit " "
+          emit yield
+        end
         emit $/
       end
 
@@ -280,6 +167,38 @@ output_circleci = {
         }
         emit $/
       end
+
+      def job(*args)
+        @this_plan.add_circleci_job(*args)
+      end
+
+      def plan
+        @workflows_by_ident ||= {}
+
+        @this_plan = Plan.new
+
+        yield
+
+        @workflows_by_ident[@this_plan.ident] = @this_plan
+
+        @this_plan
+      end
+
+      #TODO: build detachable build pipeline bits???
+      def continuous
+        @shell_commands ||= []
+        yield
+      end
+
+      def test(plan)
+        @shell_commands << ["polly", "test", "--ident", plan.ident]
+      end
+
+      def read_shell_commands
+        @shell_commands.collect! { |shell_cmd_array|
+          shell_cmd_array.join(" ")
+        }.join("; ")
+      end
     end
   end
 
@@ -357,3 +276,107 @@ end
 #  puts "makes a pipelinerun"
 #  # TODO
 #end
+
+
+
+
+      #def command_list
+      #  @command_list ||= []
+      #end
+
+      #(job_run_name, docker_image, steps, job_env, working_directory)
+
+      #def circleci_output
+      #  @circleci_output ||= StringIO.new # $stdout
+      #end
+
+#bootstrap: !ruby/object:Polly::Job
+#  run_name: bootstrap                              
+#  parameters:                                                                                             
+#    :environment:
+#      CI: 'true'
+#      CIRCLE_NODE_INDEX: '0'
+#      CIRCLE_NODE_TOTAL: '1'
+#      CIRCLE_SHA1:     
+#      RACK_ENV: test
+#      RAILS_ENV: test
+#      CIRCLE_ARTIFACTS: "/var/tmp/artifacts"
+#      CIRCLE_TEST_REPORTS: "/var/tmp/reports"
+#      SSH_ASKPASS: 'false'
+#      CIRCLE_WORKING_DIRECTORY: "/home/app/current"
+#      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games"
+#      TZ: Etc/UCT
+#    :command: |2
+#                                                     
+#      echo BEGIN bootstrap
+#      true                        
+#                                                                                                          
+#      echo END bootstrap                                                                                  
+#    :working_directory:                                                                                   
+#    :executor_hints:                                                                                      
+#      :docker:                                                                                            
+#      - image: ubuntu:latest                      
+#primary: !ruby/object:Polly::Job                                                                                                                                                                                     
+#  run_name: primary               
+#  parameters:                                       
+#    :environment:                                   
+#      CI: 'true'                                                                                          
+#      CIRCLE_NODE_INDEX: '0'                                                                              
+#      CIRCLE_NODE_TOTAL: '1'
+#      CIRCLE_SHA1:                                                                                        
+#      RACK_ENV: test
+#      RAILS_ENV: test                                                                                     
+#      CIRCLE_ARTIFACTS: "/var/tmp/artifacts"
+#      CIRCLE_TEST_REPORTS: "/var/tmp/reports"                                                             
+#      SSH_ASKPASS: 'false'                                                                                                                                                                                           
+#      CIRCLE_WORKING_DIRECTORY: "/home/app/current"
+#      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games"
+#      TZ: Etc/UCT
+#    :command: |2
+#
+#      echo BEGIN rspec
+#      bundle exec rspec
+#
+#      echo END rspec
+#    :working_directory: 
+#    :executor_hints:
+#      :docker:
+#      - image: polly:latest
+#jobs:
+#  primary:
+#		docker:
+#			- image: &build_image ubuntu:bionic-20180526
+#    steps:
+#      - checkout
+#
+#      - run:
+#          name: bootstrap
+#nil
+#workflows:
+#  version: 2
+#    build:
+## example
+#
+# bootstrap: []
+# primary:
+# - bootstrap
+#     - bootstrap
+# =>
+# - bootstrap:
+#     requires: []
+# - primary:
+#     requires:
+#     - bootstrap
+## example
+#
+#  bootstrap:
+#    docker:
+#      - image: &bootstrap_build_image ubuntu:latest
+#    steps:
+#      - run:
+#          name: bootstrap
+        
+###TODO: debug File.read("spec/fixtures/dot-circleci/config.yml")
+
+#puts @plain_workflow.deps.inspect
+#raise "Wtf"

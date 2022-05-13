@@ -48,6 +48,10 @@ module Polly
       @pwd = Dir.pwd
     end
 
+    def ident
+      Digest::SHA256.hexdigest(@deps.to_json + @all_jobs.to_json)
+    end
+
     def description
       "the plan is as follows: #{self} #{@all_jobs} #{@deps} #{@jobs_to_skip} #{@only_these_jobs}"
     end
@@ -250,9 +254,9 @@ module Polly
       end
     end
 
-    def add_circleci_job(job_run_name, docker_image, steps, job_env, working_directory)
+    def add_circleci_job(job_run_name, docker_params, steps, job_env, working_directory) #, pre_calc_dep = nil)
       executor_hints = {
-        :docker => docker_image
+        :docker => docker_params #TODO: || "polly:latest"
       }
 
       #steps = circleci_like_parameters["steps"]
@@ -276,9 +280,10 @@ module Polly
           name = run["name"]
 
           #TODO: debug
+          #TODO: fix multi-step build-out/generation
           #pro_fd.write("\necho BEGIN #{name}\n")
           pro_fd.write(run["command"])
-          #pro_fd.write("\necho END #{name}\n")
+          pro_fd.write("\n")
 
           count_of_steps += 1
 
@@ -324,6 +329,10 @@ module Polly
       if count_of_steps > 0
         new_job = Job.new(job_run_name, valid_parameters)
         add_job(new_job)
+
+        #if pre_calc_dep
+        #  depends(job_run_name, pre_calc_dep)
+        #end
       end
     end
   end

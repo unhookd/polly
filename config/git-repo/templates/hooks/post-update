@@ -12,16 +12,26 @@ then
   git symbolic-ref HEAD "${1}"
   git update-server-info
 
+  #TODO: safe to assume polly cli installed in ENV?
   if [ -e /usr/local/bin/polly ];
   then
-    TMPCHECKOUT=/polly-safe/tmp/$(mktemp -d)/$(basename $(pwd))
+    #polly-safe
+    TMPCHECKOUT=/polly/safe/tmp/$(mktemp -d)/$(basename $(pwd))
     mkdir -p $(dirname ${TMPCHECKOUT})
     git clone -l . ${TMPCHECKOUT}
     cd ${TMPCHECKOUT}
     unset GIT_DIR
 
-    polly build --in-cluster
-    polly test
+    GENERATED_CI=$(polly continuous)
+    if [ $? -eq 0 ]; then
+      ${GENERATED_CI}
+    fi
+
+    #  bash -x -e -c "${GENERATED_CI}" &
+    #  wait
+    #fi
+    #echo testing for bad git defunct
+    #sleep 15
 
     export GIT_DIR="."
   fi

@@ -57,7 +57,7 @@ HEREDOC
       o,e,s = exe.execute_simple(:output, apply_job, apply_options)
       puts [o, e]
 
-      origin = "/polly-safe/git/#{app}"
+      origin = "/polly/safe/git/#{app}"
 
       build_jobs = ""
 
@@ -109,7 +109,7 @@ spec:
         - name: workspace
           mountPath: /home/app/#{app}
         - name: polly-mount
-          mountPath: /polly-safe
+          mountPath: /polly/safe
         - mountPath: /etc/ssl/certs
           name: ca-certificates
           readOnly: true
@@ -128,7 +128,7 @@ spec:
         #- --import-cache
         #- type=registry,ref=polly-registry:443/#{app}
         - --import-cache
-        - type=local,src=/polly-safe/buildkit,mode=max
+        - type=local,src=/polly/safe/buildkit,mode=max
         - --frontend
         - dockerfile.v0
         - --local
@@ -140,7 +140,7 @@ spec:
         #- --export-cache
         #- type=registry,ref=polly-registry:443/#{app}
         - --export-cache
-        - type=local,dest=/polly-safe/buildkit,mode=max
+        - type=local,dest=/polly/safe/buildkit,mode=max
         #- --output
         #- type=tar,dest=/polly-safe/buildkit/#{tag}.tar
         #- --output
@@ -168,7 +168,7 @@ spec:
           mountPath: /home/app/#{app}
           readOnly: true
         - name: polly-mount
-          mountPath: /polly-safe
+          mountPath: /polly/safe
           #readOnly: true
         - mountPath: /etc/ssl/certs
           name: ca-certificates

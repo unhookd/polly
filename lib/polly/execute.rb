@@ -51,6 +51,7 @@ module Polly
       unless status
         Kernel.exit(1)
       end
+      status
     end
 
     def check_current_kube_context_is_safe!
@@ -72,7 +73,7 @@ module Polly
       @revision ||= begin
         #TODO: handle error cases
         current_sha = IO.popen("git rev-parse --verify HEAD").read.strip
-        #wait_child
+        wait_child
         current_sha
       end
     end
@@ -86,7 +87,7 @@ module Polly
     def current_branch
       @current_branch ||= begin
         a = IO.popen("git rev-parse --abbrev-ref HEAD").read.strip
-        #wait_child
+        wait_child
         a
       end
     end
@@ -132,15 +133,24 @@ module Polly
         end
       end
 
-      build_run_dir = "/var/tmp/run"
+      build_run_dir = Dir.mktmpdir #"/polly/safe/run"
       build_manifest_dir = File.join(build_run_dir, clean_name, current_revision)
       run_shell_path = File.join(build_manifest_dir, "run.sh")
 
       sleep_cmd_args = ["sleep", "infinity"]
-      #TODO: figure out fail modes run_cmd_args = ["bash", "-x", "-e", "-o", "pipefail", run_shell_path]
+
+      #####TODO: figure out fail modes run_cmd_args = ["bash", "-x", "-e", "-o", "pipefail", run_shell_path]
+
+      #####TODO: better input for cmd: [] support
+      ######run_cmd_args = ["bash", "-e", run_shell_path]
+
+      FileUtils.mkdir_p(build_manifest_dir)
+      File.write(run_shell_path, job.parameters[:command])
+
+      #run_cmd_args = ["bash", "-e", "-x", "-o", "pipefail", run_shell_path]
+      #if true #TODO: bits
       run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
-      #TODO: better input for cmd: [] support
-      #run_cmd_args = ["bash", "-e", run_shell_path]
+      #end
 
       intend_to_run_cmd = nil
 
@@ -182,7 +192,8 @@ module Polly
             "metadata" => {
               "labels" => {
                 #TODO: abstract this
-                "name" => clean_name
+                "name" => clean_name,
+                "app" => "polly-ci"
               },
               "annotations" => {}
             }
@@ -202,7 +213,7 @@ module Polly
             "args" => [
               #origin = "/polly-safe/git/#{app}"
               #"http://polly-app:8080/#{current_app}"
-              "clone", "-b", current_branch, "/polly-safe/git/#{current_app}", "."
+              "clone", "-b", current_branch, "/polly/safe/git/#{current_app}", "."
             ],
             "env" => { "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
             "securityContext" => {
@@ -216,7 +227,7 @@ module Polly
                 "name" => "scratch-dir"
               },
               {
-                "mountPath" => "/polly-safe/git/#{current_app}",
+                "mountPath" => "/polly/safe/git/#{current_app}",
                 "name" => "git-repo"
               },
             ]
@@ -236,12 +247,13 @@ module Polly
       #  securityContext:
       #    runAsUser: 1000
       #    runAsGroup: 1000
+      #TODO: clean up these bits, work towards rootless build systems
         "securityContext" => {
           #"privileged" => true, #TODO: figure out un-privd case, use kaniko???
           "runAsUser" => username_to_uid(first_docker_executor_hint["user"]),
           #"runAsGroup" => 134
           "fsGroup" => 999,
-          "supplementalGroups" => [1000, 999, File.stat("/var/run/docker.sock").gid] #TODO: fix this hack
+          "supplementalGroups" => [999, 1000, File.exists?("/var/run/docker.sock") ? File.stat("/var/run/docker.sock").gid : 1001] #TODO: fix this hack
         },
         "containers" => [
           {
@@ -360,53 +372,58 @@ module Polly
       #puts YAML.dump(configmap_manifest) if @debug
       #puts "PREPOP JOB"
 
-      #TODO: better safety checks
-      puts :a
-      check_current_kube_context_is_safe!
-      puts :b
+      ##TODO: better safety checks
+      #puts :a
+      #check_current_kube_context_is_safe!
+      #puts :b
 
-      kubectl_apply = ["kubectl", "apply", "-f", "-"]
-      apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}
-      execute_simple(:silentx, kubectl_apply, apply_configmap_options)
+      if true
+        #kubectl_apply = ["kubectl", "apply", "-f", "-"]
+        #apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}
+        #execute_simple(:silentx, kubectl_apply, apply_configmap_options)
 
-      execute_simple(:silent, ["kubectl", "delete", "deployment/#{clean_name}", "--grace-period=1"], {})
-      execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{clean_name}"], {})
+        #execute_simple(:silent, ["kubectl", "delete", "deployment/#{clean_name}", "--grace-period=1"], {})
+        #execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{clean_name}"], {})
 
-      deployment_spec["spec"]["template"]["spec"] = container_spec
+        #deployment_spec["spec"]["template"]["spec"] = container_spec
 
-      apply_deployment_options = {:stdin_data => deployment_spec.to_yaml}
-      execute_simple(:silentx, kubectl_apply, apply_deployment_options)
+        #apply_deployment_options = {:stdin_data => deployment_spec.to_yaml}
+        #execute_simple(:silentx, kubectl_apply, apply_deployment_options)
 
-      if @dry_run
-        polly_dry_run = ["cat", "-"]
-        polly_dry_run_options = {:stdin_data => deployment_spec.to_yaml}
+        if @dry_run
+          polly_dry_run = ["cat", "-"]
+          polly_dry_run_options = {:stdin_data => deployment_spec.to_yaml}
 
-        dry_bits = execute_simple(:async, polly_dry_run, polly_dry_run_options)
+          dry_bits = execute_simple(:async, polly_dry_run, polly_dry_run_options)
 
-        dry_bits[0].write(configmap_manifest.to_yaml + deployment_spec.to_yaml)
-        dry_bits[0].close
+          dry_bits[0].write(configmap_manifest.to_yaml + deployment_spec.to_yaml)
+          dry_bits[0].close
 
-        @runners << [job.run_name, clean_name, dry_bits]
+          @runners << [job.run_name, clean_name, dry_bits]
+        else
+          #$stderr.write("1")
+          kubectl_apply = ["kubectl", "apply", "-f", "-"]
+          apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}
+          execute_simple(:silentx, kubectl_apply, apply_configmap_options)
+
+          #$stderr.write("2")
+          execute_simple(:silent, ["kubectl", "delete", "deployment/#{clean_name}", "--grace-period=1"], {})
+          execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{clean_name}"], {})
+
+          #$stderr.write("3")
+          apply_deployment_options = {:stdin_data => deployment_spec.to_yaml}
+          execute_simple(:silentx, kubectl_apply, apply_deployment_options)
+
+          polly_waitx = [
+                         "polly",
+                         "waitx",
+                         clean_name,
+                       ] + intend_to_run_cmd
+
+          @runners << [job.run_name, clean_name, execute_simple(:async, polly_waitx, {})]
+        end
       else
-        #$stderr.write("1")
-        kubectl_apply = ["kubectl", "apply", "-f", "-"]
-        apply_configmap_options = {:stdin_data => configmap_manifest.to_yaml}
-        execute_simple(:silentx, kubectl_apply, apply_configmap_options)
-
-        #$stderr.write("2")
-        execute_simple(:silent, ["kubectl", "delete", "deployment/#{clean_name}", "--grace-period=1"], {})
-        execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{clean_name}"], {})
-
-        #$stderr.write("3")
-        apply_deployment_options = {:stdin_data => deployment_spec.to_yaml}
-        execute_simple(:silentx, kubectl_apply, apply_deployment_options)
-
-        polly_waitx = [
-                       "polly",
-                       "waitx",
-                       clean_name,
-                     ] + intend_to_run_cmd
-
+        polly_waitx = intend_to_run_cmd
         @runners << [job.run_name, clean_name, execute_simple(:async, polly_waitx, {})]
       end
 
@@ -547,16 +564,16 @@ module Polly
           @runners.each { |job_namish, pod_name, cmd_io|
             if job_thang.run_name == job_namish
               unless jobs_to_keep_completed.include?(job_thang) || jobs_to_detach.include?(job_thang.run_name)
-                get_logs = ["kubectl", "logs", "-l", "name=#{pod_name}", "--all-containers=true"]
-                #@all_exited = false
-                get_log_runners << [job_namish, "logs-#{pod_name}", execute_simple(:async, get_logs, {})]
-                #o,e,s = execute_simple(:output, get_logs, {})
-                #io_this_loop << [job_namish, o, e]
-                #execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {})
-                get_log_runners << [job_namish, "delete-#{pod_name}", execute_simple(:async, ["kubectl", "delete", "deployment/#{pod_name}"], {})]
-
-#puts "wtf"
-
+                if true #TODO
+                  get_logs = ["kubectl", "logs", "-l", "name=#{pod_name}", "--all-containers=true"]
+                  ########@all_exited = false
+                  get_log_runners << [job_namish, "logs-#{pod_name}", execute_simple(:async, get_logs, {})]
+                  #######o,e,s = execute_simple(:output, get_logs, {})
+                  #######io_this_loop << [job_namish, o, e]
+                  #######execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {})
+                  get_log_runners << [job_namish, "delete-#{pod_name}", execute_simple(:async, ["kubectl", "delete", "deployment/#{pod_name}"], {})]
+                end
+                #puts "wtf"
                 #wait_child
               end
             end
@@ -569,7 +586,7 @@ module Polly
         @runners << lr
       }
 
-#      $stderr.write("G")
+      #$stderr.write("G")
 
       return jobs_to_mark_as_completed, io_this_loop
     end
@@ -586,7 +603,11 @@ module Polly
 
         #TODO: handle better --wait-for flags
         unless (@keep_completed || @detach_failed)
-          @runners.collect { |job_run_name, pod_name, cmd_io| execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {}) }
+          @runners.collect { |job_run_name, pod_name, cmd_io|
+            if true #TODO
+              execute_simple(:silent, ["kubectl", "delete", "--wait=false", "deployment/#{pod_name}"], {})
+            end
+          }
         end
 
         return false if @all_exited
@@ -596,27 +617,28 @@ module Polly
     end
 
     def wait_for_cleanup
-      #$stderr.write($/)
-      #$stderr.write("cleaning up, please wait...")
-      #$stderr.write($/)
+      $stderr.write($/)
+      $stderr.write("cleaning up, please wait...")
+      $stderr.write($/)
 
       all_ok = @runners.all? { |job_run_name, pod_name, cmd_io| cmd_io.empty? || (!cmd_io[3].alive? && cmd_io[3].value.success?) }
 
       unless (@keep_completed || @detach_failed)
         #$stderr.write("deleting deployment...")
-        @runners.collect { |job_run_name, pod_name, cmd_io| execute_simple(:silent, ["kubectl", "delete", "deployment/#{pod_name}"], {}) }
+        @runners.collect { |job_run_name, pod_name, cmd_io| execute_simple(:silent, ["kubectl", "delete", "--wait=false", "deployment/#{pod_name}"], {}) }
       end
 
-      while (!@detach_failed && !@keep_completed && @runners.any? { |job_run_name, pod_name, cmd_io|
-        #TODO:
-        #execute_simple(:silent, ["kubectl", "get", "pod/#{pod_name}"], {})
-        #execute_simple(:silent, ["kubectl", "wait", "pod/#{pod_name}"], {})
-        execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{pod_name}"], {})
-      }) do
-        sleep 0.1
-      end
+      #while (!@detach_failed && !@keep_completed && @runners.any? { |job_run_name, pod_name, cmd_io|
+      #  #TODO:
+      #  #execute_simple(:silent, ["kubectl", "get", "pod/#{pod_name}"], {})
+      #  #execute_simple(:silent, ["kubectl", "wait", "pod/#{pod_name}"], {})
+      #  #execute_simple(:silent, ["kubectl", "wait", "--for=delete", "deployment/#{pod_name}"], {})
+      #}) do
+      #  $stdout.write("@")
+      #  sleep 0.1
+      #end
 
-      #wait_child unless (@keep_completed || @detach_failed)
+      wait_child unless (@keep_completed || @detach_failed)
 
       trap 'INT', 'DEFAULT'
 
@@ -634,6 +656,10 @@ module Polly
             puts stdout
             puts stderr
           end
+
+          #puts caller
+          #puts stdout
+          #puts stderr
 
           if exit_or_not
             #TODO: integrate Observe here for fatal halt error log
@@ -677,9 +703,19 @@ module Polly
       Process.wait rescue Errno::ECHILD
     end
 
-    def execute_procfile(working_directory, procfile = "Procfile")
-      obv = ::Polly::Observe.new
+    def rename(proctitle)
+      Process.setproctitle(proctitle)
+    end
 
+    def on_runloop(&block)
+      @runloop_callback = block
+    end
+
+    def on_interrupt(&block)
+      @interrupt_callback = block
+    end
+
+    def execute_procfile(working_directory, procfile, obv = ::Polly::Observe.new)
       time_started = Time.now
       chunk = 65432
       exiting = false
@@ -688,29 +724,34 @@ module Polly
       kill_threshold = term_threshold + 5 #NOTE: timing controls exit status
       total_kill_count = kill_threshold + 7
       select_timeout = 0.5
-      needs_winsize_update = false
+      #needs_winsize_update = false
       trapped = false
       self_reader, self_write = IO.pipe
 
-      trap 'INT' do
-        self_write.write_nonblock("\0")
+      if @interrupt_callback
+        trap 'INT', @interrupt_callback
+      else
+        trap 'INT' do
+          self_write.write_nonblock("\0")
 
-        if exiting && exit_grace_counter < kill_threshold
-          exit_grace_counter += 1
+          if exiting && exit_grace_counter < kill_threshold
+            exit_grace_counter += 1
+          end
+
+          exiting = true
+          trapped = true
+          select_timeout = 0.5
         end
-
-        exiting = true
-        trapped = true
-        select_timeout = 0.5
       end
 
-      trap 'WINCH' do
-        needs_winsize_update = true
-      end
+      #TODO: wtf is WINCH related to, should apps handle it????
+      #trap 'WINCH' do
+      #  needs_winsize_update = true
+      #end
 
       Dir.chdir(working_directory || Dir.mktmpdir)
 
-      pipeline_commands = File.readlines(procfile).collect { |line|
+      pipeline_commands = procfile.collect { |line|
         process_name, process_cmd = line.split(":", 2)
         process_name.strip!
         process_cmd.strip!
@@ -775,6 +816,10 @@ module Polly
           end
         end
 
+        if @runloop_callback
+          @runloop_callback.call(pipeline_commands)
+        end
+
         ready_for_reading, _w, _e = IO.select(process_stdouts + process_stderrs, nil, nil, select_timeout)
 
         self_reader.read_nonblock(chunk) rescue nil
@@ -817,14 +862,16 @@ module Polly
             process_result = process_waiter.value
 
             $stdout.write($/)
-            $stdout.write("#{process_name} exited... #{process_result.success?}")
+            $stdout.write("#{process_name} exited... #{process_result.success?} #{process_result}")
             $stdout.write($/)
           end
         }
       end
 
-      trap 'INT', 'DEFAULT'
-      trap 'WINCH', 'DEFAULT'
+      #unless @interrupt_callback
+        trap 'INT', 'DEFAULT'
+        #trap 'WINCH', 'DEFAULT'
+      #end
 
       pipeline_commands.each { |pipeline_command|
         process_name = pipeline_command[:process_name]
@@ -837,7 +884,7 @@ module Polly
 
       obv.flush($stdout, $stderr, true)
 
-      $stdout.write(" ... exiting")
+      $stdout.write(" ... exiting procfile sequence")
       $stdout.write($/)
     end
 
