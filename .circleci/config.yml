@@ -14,7 +14,9 @@ jobs:
     - run:
         name: primary
         command: |-
-          bundle install
-          bundle exec rspec
+          #echo DEMO!!!! 222222 UPDTE
+          #bundle config set --local path vendor/bundle
+          #bundle install
+          #bundle exec rspec
     docker:
-    - image: polly:latest
+    - image: ghcr.io/unhookd/polly:3.0-rc1

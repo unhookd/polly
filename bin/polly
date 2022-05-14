@@ -131,6 +131,7 @@ class PollyTasks < Thor
 
   desc "continuous", ""
   option "config", :type => :string, :default => "Pollyfile", :desc => "Declaration of config"
+  option "exec", :type => :boolean, :default => false
   def continuous
     config = options["config"]
 
@@ -138,7 +139,12 @@ class PollyTasks < Thor
     if File.exists?(config)
       pollyfile_ruby = File.read(config)
       Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, config)
-      puts Polly::Generate.read_shell_commands
+      cmd_list = Polly::Generate.read_shell_commands
+      puts cmd_list
+
+      if options["exec"]
+        exec(*cmd_list)
+      end
     end
   end
 
@@ -296,6 +302,7 @@ class PollyTasks < Thor
     #TODO: specify the remote follow branch with a toggle possibly???
     exe.systemx("git", "push", "-f", "polly", branch, "HEAD:#{branch}-#{Time.now.to_i}", "--exec=polly receive-pack#{options['local'] ? " --local" : ""}")
 
+    #TODO:
     #####cat /var/tmp/polly-safe/buildkit/example-510b1e33549a9f97b9fce43f1a30d13afe208390.tar | docker import - example:latest
     ####cat_image_cmd = [
     ####                 "kubectl", "exec", exe.polly_pod,
@@ -343,7 +350,6 @@ class PollyTasks < Thor
                      ]
     end
 
-    #exe.systemx(*git_init_cmd)
     o,e,s = exe.execute_simple(:output, git_init_cmd, {})
     puts o
     unless s
@@ -1133,25 +1139,6 @@ HEREDOC
     end
   end
 
-  ##TODO: --in-vivo split
-  desc "repositories", "TBD: fetch internal registries"
-  def repositories
-    catalog_json = fetch_from_registry("v2/_catalog")
-    catalog = JSON.load(catalog_json)
-    puts catalog["repositories"]
-  end
-
-  desc "tags", "TBD: fetch tags from internal registry"
-  def tags
-    exe = ::Polly::Execute.new
-
-    catalog_json = fetch_from_registry("v2/#{exe.current_app}/tags/list")
-    catalog = JSON.load(catalog_json)
-    if catalog
-      puts catalog["tags"]
-    end
-  end
-
   desc "generate", "emits CI structure yaml"
   option "mirror", :type => :string, :default => "dockerfile"
   #TODO: cleanup these bits
@@ -1203,9 +1190,11 @@ HEREDOC
   option "build", :type => :boolean, :default => false
   option "create", :type => :boolean, :default => false
   option "generate", :type => :boolean, :default => false
+  option "retry", :type => :string, :default => nil
   def vertical(workflow = "default")
     exe = ::Polly::Execute.new
     current_sha = exe.current_revision
+    current_app = exe.current_app
 
     max_ci = ENV['MAX_CI'] || "1"
     maxv = (ENV['MAXV'] || 2).to_i
@@ -1217,13 +1206,16 @@ HEREDOC
 
     vertical_lookup = YAML.load(File.read("vertical.yaml"))
     repo_registry = vertical_lookup["repo-registry"]
-    build_index = vertical_lookup["build-index"]
-    namespace = vertical_lookup["namespace"]
+    namespace = vertical_lookup["namespace"] || "default"
 
     service_layer_shards = vertical_lookup["service-layer-shards"]
     service_layer_decorate_envs = vertical_lookup["service-layer-decorate-envs"]
 
-    default_image = "#{repo_registry}:#{current_sha}-#{build_index}"
+    default_image = "#{repo_registry}:#{current_sha}"
+
+    if options["retry"]
+      default_image += "-#{options["retry"]}"
+    end
 
     all_jobs_yaml = ""
 
@@ -1289,25 +1281,8 @@ HEREDOC
           end
         }
 
-        #expanded_vertical_env = deep_clone(vertical_env)
-
-        #if service_layer_shards && service_layer_decorate_envs
-
-        #  service_layer_decorate_envs.each { |key|
-        #    #puts [key,
-        #    #   expanded_vertical_env[key],
-        #    #service_shard].inspect
-        #    #expanded_vertical_env[key] = "#{expanded_vertical_env[key]}-#{service_shard}"
-        #    a = expanded_vertical_env.find { |kvo|
-        #      kvo["name"] == key
-        #    }
-        #
-        #    a["value"] = a["value"] + "-" + service_shard.to_s
-        #  }
-        #end
-
         containers << {
-          "name" => "#{container_name}-#{i}",
+          "name" => "#{current_app}-#{container_name}-#{i}",
           "image" => image,
           "imagePullPolicy" => "IfNotPresent",
           "command" => exec_command,
@@ -1395,7 +1370,7 @@ HEREDOC
           "apiVersion" => "batch/v1",
           "kind" => "Job",
           "metadata" => {
-            "name" => "#{container_name}-#{this_index}-#{current_sha[0...5]}",
+            "name" => "#{current_app}-#{container_name}-#{this_index}-#{current_sha[0...5]}",
             "annotations" => {
             }
           },
@@ -1404,7 +1379,7 @@ HEREDOC
             "template" => {
               "metadata" => {
                 "labels" => {
-                  "app" => "vertical-ci",
+                  "pipeline" => "vertical-ci",
                   "vertical" => container_name
                 }
               },
@@ -1426,7 +1401,7 @@ HEREDOC
         this_index += 1
       end
 
-      stack_index += 1 #containers_this_pod.length
+      stack_index += 1
 
       vertical_index += 1
       offset += 1
@@ -1482,63 +1457,6 @@ HEREDOC
     options = {:stdin_data => docker_login_password}
     o,e,s = exe.execute_simple(:output, docker_login_cmd, options)
     puts [o, e, s]
-  end
-
-  private
-
-  def fetch_from_registry(path)
-    exe = ::Polly::Execute.new
-
-    #registry_label = "name=polly-registry"
-
-    #random_port = 5000 + (rand * 1000).to_i
-
-    #kubectl_port_forward_cmd = [
-    #                             "kubectl",
-    #                             "port-forward",
-    #                             exe.polly_pod(registry_label),
-    #                             "#{random_port}:443"
-    #                           ]
-
-    #options = {}
-    #process_stdin, process_stdout, process_stderr, process_waiter = exe.execute_simple(:async, kubectl_port_forward_cmd, options)
-
-    #process_stdout.expect("-> 443")
-
-    #TODO: ca-certificates
-    #"-k",
-    #"--cacert",
-    #ssl_cert_file,
-    #"--resolve",
-    #"polly-registry:5000:127.0.0.1",
-    #random_port https localhost port forward hacks
-
-    vertical_lookup = YAML.load(File.read("vertical.yaml"))
-    repo_registry = vertical_lookup["repo-registry"]
-
-    curl_cmd = [
-                         "curl",
-                         "-L",
-                         "-s",
-                         "-v",
-                         "-m",
-                         "999",
-                         "--connect-timeout",
-                         "999",
-                         "https://#{repo_registry}/#{path}"
-                       ]
-    puts curl_cmd.inspect
-
-    options = {}
-    o,e,s = exe.execute_simple(:output, curl_cmd, options)
-    puts [e, s].inspect
-
-    #Process.kill(:INT, process_waiter.pid)
-    #process_waiter.kill
-    #process_waiter.join
-    #exe.wait_child
-
-    o
   end
 end
 

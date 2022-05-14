@@ -86,13 +86,13 @@
     "--chown=app doc /polly/app/doc"
   }
 
-  run %q{gem build polly.gemspec}
+  run %q{gem build polly.gemspec -o polly-latest.gem}
 
   command("USER") {
     "root"
   }
 
-  run %q{gem install polly-2.14.0.gem}
+  run %q{gem install polly-latest.gem}
 
   command("USER") {
     "app"
