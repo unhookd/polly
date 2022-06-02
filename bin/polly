@@ -1418,11 +1418,11 @@ HEREDOC
         "--output", "type=image,name=#{default_image},push=true"
       ]
 
-      system(*buildctl_local_cmd)
+      system(*buildctl_local_cmd) || fail("unable to build")
     end
 
     if options["reset"]
-      delete_vertical_ci = ["kubectl", "delete", "--namespace", namespace, "jobs", "-l", "app=vertical-ci"]
+      delete_vertical_ci = ["kubectl", "delete", "--namespace", namespace, "jobs", "-l", "pipeline=vertical-ci"]
       delete_options = {}
       o,e,s = exe.execute_simple(:output, delete_vertical_ci, delete_options)
       puts [o, e, s]
