@@ -125,7 +125,7 @@ module Polly
           #run %q{bundle config set --local deploment true}
           #run %q{bundle config set --local without development}
           command("COPY") {
-            "--chown=app Gemfile VERSION binlogik.gemspec /home/app"
+            "--chown=app Gemfile VERSION *.gemspec /home/app"
           }
           command("COPY") {
             "--chown=app bin /home/app/bin"
