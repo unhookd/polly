@@ -1,3 +1,7 @@
+require 'rubygems'
+require 'bundler/setup'
+
+require 'thor'
 require 'yaml'
 require 'open3'
 require 'json'
@@ -9,7 +13,8 @@ require 'base64'
 require 'expect'
 require 'uri'
 require 'pathname'
-#require 'net/ssh'
+require 'fileutils'
+require 'net/ssh'
 
 module Polly
   POLLY = "polly"

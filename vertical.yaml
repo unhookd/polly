@@ -1,5 +1,5 @@
 app: polly
-repo-registry: ghcr.io
+repo-registry: ghcr.io/unhookd/polly
 vertical-stacks:
   default:
     rspec:
