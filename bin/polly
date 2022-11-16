@@ -565,7 +565,7 @@ HEREDOC
 
   desc "certificates [PRIVATE_KEY] [PUBLIC_KEY]", "installs some common ca certificate secret material into cluster"
   option "namespace", :type => :string, :default => "default"
-  option "mode", :type => :string, :default => "k8s-secret"
+  option "mode", :type => :string, :default => "directory"
   def certificates(inbound_ssh_key, inbound_ssh_key_pub, cname = "polly-registry", cname_two = "0.0.0.0")
     inbound_ssh_key = File.read(inbound_ssh_key)
     inbound_ssh_key_pub = File.read(inbound_ssh_key_pub)
