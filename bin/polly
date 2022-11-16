@@ -1,7 +1,5 @@
 #!/usr/bin/env ruby
 
-require 'thor'
-
 $executing_as = File.basename($0)
 $polly_dir = File.dirname(File.dirname(File.realpath(__FILE__)))
 
@@ -567,7 +565,8 @@ HEREDOC
 
   desc "certificates [PRIVATE_KEY] [PUBLIC_KEY]", "installs some common ca certificate secret material into cluster"
   option "namespace", :type => :string, :default => "default"
-  def certificates(inbound_ssh_key, inbound_ssh_key_pub)
+  option "mode", :type => :string, :default => "directory"
+  def certificates(inbound_ssh_key, inbound_ssh_key_pub, cname = "polly-registry", cname_two = "0.0.0.0")
     inbound_ssh_key = File.read(inbound_ssh_key)
     inbound_ssh_key_pub = File.read(inbound_ssh_key_pub)
 
@@ -576,8 +575,6 @@ HEREDOC
 
     data = key.to_pem
     data_dsa = key_dsa.to_pem
-
-    workstation_ca_certificates = "/etc/ssl/certs/ca-certificates.crt"
 
     exe = ::Polly::Execute.new
 
@@ -605,7 +602,7 @@ HEREDOC
     cert = OpenSSL::X509::Certificate.new
     cert.version = 2
     cert.serial = 2
-    cert.subject = OpenSSL::X509::Name.parse "/DC=org/DC=unhookd/CN=polly-registry"
+    cert.subject = OpenSSL::X509::Name.parse "/DC=org/DC=unhookd/CN=#{cname}"
     cert.issuer = root_ca.subject # root CA is the issuer
     cert.public_key = key.public_key
     cert.not_before = Time.now
@@ -613,19 +610,20 @@ HEREDOC
     ef = OpenSSL::X509::ExtensionFactory.new
     ef.subject_certificate = cert
     ef.issuer_certificate = root_ca
-    cert.add_extension(ef.create_extension("keyUsage","digitalSignature", true))
-    cert.add_extension(ef.create_extension("subjectKeyIdentifier","hash", false))
-    cert.add_extension(ef.create_extension("subjectAltName", "DNS:polly-registry", false))
+    cert.add_extension(ef.create_extension("keyUsage", "digitalSignature", true))
+    cert.add_extension(ef.create_extension("subjectKeyIdentifier", "hash", false))
+    cert.add_extension(ef.create_extension("subjectAltName", "DNS:#{cname},IP:#{cname_two}", false))
     cert.sign(root_key, OpenSSL::Digest::SHA256.new)
 
     #key = File.read("/usr/local/etc/openssl/misc/workstation-key.pem")
     #cert = File.read("/usr/local/etc/openssl/misc/workstation-cert.pem")
 
+    workstation_ca_certificates = "/etc/ssl/certs/ca-certificates.crt"
     wca = File.read(workstation_ca_certificates)
 
-    a = Base64.strict_encode64(wca)
-    b = Base64.strict_encode64(root_ca.to_pem)
-    c = Base64.strict_encode64(wca + root_ca.to_pem)
+    a = wca
+    b = root_ca.to_pem
+    c = wca + root_ca.to_pem
 
     #blob = [key.public_key.to_s].pack("m*").gsub(/\s/, "")
     #blob = [Net::SSH::Buffer.from(:raw, key.public_key.to_der).to_s].pack("m*").gsub(/\s/, "")
@@ -643,10 +641,9 @@ HEREDOC
     #openssh_format = "#{type} #{data2}"
     ##puts openssh_format
 
-    FileUtils.rm("/var/tmp/sshd_rsa") if File.exists?("/var/tmp/sshd_rsa")
-    File.write("/var/tmp/sshd_rsa", data)
-
-    polly_certificates = <<-HEREDOC
+    case options["mode"]
+      when "k8s-secret"
+        polly_certificates = <<-HEREDOC
 ---
 apiVersion: v1
 kind: Secret
@@ -678,40 +675,45 @@ metadata:
   name: "ca-certificates"
 type: Opaque
 data:
-  ca.workstation.crt: #{a}
-  ca.polly.crt: #{b}
-  ca-certificates.crt: #{c}
+  ca.workstation.crt: #{Base64.strict_encode64(a)}
+  ca.polly.crt: #{Base64.strict_encode64(b)}
+  ca-certificates.crt: #{Base64.strict_encode64(c)}
 ...
 HEREDOC
 
-#---
-#apiVersion: v1
-#kind: Secret
-#metadata:
-#  name: "developer-https"
-#type: Opaque
-#data:
-#  certificate.pem: #{Base64.strict_encode64(cert)}
-#  key.pem: #{Base64.strict_encode64(key)}
-#...
+      obv = ::Polly::Observe.new
+      obv.register_channels(["certificates"])
 
+      delete_polly_certificates = ["kubectl", "delete", "--namespace=#{options['namespace']}", "-f", "-"]
+      create_polly_certificates = ["kubectl", "create", "--namespace=#{options['namespace']}", "-f", "-"]
 
-    obv = ::Polly::Observe.new
-    obv.register_channels(["certificates"])
+      options = {:stdin_data => polly_certificates}
+      o,e,s = exe.execute_simple(:output, delete_polly_certificates, options)
+      obv.report_io("certificates", o, e)
+      obv.flush($stdout, $stderr)
 
-    delete_polly_certificates = ["kubectl", "delete", "--namespace=#{options['namespace']}", "-f", "-"]
-    create_polly_certificates = ["kubectl", "create", "--namespace=#{options['namespace']}", "-f", "-"]
+      o,e,s = exe.execute_simple(:output, create_polly_certificates, options)
+      obv.report_io("certificates", o, e)
+      obv.flush($stdout, $stderr)
 
-    options = {:stdin_data => polly_certificates}
-    o,e,s = exe.execute_simple(:output, delete_polly_certificates, options)
-    obv.report_io("certificates", o, e)
-    obv.flush($stdout, $stderr)
+      obv.flush($stdout, $stderr, true)
 
-    o,e,s = exe.execute_simple(:output, create_polly_certificates, options)
-    obv.report_io("certificates", o, e)
-    obv.flush($stdout, $stderr)
+    when "directory"
+      dir = File.join("/var/tmp", SecureRandom.uuid)
+      FileUtils.mkdir_p(dir)
 
-    obv.flush($stdout, $stderr, true)
+      #TODO: fill in ssh bits
+      #File.write("#{dir}/sshd_rsa", data)
+
+      File.write("#{dir}/web-server-certificate.pem", cert)
+      File.write("#{dir}/web-server-key.pem", key)
+
+      File.write("#{dir}/from-workstation-ca.crt", a)
+      File.write("#{dir}/polly-root-ca.crt", b)
+      File.write("#{dir}/multipass-mega.crt", c)
+
+      puts "certificates will be found in #{dir}"
+    end
   end
 
   desc "init", "bootstraps project polly controller pod"

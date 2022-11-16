@@ -18,7 +18,7 @@ polly understands circleci config and is able to plan and execute workflows on a
 
 # installation
 
-    sudo apt-get install ruby2* ruby2*-dev libruby2* ruby-bundler rubygems-integration build-essential --no-install-recommends
+    sudo apt-get install ruby3* ruby3*-dev libruby3* ruby-bundler rubygems-integration build-essential --no-install-recommends
     cd ~/workspace
     git clone git@github.com:unhookd/polly.git
     cd polly
