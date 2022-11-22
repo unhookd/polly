@@ -137,6 +137,38 @@ module Polly
         }
       end
 
+      def prototype2
+        @prototype2 = true
+        @bootstrap = image {
+          stage "bootstrap", "node:16.18-bullseye"
+          command("USER") {
+            "root"
+          }
+          #apt %w{curl mysql-client-8.0 mysql-server-core-8.0 ruby2* libruby2* ruby-bundler rubygems-integration rake git build-essential default-libmysqlclient-dev}
+          run %q{useradd --uid 1001 --home-dir /home/app --create-home --shell /bin/bash app}
+          command("WORKDIR") {
+            "/home/app"
+          }
+        }
+        @deploy = image {
+          stage "deploy", @bootstrap.stage
+          command("USER") {
+            "app"
+          }
+          run %q{mkdir -p ~/.ssh}
+          run %q{ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts}
+
+          command("COPY") {
+            "--chown=app package.json VERSION /home/app"
+          }
+          run %q{npm install}
+
+          command("COPY") {
+            "--chown=app Folderfile.example client.js infc.js style.css doc /home/app/"
+          }
+        }
+      end
+
       def image(type = :dockerfile)
         @command_list = []
 
