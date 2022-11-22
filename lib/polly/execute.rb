@@ -36,6 +36,10 @@ module Polly
       Kernel.system(*args)
     end
 
+    def exec(*args)
+      Kernel.exec(*args)
+    end
+
     def systemx(*cmd)
       #pid = Kernel.spawn(*cmd)
       #status = Process.wait pid
@@ -89,6 +93,36 @@ module Polly
         a = IO.popen("git rev-parse --abbrev-ref HEAD").read.strip
         wait_child
         a
+      end
+    end
+
+    def multipass_ip(profile)
+      multipass_info_cmd = [
+        "multipass",
+        "info",
+        profile,
+        "--format",
+        "yaml"
+      ]
+
+      stdout_and_stderr_str, status = Open3.capture2e(*multipass_info_cmd)
+      unless status.success?
+        puts stdout_and_stderr_str
+        exit(1)
+      end
+
+      multipass_info = YAML.load(stdout_and_stderr_str)
+
+      running_info = multipass_info[profile].find { |state| state["state"] == "Running" }
+      if running_info
+        #TODO: multipass --ssh
+        #if ssh_exec
+        #  exec("ssh", "-AX", "app@#{running_info["ipv4"].first}")
+        #else
+          running_info["ipv4"].first
+        #end
+      else
+        raise "foo running info not available, please retry"
       end
     end
 
