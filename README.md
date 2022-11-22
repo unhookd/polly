@@ -12,17 +12,24 @@ polly can be used to debug several types of ci platforms, to facilitate local CI
 
 Do not expose polly to a kubernetes cluster unless you have thoroughly understood the risk.
 
+# installation
+
+TODO, in the future, `polly` will be available via `sudo gem install polly` ... until then it must be installed manually, see below
+
+    sudo apt-get install ruby rubygems-integration libffi-dev build-essential --no-install-recommends
+    sudo gem install bundler
+    cd ~/workspace
+    git clone git@github.com:unhookd/polly.git
+    cd polly
+    bundle config set --local path vendor/bundle
+    bundle install
+    sudo ln -fs ${HOME}/workspace/polly/bin/polly /usr/local/bin/polly
+    polly help
+
 # .circleci/config.yml
 
 polly understands circleci config and is able to plan and execute workflows on a local or remote kubernetes cluster
 
-# installation
-
-    sudo apt-get install ruby3* ruby3*-dev libruby3* ruby-bundler rubygems-integration build-essential --no-install-recommends
-    cd ~/workspace
-    git clone git@github.com:unhookd/polly.git
-    cd polly
-    make install #NOTE: will prompt for sudo password
 
 TBD: rebake this bootstrap script into github actions as test-suite cross-check
 

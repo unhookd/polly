@@ -1,3 +1,9 @@
+# [2.17.0] - 2022-11-22 - Jon Bardin
+
+Add new stack bits for multipass development
+
+#######
+
 # [2.16.0] - 2022-10-15 - Jon Bardin
 
 

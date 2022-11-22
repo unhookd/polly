@@ -479,7 +479,7 @@ HEREDOC
       #  {"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
       #  "docker", "build", "--progress=plain", "--ssh", "default",
       #  options["no-cache"] ? "--no-cache" : nil, "-t",
-      #  app + ":" + version, ".", "-f", "-", generated_dockerfile_fd.nil? ? {:in => File.open(container_definition) } : {:in => generated_dockerfile_fd}
+      #  app + ":" + version, ".", "-f", "-", generated_string_fd.nil? ? {:in => File.open(container_definition) } : {:in => generated_string_fd}
       #].compact
 
       #Polly::Generate.all_images.each { |build_image|
@@ -1463,6 +1463,163 @@ HEREDOC
     options = {:stdin_data => docker_login_password}
     o,e,s = exe.execute_simple(:output, docker_login_cmd, options)
     puts [o, e, s]
+  end
+
+  desc "launch [PROFILE]", "todo"
+  option "platform", :type => :string, :default => "multipass", :desc => "todo"
+  option "public-ssh-key", :type => :string, :default => "~/.ssh/id_rsa.pub", :desc => "todo"
+  def launch(profile = "foo")
+    exe = ::Polly::Execute.new
+
+    vertical_lookup = YAML.load(File.read("vertical.yaml"))
+    public_key = File.read(File.expand_path(options["public-ssh-key"]))
+
+    cloud_init_yaml = ::Polly::Build.build_cloudinit_yaml(vertical_lookup, public_key)
+
+    multipass_launch_cmd = ["multipass", "launch", "--name", profile, "--disk", "60G", "--cpus", "4", "--mem", "10G", "jammy", "--cloud-init", "-"]
+
+    options = {:out => $stdout, :err => $stderr, :in => ::Polly::Build.generated_string_fd(cloud_init_yaml)}
+    exe.system({}, *multipass_launch_cmd, options)
+  end
+
+  desc "stationkeep [PROFILE]", "todo"
+  def stationkeep(profile = "foo")
+    exe = ::Polly::Execute.new
+
+    vertical_lookup = YAML.load(File.read("vertical.yaml"))
+    stationkeeps = vertical_lookup["stationkeeps"]
+
+    multipass_ip = exe.multipass_ip(profile)
+
+    stationkeeps.each { |stationkeep|
+      if bootstrap = stationkeep["bootstrap"]
+        bootstrap_script = File.read(bootstrap)
+        shebang = bootstrap_script.split("\n")[0].split("!", 2)[1].split(" ")
+
+        options = {:stdin_data => bootstrap_script}
+        ssh_pipe = ["ssh", "app@#{multipass_ip}", "sudo", *shebang]
+        stdin, stdout, stderr, wait_thr = Open3.popen3(*ssh_pipe)
+        stdin.write(options[:stdin_data])
+        stdin.close
+
+        resolution = :ok
+        begin
+          until wait_thr.join(1.0 / 24.0)
+            if bits = begin
+                        stdout.readpartial(8192)
+                      rescue EOFError
+                      end
+
+              $stdout.write(bits)
+            end
+          end
+        rescue Interrupt
+          Process.kill("INT", wait_thr.pid)
+          $stderr.write(stderr.read)
+          resolution = :interrupt
+        end
+
+        $stdout.write(stdout.read) unless stdout.eof?
+        #$stderr.write(stderr.read) unless stderr.eof?
+
+        unless wait_thr.value.success?
+          puts wait_thr.value.inspect
+          puts stderr.read
+          resolution = :errored
+        end
+
+        break unless resolution == :ok
+      end
+    }
+
+    puts
+    puts "... all installers have run to completion"
+  end
+
+  desc "mkhooks [PROFILE]", "todo"
+  option "user", :type => :string, :default => "bip", :desc => "todo"
+  def mkhooks(profile = "foo")
+    exe = ::Polly::Execute.new
+
+    multipass_ip = exe.multipass_ip(profile)
+    uuid = SecureRandom.uuid
+
+    remote_user = options["user"] + "@" + multipass_ip
+
+    if system("git", "remote", "add", profile, "#{remote_user}:workspace/#{uuid}.git")
+      system("ssh", remote_user, "--", "mkdir", "-p", "/home/#{options['user']}/workspace") || fail
+      system("ssh", remote_user, "--", "mv", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}", "/var/tmp/before-#{uuid}.git", :err => "/dev/null") || true
+      system("ssh", remote_user, "--", "git", "config", "--global", "init.defaultBranch", "main") || fail
+      system("ssh", remote_user, "--", "git", "init", "--bare", "--shared=group", "/home/#{options['user']}/workspace/#{uuid}.git") || fail
+      system("ssh", remote_user, "--", "rm", "-Rf", "/home/#{options['user']}/workspace/#{uuid}.git/hooks") || fail
+      system("git", "push", profile, "HEAD")
+      system("ssh", remote_user, "--", "git", "clone", "/home/#{options['user']}/workspace/#{uuid}.git", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}", "--branch", `git rev-parse --abbrev-ref HEAD`) || fail
+      system("ssh", remote_user, "--", "ln", "-sf", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}/devstack/git-hooks", "/home/#{options['user']}/workspace/#{uuid}.git/hooks")
+      system("ssh", remote_user, "--", "git", "-C", "/home/#{options['user']}/workspace/#{uuid}.git config", "receive.advertisePushOptions", "true")
+      #git config core.sshCommand 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ForwardAgent=yes -X'
+    else
+      puts "re-init manually... git remote remove #{foo}"
+      #system("ssh", remote_user, "--", "git", "-C", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}", "pull")
+      #system("ssh", remote_user, "--", "git", "-C", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}", "show")
+      #system("ssh", remote_user, "--", "git", "--git-dir", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}/.git", "pull")
+    end
+  end
+
+  private
+
+  def fetch_from_registry(path)
+    exe = ::Polly::Execute.new
+
+    #registry_label = "name=polly-registry"
+
+    #random_port = 5000 + (rand * 1000).to_i
+
+    #kubectl_port_forward_cmd = [
+    #                             "kubectl",
+    #                             "port-forward",
+    #                             exe.polly_pod(registry_label),
+    #                             "#{random_port}:443"
+    #                           ]
+
+    #options = {}
+    #process_stdin, process_stdout, process_stderr, process_waiter = exe.execute_simple(:async, kubectl_port_forward_cmd, options)
+
+    #process_stdout.expect("-> 443")
+
+    #TODO: ca-certificates
+    #"-k",
+    #"--cacert",
+    #ssl_cert_file,
+    #"--resolve",
+    #"polly-registry:5000:127.0.0.1",
+    #random_port https localhost port forward hacks
+
+    vertical_lookup = YAML.load(File.read("vertical.yaml"))
+    repo_registry = vertical_lookup["repo-registry"]
+
+    curl_cmd = [
+                         "curl",
+                         "-L",
+                         "-s",
+                         "-v",
+                         "-m",
+                         "999",
+                         "--connect-timeout",
+                         "999",
+                         "https://#{repo_registry}/#{path}"
+                       ]
+    puts curl_cmd.inspect
+
+    options = {}
+    o,e,s = exe.execute_simple(:output, curl_cmd, options)
+    puts [e, s].inspect
+
+    #Process.kill(:INT, process_waiter.pid)
+    #process_waiter.kill
+    #process_waiter.join
+    #exe.wait_child
+
+    o
   end
 end
 
