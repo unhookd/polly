@@ -456,6 +456,10 @@ HEREDOC
       generated_dockerfile = File.read(default_dockerfile)
     else
       generated_dockerfile = File.read(container_definition)
+      sub_version = container_definition.split(".").last
+      if sub_version != container_definition
+        app += "-" + sub_version
+      end
     end
 
     if options["in-cluster"]
