@@ -1167,9 +1167,6 @@ HEREDOC
         $stdout.write(generated_circleci_config_yml)
 
       when "github"
-        # docker pull ghcr.io/unhookd/polly:3.0-rc1
-        # docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/unhookd/polly:3.0-rc1
-        # image: ubuntu:focal-20200606
         #set -e
         #id app || (export  DEBIAN_FRONTEND=noninteractive; export  LC_ALL=C.UTF-8; export  LANG=en_US; export  LANGUAGE=en_US; export  ACCEPT_EULA=y; apt-get update; apt-get install -y locales locales-all; apt-get clean; rm -rf /var/lib/apt/lists/*; locale-gen --purge en_US; /bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale; locale-gen $LANGUAGE; dpkg-reconfigure locales; apt-get update; apt-get install -y git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper; apt-get clean; rm -rf /var/lib/apt/lists/*; curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add; apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"; apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*; groupadd --gid 134 abc-otf; groupadd --gid 999 efg-nnn; useradd --uid 1001 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn; ln -sfv /home/app/polly/bin/polly /usr/local/bin/polly; chown -R app /home/app)
         ####export SSH_AUTH_SOCK=/tmp/ssh-auth.sock
