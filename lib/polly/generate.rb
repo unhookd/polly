@@ -169,6 +169,30 @@ module Polly
         }
       end
 
+      def prototype_wkndr
+        @prototype_wkndr = true
+        @deploy = image {
+          stage "bootstrap", "wkndr:latest"
+          env("FOO" => Time.now.to_f.to_s)
+          run %q{rm -Rf /var/lib/wkndr/public}
+          #run %q{mkdir -p /var/lib/wkndr/public}
+          command("COPY") {
+            "Wkndrfile /var/lib/wkndr/"
+          }
+          env("FOO" => Time.now.to_f.to_s)
+          command("COPY") {
+            "--chown=app public /var/lib/wkndr/public"
+          }
+          #command("COPY") {
+          #  "--chown=app public/index.html /var/lib/wkndr/public/"
+          #}
+          #run %q{/var/lib/wkndr/iterate-web.sh}
+          run %q{cat /var/lib/wkndr/public/index.html || true}
+          run %q{cat /var/lib/wkndr/Wkndrfile}
+          run %q{ls -l /var/lib/wkndr/public}
+        }
+      end
+
       def image(type = :dockerfile)
         @command_list = []
 
