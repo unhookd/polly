@@ -1,0 +1,39 @@
+# syntax=docker/dockerfile-upstream:master-experimental
+FROM ubuntu:jammy-20220421 AS bootstrap
+USER root
+ENV DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8 LANG=en_US LANGUAGE=en_US ACCEPT_EULA=y
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; apt-get update; apt-get install -y locales locales-all; apt-get clean; rm -rf /var/lib/apt/lists/*
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; locale-gen --purge en_US
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; /bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; locale-gen $LANGUAGE
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; dpkg-reconfigure locales
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; apt-get update; apt-get install -y vim git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby3* libruby3* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper; apt-get clean; rm -rf /var/lib/apt/lists/*
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; groupadd --gid 121 alpha
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; groupadd --gid 134 beta
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; groupadd --gid 999 gamma
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; groupadd --gid 1000 theta
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; groupadd --gid 1001 zeta
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,alpha,beta,gamma,theta,zeta
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/false runner --groups docker,alpha,beta,gamma,theta,zeta
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; chown -Rv app.alpha /polly
+WORKDIR /polly/app
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; chown -R app /home/app
+USER app
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; git config --global user.email "you@example.com"
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; git config --global user.name "Your Name"
+COPY --chown=app Gemfile polly.gemspec VERSION /polly/app/
+COPY --chown=app Pollyfile Thorfile /polly/app/
+COPY --chown=app config /polly/app/config/
+COPY --chown=app lib /polly/app/lib
+COPY --chown=app bin /polly/app/bin
+COPY --chown=app doc /polly/app/doc
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; gem build polly.gemspec -o polly-latest.gem
+USER root
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; gem install polly-latest.gem
+USER app
+WORKDIR /home/app
+# Generated 2023-01-21 23:32:58 +0000

@@ -30,7 +30,8 @@ jobs:
 
     - name: bootstrap
       run: |
-        polly generate > Dockerfile
+        #polly generate > Dockerfile
+        cat Dockerfile
 
     - name: Log in to the Container registry
       uses: docker/login-action@v2
