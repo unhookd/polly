@@ -8,20 +8,22 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    #runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     permissions:
       contents: read
-      packages: write
+      packages: read|write
 
     container:
       #TODO: !!!!
       #TODO: --reboot bootstrap step to polly generate --mirror=github
-      #image: ubuntu:focal-20200606
-      #options: "--user 0"
+      #image: ubuntu:focal-20221130
+      image: ubuntu:jammy-20220421
+      options: "--user 0"
 
-      image: ghcr.io/unhookd/polly@sha256:7e0f17815d1370fde142b4fad16df550501061823be7d31de1920042ce512aa1
-      options: "--user 1001"
+      #image: ghcr.io/unhookd/polly@sha256:7e0f17815d1370fde142b4fad16df550501061823be7d31de1920042ce512aa1
+      #options: "--user 1001"
 
     steps:
     - uses: actions/checkout@v2
