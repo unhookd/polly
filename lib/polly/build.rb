@@ -227,7 +227,7 @@ HEREDOC
       exec(*["kubectl", "logs", build_pod, "-f"].compact)
     end
 
-    def self.build_cloudinit_yaml(vertical_lookup, public_ssh_key)
+    def self.build_cloudinit_yaml(exe, vertical_lookup, public_ssh_key)
       prewrites = vertical_lookup["prewrites"]
 
       users = [{
@@ -244,7 +244,7 @@ HEREDOC
         Dir.glob(glob).find_all { |f| File.file?(f) }.each { |f|
           write_files << {
             'content' => File.read(f),
-            'path' => File.join('/var/tmp/polly', f),
+            'path' => File.join('/var/tmp', exe.current_app, f),
             'permissions' => File.stat(f).mode.to_s(8)
           }
         }

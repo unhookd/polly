@@ -1467,6 +1467,7 @@ HEREDOC
 
   desc "launch [PROFILE]", "todo"
   option "platform", :type => :string, :default => "multipass", :desc => "todo"
+  option "distro", :type => :string, :default => "focal"
   option "public-ssh-key", :type => :string, :default => "~/.ssh/id_rsa.pub", :desc => "todo"
   def launch(profile = "foo")
     exe = ::Polly::Execute.new
@@ -1474,9 +1475,9 @@ HEREDOC
     vertical_lookup = YAML.load(File.read("vertical.yaml"))
     public_key = File.read(File.expand_path(options["public-ssh-key"]))
 
-    cloud_init_yaml = ::Polly::Build.build_cloudinit_yaml(vertical_lookup, public_key)
+    cloud_init_yaml = ::Polly::Build.build_cloudinit_yaml(exe, vertical_lookup, public_key)
 
-    multipass_launch_cmd = ["multipass", "launch", "--name", profile, "--disk", "60G", "--cpus", "4", "--mem", "10G", "jammy", "--cloud-init", "-"]
+    multipass_launch_cmd = ["multipass", "launch", "--name", profile, "--disk=60G", "--cpus=4", "--mem=10G", "--cloud-init=-", options["distro"]]
 
     options = {:out => $stdout, :err => $stderr, :in => ::Polly::Build.generated_string_fd(cloud_init_yaml)}
     exe.system({}, *multipass_launch_cmd, options)
