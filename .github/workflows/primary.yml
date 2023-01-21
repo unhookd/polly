@@ -13,7 +13,7 @@ jobs:
 
     permissions:
       contents: read
-      packages: read|write
+      packages: write
 
     container:
       #TODO: !!!!
