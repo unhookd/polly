@@ -116,7 +116,7 @@
     "root"
   }
 
-  run %q{gem install /polly/app/polly-latest.gem}
+  run %q{gem install --clear-sources --debug --no-document --minimal-deps /polly/app/polly-latest.gem}
 
   command("USER") {
     "app"
