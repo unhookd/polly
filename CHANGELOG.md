@@ -1,3 +1,9 @@
+# [2.19.0] - 2023-01-22 - Jon Bardin
+
+Add CHANGELOG to .gem build output
+
+#######
+
 # [2.18.0] - 2023-01-22 - Jon Bardin
 
 Add better reboostrappable base builds with run layer stacking optimization

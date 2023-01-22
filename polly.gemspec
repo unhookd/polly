@@ -13,8 +13,7 @@ Gem::Specification.new do |spec|
   spec.homepage      = "https://unctl.io/"
   spec.license       = "MIT"
 
-  #spec.files         = ["Gemfile", "Thorfile", "polly.gemspec", "VERSION"] + Dir.glob("lib/**/*")
-  spec.files         = ["Thorfile", "polly.gemspec", "VERSION"] + Dir.glob("lib/**/*")
+  spec.files         = ["Thorfile", "polly.gemspec", "VERSION", "CHANGELOG"] + Dir.glob("lib/**/*")
   spec.bindir        = ["bin"]
   spec.executables   = ["polly"]
   spec.require_paths = ["lib"]
