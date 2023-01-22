@@ -71,7 +71,7 @@ jobs:
           echo INSTALLING POLLY-LATEST GEM
           gem install polly-latest.gem
 
-          su app -s /bin/bash -c 'cd /__w/polly/polly && polly generate'
+          su app -s /bin/bash -c 'cd /__w/polly/polly && polly generate > Dockerfile'
           whoami
           groups
           ls -l /var/run/docker.sock
