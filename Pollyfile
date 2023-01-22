@@ -104,13 +104,13 @@
 
   run %q{TMPDIR=/__w/polly/polly gem install --no-document --minimal-deps /__w/polly/polly/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /__w/polly/polly/polly-latest.gem}
 
-  command("COPY") {
-    "--chown=app Pollyfile /__w/polly/polly/"
-  }
+  #command("COPY") {
+  #  "--chown=app Pollyfile /__w/polly/polly/"
+  #}
 
-  #app
-  #run %q{cd /polly/app && polly generate > Dockerfile}
-  run %q{su app -s /bin/bash -c 'cd /__w/polly/polly && polly generate > Dockerfile'}
+  ##app
+  ##run %q{cd /polly/app && polly generate > Dockerfile}
+  #run %q{su app -s /bin/bash -c 'cd /__w/polly/polly && polly generate > Dockerfile'}
 }
 
 description("For pollyci")
