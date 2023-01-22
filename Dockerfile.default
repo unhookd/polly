@@ -44,7 +44,7 @@ USER app
 WORKDIR /home/app
 COPY --chown=app --from=gem /polly/app/polly-latest.gem /polly/app/polly-latest.gem
 USER root
-RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; TMPDIR=/polly/app gem install --clear-sources --debug --no-document --minimal-deps /polly/app/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {}; rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; TMPDIR=/polly/app gem install --no-document --minimal-deps /polly/app/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {}; rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
 USER app
 COPY --chown=app Pollyfile /polly/app/
 RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; cd /polly/app && polly generate > Dockerfile
