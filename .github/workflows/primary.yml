@@ -22,7 +22,8 @@ jobs:
       #options: "--user 0"
 
       image: ghcr.io/unhookd/polly:3.0-rc1@sha256:cafb2f6a797986580102ec03483ce8ad2e342fd89f92c9aa14b9eecb86aae332
-      options: "--user 1001"
+      #options: "--user 1001"
+      options: "--user 0"
 
     steps:
     - uses: actions/checkout@v3
