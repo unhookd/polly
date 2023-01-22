@@ -16,8 +16,8 @@ jobs:
 
     container:
       options: "--user 0"
-      #image: ubuntu:jammy-20220421
-      image: ghcr.io/unhookd/polly:3.0-rc1@sha256:73bf71eaabbdbdacae8876f4d023aa730fb7147642194ae3de7a8275007b9fb6
+      image: ubuntu:jammy-20220421
+      #image: ghcr.io/unhookd/polly:3.0-rc1@sha256:73bf71eaabbdbdacae8876f4d023aa730fb7147642194ae3de7a8275007b9fb6
 
     steps:
     - uses: actions/checkout@v3
