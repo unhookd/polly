@@ -14,6 +14,16 @@
       "LANGUAGE" => "en_US",
       "ACCEPT_EULA" => "y"
 
+  run %q{groupadd --gid 121 alpha}
+  run %q{groupadd --gid 123 tau}
+  run %q{groupadd --gid 134 beta}
+  run %q{groupadd --gid 999 docker}
+  run %q{groupadd --gid 1000 theta}
+  run %q{groupadd --gid 1001 zeta}
+
+  run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups alpha,beta,docker,theta,zeta,tau}
+  run %q{useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/false runner --groups alpha,beta,docker,theta,zeta,tau}
+
   apt %w{locales locales-all}
 
   run %q{locale-gen --purge en_US}
@@ -28,14 +38,13 @@
   run %q{apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"}
   apt %w{kubectl}
 
-  run %q{groupadd --gid 121 alpha}
-  run %q{groupadd --gid 134 beta}
-  run %q{groupadd --gid 999 gamma}
-  run %q{groupadd --gid 1000 theta}
-  run %q{groupadd --gid 1001 zeta}
-  
-  run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,alpha,beta,gamma,theta,zeta}
-  run %q{useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/false runner --groups docker,alpha,beta,gamma,theta,zeta}
+  #run %q{usermod -a -G $(stat --printf=%G /var/run/docker.sock) app}
+  #run %q{usermod -a -G $(stat --printf=%G /var/run/docker.sock) runner}
+  run %q{grep docker /etc/group | cut -d: -f3}
+  run %q{usermod -a -G $(grep docker /etc/group | cut -d: -f3) app}
+  run %q{usermod -a -G $(grep docker /etc/group | cut -d: -f3) runner}
+
+  run %q{su runner -s /bin/bash -c 'echo runner-bits && whoami && groups'}
 
   run %q{mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app}
   run %q{chown -Rv app.alpha /polly}

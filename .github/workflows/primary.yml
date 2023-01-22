@@ -18,11 +18,11 @@ jobs:
     container:
       #TODO: !!!!
       #TODO: --reboot bootstrap step to polly generate --bootstrap=github
-      #image: ubuntu:jammy-20220421
-      #options: "--user 0"
+      image: ubuntu:jammy-20220421
+      options: "--user 0"
 
-      image: ghcr.io/unhookd/polly:3.0-rc1@sha256:e09279f1d3ce541f31fa9f989df2147224dde401e86bd4d6e8cab4c56f285c64
-      options: "--user 1001"
+      #image: ghcr.io/unhookd/polly:3.0-rc1@sha256:e09279f1d3ce541f31fa9f989df2147224dde401e86bd4d6e8cab4c56f285c64
+      #options: "--user 1001"
 
     steps:
     - uses: actions/checkout@v2
@@ -59,8 +59,9 @@ jobs:
           apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"
           apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*
 
-          usermod -a -G $(stat --printf=%G /var/run/docker.sock) app
-          usermod -a -G $(stat --printf=%G /var/run/docker.sock) runner
+          grep docker /etc/group | cut -d: -f3
+          usermod -a -G $(grep docker /etc/group | cut -d: -f3) app
+          usermod -a -G $(grep docker /etc/group | cut -d: -f3) runner
 
           mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app /__w/polly/polly
           chown -R app.alpha /polly /__w/polly/polly
@@ -75,6 +76,7 @@ jobs:
           whoami
           groups
           ls -l /var/run/docker.sock
+          grep docker /etc/group | cut -d: -f3
           su runner -s /bin/bash -c 'echo runner-bits && whoami && groups'
         fi
 
