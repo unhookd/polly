@@ -35,6 +35,15 @@ jobs:
           polly generate > Dockerfile
         else
           set -e
+
+          groupadd --gid 121 alpha
+          groupadd --gid 134 beta
+          groupadd --gid 999 docker
+          groupadd --gid 1000 theta
+          groupadd --gid 1001 zeta
+
+          useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups alpha,beta,docker,theta,zeta
+          useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/false runner --groups alpha,beta,docker,theta,zeta
           #id app || (export  DEBIAN_FRONTEND=noninteractive; export  LC_ALL=C.UTF-8; export  LANG=en_US; export  LANGUAGE=en_US; export  ACCEPT_EULA=y; apt-get update; apt-get install -y locales locales-all; apt-get clean; rm -rf /var/lib/apt/lists/*; locale-gen --purge en_US; /bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale; locale-gen $LANGUAGE; dpkg-reconfigure locales; apt-get update; apt-get install -y git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper; apt-get clean; rm -rf /var/lib/apt/lists/*; curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add; apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"; apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*; groupadd --gid 134 abc-otf; groupadd --gid 999 efg-nnn; useradd --uid 1001 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn; ln -sfv /home/app/polly/bin/polly /usr/local/bin/polly; chown -R app /home/app)
           #chown -R app /home/app
           #su app -s /bin/bash -c 'bundle config set --local path /home/app/vendor/bundle && bundle config set --local jobs 4 && bundle config set --local retry 3 && bundle config set --local deploment true && bundle config set --local without development && bundle install'
@@ -50,13 +59,6 @@ jobs:
           #curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add
           #apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"
           #apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*
-          groupadd --gid 121 alpha
-          groupadd --gid 134 beta
-          groupadd --gid 999 gamma
-          groupadd --gid 1000 theta
-          groupadd --gid 1001 zeta
-          useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,alpha,beta,gamma,theta,zeta
-          useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/false runner --groups docker,alpha,beta,gamma,theta,zeta
 
           mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app
           chown -Rv app.alpha /polly
