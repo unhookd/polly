@@ -1,3 +1,9 @@
+# [2.18.0] - 2023-01-22 - Jon Bardin
+
+Add better reboostrappable base builds with run layer stacking optimization
+
+#######
+
 # [2.17.0] - 2022-11-22 - Jon Bardin
 
 Add new stack bits for multipass development
