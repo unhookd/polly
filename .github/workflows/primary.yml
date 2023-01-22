@@ -21,7 +21,7 @@ jobs:
       #image: ubuntu:jammy-20220421
       #options: "--user 0"
 
-      image: ghcr.io/unhookd/polly:3.0-rc1@sha256:42bcba10c414da4e86ee644b21eb84adfde96d813443d52e1416d842574648e3
+      image: ghcr.io/unhookd/polly:3.0-rc1@sha256:b823b8b49ec74acdf34e956394647962adb1bf76f85c3e8a115ec2b13634b090
       #options: "--user 1001"
       options: "--user 0"
 
