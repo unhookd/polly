@@ -723,7 +723,7 @@ HEREDOC
   desc "init", "bootstraps project polly controller pod"
   option "re-init", :type => :boolean, :default => false
   option "with-registry", :type => :boolean, :default => false
-  option "with-bootstrap", :type => :string, :default => "polly:3.0-rc1"
+  option "with-bootstrap", :type => :string, :default => "ghcr.io/unhookd/polly:3.0-rc1" # "polly:3.0-rc1"
   def init
     exe = ::Polly::Execute.new
 
