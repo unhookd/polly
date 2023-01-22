@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile-upstream:master-experimental
-FROM ghcr.io/unhookd/polly:3.0-rc1@sha256:0816820324aaaad1e8a42a4ea441c86278ea25f7a3928ac5c0fce17a7d7451b4 AS base
+FROM ubuntu:jammy-20220421 AS base
 USER root
 ENV DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8 LANG=en_US LANGUAGE=en_US ACCEPT_EULA=y
 RUN set -ex; (getent group alpha || groupadd --gid 121 alpha); rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
@@ -37,7 +37,7 @@ RUN set -ex; su app -s /bin/bash -c 'cd /__w/polly/polly && gem build polly.gems
 FROM base AS deploy
 USER app
 WORKDIR /home/app
-COPY --chown=app --from=gem /__w/polly/polly/polly-latest.gem /__w/polly/polly/polly-latest.gem
+COPY --chown=app --from=gem /__w/polly/polly/polly-latest.gem /tmp/polly-latest.gem
 USER root
-RUN set -ex; gem install --no-document --minimal-deps /__w/polly/polly/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /__w/polly/polly/polly-latest.gem; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
+RUN set -ex; gem install --no-document --minimal-deps /tmp/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /tmp/polly-latest.gem; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
 LABEL org.opencontainers.image.description For pollyci

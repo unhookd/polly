@@ -79,11 +79,6 @@
     "--chown=app doc /__w/polly/polly/doc"
   }
 
-  #app
-  #run %q{git config --global user.email "you@example.com"}
-  #run %q{git config --global user.name "Your Name"}
-  #run %q{gem build polly.gemspec -o polly-latest.gem}
-
   run %q{su app -s /bin/bash -c 'cd /__w/polly/polly && gem build polly.gemspec -o polly-latest.gem'}
 }
 
@@ -98,20 +93,12 @@
   }
 
   command("COPY") {
-    "--chown=app --from=gem /__w/polly/polly/polly-latest.gem /__w/polly/polly/polly-latest.gem"
+    "--chown=app --from=gem /__w/polly/polly/polly-latest.gem /tmp/polly-latest.gem"
   }
 
   root
 
-  run %q{gem install --no-document --minimal-deps /__w/polly/polly/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /__w/polly/polly/polly-latest.gem}
-
-  #command("COPY") {
-  #  "--chown=app Pollyfile /__w/polly/polly/"
-  #}
-
-  ##app
-  ##run %q{cd /polly/app && polly generate > Dockerfile}
-  #run %q{su app -s /bin/bash -c 'cd /__w/polly/polly && polly generate > Dockerfile'}
+  run %q{gem install --no-document --minimal-deps /tmp/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /tmp/polly-latest.gem}
 }
 
 description("For pollyci")
