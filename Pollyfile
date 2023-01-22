@@ -20,7 +20,7 @@
   group(1001, "zeta")
 
   useradd(1000, "app", "alpha,beta,docker,theta,zeta,tau")
-  useradd(1001, "runner", "alpha,beta,docker,theta,zeta,tau") #shell=>false?
+  useradd(1001, "runner", "alpha,beta,docker,theta,zeta,tau")
 
   apt %w{locales locales-all}
 
@@ -42,51 +42,48 @@
 
   root
 
-  run %q{mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app}
-  run %q{chown -Rv app.alpha /polly}
-  #mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app /__w/polly/polly
-  #chown -R app.alpha /polly /__w/polly/polly
-  #chown -R app /home/app /app /__w/polly/polly
+  run %q{mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app /__w/polly/polly}
+  run %q{chown -R app.alpha /home/app /polly /app /__w/polly/polly}
+  run %q{chown -R app /home/app /polly /app /__w/polly/polly}
 
   #TODO: workdir module
   command("WORKDIR") {
-    "/polly/app"
+    "/__w/polly/polly"
   }
 
   run %q{chown -R app /home/app}
 
-  app
-
-  run %q{git config --global user.email "you@example.com"}
-  run %q{git config --global user.name "Your Name"}
-
   #TODO: more prototype-z detection
   command("COPY") {
-    "--chown=app Gemfile polly.gemspec VERSION /polly/app/"
+    "--chown=app Gemfile polly.gemspec VERSION /__w/polly/polly/"
   }
 
   command("COPY") {
-    "--chown=app Thorfile /polly/app/"
+    "--chown=app Thorfile /__w/polly/polly/"
   }
 
   command("COPY") {
-    "--chown=app config /polly/app/config/"
+    "--chown=app config /__w/polly/polly/config/"
   }
 
   command("COPY") {
-    "--chown=app lib /polly/app/lib"
+    "--chown=app lib /__w/polly/polly/lib"
   }
 
   command("COPY") {
-    "--chown=app bin /polly/app/bin"
+    "--chown=app bin /__w/polly/polly/bin"
   }
 
   command("COPY") {
-    "--chown=app doc /polly/app/doc"
+    "--chown=app doc /__w/polly/polly/doc"
   }
 
-  run %q{gem build polly.gemspec -o polly-latest.gem}
-  #su app -s /bin/bash -c 'cd /__w/polly/polly && gem build polly.gemspec -o polly-latest.gem'
+  #app
+  #run %q{git config --global user.email "you@example.com"}
+  #run %q{git config --global user.name "Your Name"}
+  #run %q{gem build polly.gemspec -o polly-latest.gem}
+
+  run %q{su app -s /bin/bash -c 'cd /__w/polly/polly && gem build polly.gemspec -o polly-latest.gem'}
 }
 
 # final bits are just the .gem install as if on end-user box
@@ -100,23 +97,20 @@
   }
 
   command("COPY") {
-    "--chown=app --from=gem /polly/app/polly-latest.gem /polly/app/polly-latest.gem"
+    "--chown=app --from=gem /__w/polly/polly/polly-latest.gem /__w/polly/polly/polly-latest.gem"
   }
 
   root
 
-  run %q{TMPDIR=/polly/app gem install --no-document --minimal-deps /polly/app/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /polly/app/polly-latest.gem}
-  #gem install polly-latest.gem
-
-  app
+  run %q{TMPDIR=/__w/polly/polly gem install --no-document --minimal-deps /__w/polly/polly/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /__w/polly/polly/polly-latest.gem}
 
   command("COPY") {
-    "--chown=app Pollyfile /polly/app/"
+    "--chown=app Pollyfile /__w/polly/polly/"
   }
 
-  run %q{cd /polly/app && polly generate > Dockerfile}
-  #su app -s /bin/bash -c 'cd /__w/polly/polly && polly generate > Dockerfile'
-
+  #app
+  #run %q{cd /polly/app && polly generate > Dockerfile}
+  run %q{su app -s /bin/bash -c 'cd /__w/polly/polly && polly generate > Dockerfile'}
 }
 
 description("For pollyci")

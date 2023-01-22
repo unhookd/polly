@@ -21,27 +21,25 @@ RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; usermod -a -G $(grep do
 # syntax=docker/dockerfile-upstream:master-experimental
 FROM base AS gem
 USER root
-RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
-RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; chown -Rv app.alpha /polly; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
-WORKDIR /polly/app
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app /__w/polly/polly; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; chown -R app.alpha /home/app /polly /app /__w/polly/polly; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; chown -R app /home/app /polly /app /__w/polly/polly; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
+WORKDIR /__w/polly/polly
 RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; chown -R app /home/app; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
-USER app
-RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; git config --global user.email "you@example.com"
-RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; git config --global user.name "Your Name"
-COPY --chown=app Gemfile polly.gemspec VERSION /polly/app/
-COPY --chown=app Thorfile /polly/app/
-COPY --chown=app config /polly/app/config/
-COPY --chown=app lib /polly/app/lib
-COPY --chown=app bin /polly/app/bin
-COPY --chown=app doc /polly/app/doc
-RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; gem build polly.gemspec -o polly-latest.gem
+COPY --chown=app Gemfile polly.gemspec VERSION /__w/polly/polly/
+COPY --chown=app Thorfile /__w/polly/polly/
+COPY --chown=app config /__w/polly/polly/config/
+COPY --chown=app lib /__w/polly/polly/lib
+COPY --chown=app bin /__w/polly/polly/bin
+COPY --chown=app doc /__w/polly/polly/doc
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; su app -s /bin/bash -c 'cd /__w/polly/polly && gem build polly.gemspec -o polly-latest.gem'; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
 # syntax=docker/dockerfile-upstream:master-experimental
 FROM base AS deploy
 USER app
 WORKDIR /home/app
-COPY --chown=app --from=gem /polly/app/polly-latest.gem /polly/app/polly-latest.gem
+COPY --chown=app --from=gem /__w/polly/polly/polly-latest.gem /__w/polly/polly/polly-latest.gem
 USER root
-RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; TMPDIR=/polly/app gem install --no-document --minimal-deps /polly/app/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /polly/app/polly-latest.gem; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
-USER app
-COPY --chown=app Pollyfile /polly/app/
-RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; cd /polly/app && polly generate > Dockerfile
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; TMPDIR=/__w/polly/polly gem install --no-document --minimal-deps /__w/polly/polly/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /__w/polly/polly/polly-latest.gem; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
+COPY --chown=app Pollyfile /__w/polly/polly/
+RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; su app -s /bin/bash -c 'cd /__w/polly/polly && polly generate > Dockerfile'; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
+LABEL org.opencontainers.image.description For pollyci
