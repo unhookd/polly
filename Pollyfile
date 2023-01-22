@@ -3,9 +3,7 @@
 @base = image {
   stage "base", "ubuntu:jammy-20220421"
 
-  command("USER") {
-    "root"
-  }
+  root
 
   env "DEBIAN_FRONTEND" => "noninteractive",
       "LC_ALL" => "C.UTF-8",
@@ -47,9 +45,7 @@
 @gem = image {
   stage "gem", @base.stage
 
-  command("USER") {
-    "root"
-  }
+  root
 
   run %q{mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app}
   run %q{chown -Rv app.alpha /polly}
@@ -61,9 +57,7 @@
 
   run %q{chown -R app /home/app}
 
-  command("USER") {
-    "app"
-  }
+  app
 
   run %q{git config --global user.email "you@example.com"}
   run %q{git config --global user.name "Your Name"}
@@ -100,9 +94,7 @@
 @deploy = image {
   stage "deploy", @base.stage
 
-  command("USER") {
-    "app"
-  }
+  app
 
   command("WORKDIR") {
     "/home/app"
@@ -112,15 +104,11 @@
     "--chown=app --from=gem /polly/app/polly-latest.gem /polly/app/polly-latest.gem"
   }
 
-  command("USER") {
-    "root"
-  }
+  root
 
   run %q{TMPDIR=/polly/app gem install --clear-sources --debug --no-document --minimal-deps /polly/app/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {}}
 
-  command("USER") {
-    "app"
-  }
+  app
 
   command("COPY") {
     "--chown=app Pollyfile /polly/app/"

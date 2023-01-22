@@ -88,7 +88,10 @@ module Polly
       def run(s)
         @command_list << s
 
-        cache_sweep = "; rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id"
+        cache_sweep = (
+          @last_known_user == "root" ? "; rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf" : ""
+        )
+
         command("RUN") {
           "--mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; " + s + cache_sweep
         }
@@ -105,13 +108,26 @@ module Polly
         run "apt-add-repository ppa:" + r
       end
 
+      def user(u)
+        @last_known_user = u
+        command("USER") {
+          u
+        }
+      end
+
+      def root
+        user("root")
+      end
+
+      def app
+        user("app")
+      end
+
       def prototype1
         @prototype1 = true
         @bootstrap = image {
           stage "bootstrap", "ubuntu:focal-20210827"
-          command("USER") {
-            "root"
-          }
+          root
           apt %w{curl mysql-client-8.0 mysql-server-core-8.0 ruby2* libruby2* ruby-bundler rubygems-integration rake git build-essential default-libmysqlclient-dev}
           run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app}
           command("WORKDIR") {
@@ -120,9 +136,7 @@ module Polly
         }
         @deploy = image {
           stage "deploy", @bootstrap.stage
-          command("USER") {
-            "app"
-          }
+          app
           run %q{mkdir -p ~/.ssh}
           run %q{ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts}
           run %q{bundle config set --local path /home/app/vendor/bundle}
@@ -148,9 +162,7 @@ module Polly
         @prototype2 = true
         @bootstrap = image {
           stage "bootstrap", "node:16.18-bullseye"
-          command("USER") {
-            "root"
-          }
+          root
           #apt %w{curl mysql-client-8.0 mysql-server-core-8.0 ruby2* libruby2* ruby-bundler rubygems-integration rake git build-essential default-libmysqlclient-dev}
           run %q{useradd --uid 1001 --home-dir /home/app --create-home --shell /bin/bash app}
           command("WORKDIR") {
@@ -159,9 +171,7 @@ module Polly
         }
         @deploy = image {
           stage "deploy", @bootstrap.stage
-          command("USER") {
-            "app"
-          }
+          app
           run %q{mkdir -p ~/.ssh}
           run %q{ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts}
 
