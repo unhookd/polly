@@ -41,10 +41,7 @@ jobs:
         (getent passwd app || useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups alpha,beta,docker,theta,zeta,tau);
         (getent passwd runner || useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/bash runner --groups alpha,beta,docker,theta,zeta,tau);
         apt-get update; apt-get install -y locales locales-all; apt-get clean;
-        locale-gen --purge en_US;
-        /bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale;
-        locale-gen $LANGUAGE;
-        dpkg-reconfigure locales;
+        test -e /usr/lib/locale/locale-archive || ((locale-gen --purge en_US); (bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale); (locale-gen $LANGUAGE); (dpkg-reconfigure locales));
         apt-get update; apt-get install -y vim git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby3* libruby3* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper; apt-get clean;
         curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add;
         apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main";
