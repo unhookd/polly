@@ -31,6 +31,8 @@ jobs:
       run: |
         if which polly;
         then
+          whoami
+          groups
           polly generate > Dockerfile
         else
           set -e
