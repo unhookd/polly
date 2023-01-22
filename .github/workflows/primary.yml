@@ -50,13 +50,13 @@ jobs:
           #curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add
           #apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"
           #apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*
-          #groupadd --gid 121 alpha
-          #groupadd --gid 134 beta
-          #groupadd --gid 999 gamma
-          #groupadd --gid 1000 theta
-          #groupadd --gid 1001 zeta
-          #useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,alpha,beta,gamma,theta,zeta
-          #useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/false runner --groups docker,alpha,beta,gamma,theta,zeta
+          groupadd --gid 121 alpha
+          groupadd --gid 134 beta
+          groupadd --gid 999 gamma
+          groupadd --gid 1000 theta
+          groupadd --gid 1001 zeta
+          useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,alpha,beta,gamma,theta,zeta
+          useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/false runner --groups docker,alpha,beta,gamma,theta,zeta
 
           mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app
           chown -Rv app.alpha /polly
