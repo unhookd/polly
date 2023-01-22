@@ -119,6 +119,10 @@ module Polly
         run "(getent group #{name} || groupadd --gid #{gid} #{name})"
       end
 
+      def useradd(uid, name, groups)
+        run "(getent passwd #{name} || useradd --uid #{uid} --home-dir /home/#{name} --create-home --shell /bin/bash #{name} --groups #{groups})"
+      end
+
       def root
         user("root")
       end

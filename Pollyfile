@@ -18,8 +18,8 @@
   group(1000, "theta")
   group(1001, "zeta")
 
-  run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups alpha,beta,docker,theta,zeta,tau}
-  run %q{useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/false runner --groups alpha,beta,docker,theta,zeta,tau}
+  useradd(1000, "app", "alpha,beta,docker,theta,zeta,tau")
+  useradd(1001, "runner", "alpha,beta,docker,theta,zeta,tau") #shell=>false?
 
   apt %w{locales locales-all}
 
