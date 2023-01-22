@@ -18,11 +18,11 @@ jobs:
     container:
       #TODO: !!!!
       #TODO: --reboot bootstrap step to polly generate --bootstrap=github
-      #image: ubuntu:jammy-20220421
-      #options: "--user 0"
+      image: ubuntu:jammy-20220421
+      options: "--user 0"
 
-      image: ghcr.io/unhookd/polly:3.0-rc1@sha256:4a638fbdb565141d175e5124a756a2533b132b4ac9f996ff54f08e1be6a069a6
-      options: "--user 1001"
+      #image: ghcr.io/unhookd/polly:3.0-rc1@sha256:4a638fbdb565141d175e5124a756a2533b132b4ac9f996ff54f08e1be6a069a6
+      #options: "--user 1001"
 
     steps:
     - uses: actions/checkout@v2
@@ -39,13 +39,14 @@ jobs:
           set -e
 
           groupadd --gid 121 alpha
+          groupadd --gid 123 tau
           groupadd --gid 134 beta
           groupadd --gid 999 docker
           groupadd --gid 1000 theta
           groupadd --gid 1001 zeta
 
-          useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups alpha,beta,docker,theta,zeta
-          useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/false runner --groups alpha,beta,docker,theta,zeta
+          useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups alpha,beta,docker,theta,zeta,tau
+          useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/false runner --groups alpha,beta,docker,theta,zeta,tau
 
           export DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8 LANG=en_US LANGUAGE=en_US ACCEPT_EULA=y
           apt-get update; apt-get install -y locales locales-all; apt-get clean; rm -rf /var/lib/apt/lists/*
@@ -57,6 +58,9 @@ jobs:
           curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add
           apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"
           apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*
+
+          usermod -a -G $(stat --printf=%G /var/run/docker.sock) app
+          usermod -a -G $(stat --printf=%G /var/run/docker.sock) runner
 
           mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app /__w/polly/polly
           chown -R app.alpha /polly /__w/polly/polly
