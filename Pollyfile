@@ -34,11 +34,8 @@
   run %q{apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"}
   apt %w{kubectl}
 
-  run %q{grep docker /etc/group | cut -d: -f3}
   run %q{usermod -a -G $(grep docker /etc/group | cut -d: -f3) app}
   run %q{usermod -a -G $(grep docker /etc/group | cut -d: -f3) runner}
-
-  run %q{su runner -s /bin/bash -c 'echo runner-bits && whoami && groups'}
 }
 
 # image declares container artifacts
