@@ -60,7 +60,7 @@ jobs:
           chown -Rv app.alpha /polly
           chown -R app /home/app
      
-          cd /polly
+          cd
           su app -s /bin/bash -c 'gem build polly.gemspec -o /tmp/polly-latest.gem'
           gem install /tmp/polly-latest.gem
           su app -s /bin/bash -c 'polly generate' > Dockerfile
