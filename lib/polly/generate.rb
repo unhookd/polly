@@ -64,7 +64,36 @@ module Polly
         output.write(bytes)
       end
 
+      def flush_run
+        if @runstack
+          emit "RUN"
+          emit " "
+          emit "set -ex; \\\n    " + @runstack + "    true;"
+          @runstack = nil
+          emit $/
+        end
+      end
+
       def command(c)
+        if @last_command != "RUN" && c != "RUN"
+        elsif @last_command != "RUN" && c == "RUN"
+          @runstack = ""
+          @runstack << yield + "; \\\n"
+          @last_command = c
+
+          return
+        elsif @last_command == "RUN" && c == "RUN"
+          @runstack << "    "
+          @runstack << yield + "; \\\n"
+          @last_command = c
+
+          return
+        elsif @last_command == "RUN" && c != "RUN"
+          flush_run
+        end
+
+        @last_command = c
+
         emit c
         if block_given?
           emit " "
@@ -87,26 +116,27 @@ module Polly
 
       def run(s)
         @command_list << s
+        
 
-        cache_sweep = (
-          @last_known_user == "root" ? "; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf /var/lib/gems/3.0.0/gems/ffi-1.15.5/ext/ffi_c/libffi-x86_64-linux-gnu/libtool /var/lib/gems/3.0.0/gems/ffi-1.15.5/ext/ffi_c/libffi-x86_64-linux-gnu/config.status /var/lib/gems/3.0.0/gems/ffi-1.15.5/ext/ffi_c/libffi-x86_64-linux-gnu/config.log; (rm -Rf /run/buildkit || true)" : ""
-        )
-
+        #cache_sweep = (
+        #  @last_known_user == "root" ? "; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf /var/lib/gems/3.0.0/gems/ffi-1.15.5/ext/ffi_c/libffi-x86_64-linux-gnu/libtool /var/lib/gems/3.0.0/gems/ffi-1.15.5/ext/ffi_c/libffi-x86_64-linux-gnu/config.status /var/lib/gems/3.0.0/gems/ffi-1.15.5/ext/ffi_c/libffi-x86_64-linux-gnu/config.log; (rm -Rf /run/buildkit || true)" : ""
+        #)
 
         command("RUN") {
-          "set -ex; " + s + cache_sweep
+          #"set -ex; " + s # + cache_sweep
+          s
         }
       end
 
       def runssh(s)
         @command_list << s
 
-        cache_sweep = (
-          @last_known_user == "root" ? "; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)" : ""
-        )
+        #cache_sweep = (
+        #  @last_known_user == "root" ? "; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)" : ""
+        #)
 
         command("RUN") {
-          "--mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; " + s + cache_sweep
+          "--mount=type=ssh,uid=1000,gid=1000,mode=741 " + s # + cache_sweep
         }
       end
 
@@ -239,6 +269,7 @@ module Polly
         yield
 
         #comment "Generated #{Time.now}"
+        flush_run
 
         new_image = OpenStruct.new(:stage => @image_name, :from => @image_from, :command_list => @command_list)
         @all_images ||= []

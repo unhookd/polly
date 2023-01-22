@@ -46,12 +46,10 @@ jobs:
         mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app /__w/polly/polly;
         chown -R app.alpha /home/app /polly /app /__w/polly/polly;
         chown -R app /home/app /polly /app /__w/polly/polly;
-
         chown -R app /home/app;
+        su app -s /bin/bash -c 'cd /__w/polly/polly && gem build polly.gemspec -o /home/app/polly-latest.gem';
 
-        su app -s /bin/bash -c 'cd /__w/polly/polly && gem build polly.gemspec -o polly-latest.gem';
-
-        TMPDIR=/__w/polly/polly gem install --no-document --minimal-deps /__w/polly/polly/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /__w/polly/polly/polly-latest.gem;
+        gem install --no-document --minimal-deps /home/app/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /home/app/polly-latest.gem;
 
         su app -s /bin/bash -c 'cd /__w/polly/polly && polly generate > Dockerfile';
 
