@@ -61,11 +61,6 @@ jobs:
         gem install polly-latest.gem
 
         su app -s /bin/bash -c 'cd /__w/polly/polly && polly generate > Dockerfile'
-        whoami
-        groups
-        ls -l /var/run/docker.sock
-        grep docker /etc/group | cut -d: -f3
-        su runner -s /bin/bash -c 'echo runner-bits && whoami && groups'
 
     - name: Log in to the Container registry
       uses: docker/login-action@v2
