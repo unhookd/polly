@@ -59,11 +59,11 @@ jobs:
           mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app
           chown -Rv app.alpha /polly
           chown -R app /home/app /app
-     
-          cd /app
-          su app -s /bin/bash -c 'gem build polly.gemspec -o /tmp/polly-latest.gem'
+
+          ls -l /app
+          su app -s /bin/bash -c 'cd /app && gem build polly.gemspec -o /tmp/polly-latest.gem'
           gem install /tmp/polly-latest.gem
-          su app -s /bin/bash -c 'polly generate' > Dockerfile
+          su app -s /bin/bash -c 'cd /app && polly generate' > Dockerfile
         fi
 
     - name: Log in to the Container registry
