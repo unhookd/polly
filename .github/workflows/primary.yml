@@ -18,10 +18,10 @@ jobs:
     container:
       #TODO: !!!!
       #TODO: --reboot bootstrap step to polly generate --bootstrap=github
-      image: ubuntu:jammy-20220421
+      #image: ubuntu:jammy-20220421
       #options: "--user 0"
 
-      #image: ghcr.io/unhookd/polly:3.0-rc1@sha256:6e821a53124c2b4764da5f1e29c78193bb1bbb2b9581cfb4ad45a55e815d8095
+      image: ghcr.io/unhookd/polly:3.0-rc1@sha256:f6f5d52c7719d7030688e2cca109a5d91464057f686c31b830e23348e4bb1419
       #options: "--user 1001"
       options: "--user 0"
 
