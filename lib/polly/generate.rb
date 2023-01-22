@@ -79,6 +79,12 @@ module Polly
         }
       end
 
+      def description(s) # adds annotation for github packages
+        command("LABEL") {
+          "org.opencontainers.image.description #{s}"
+        }
+      end
+
       def run(s)
         @command_list << s
 
