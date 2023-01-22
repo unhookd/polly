@@ -144,4 +144,6 @@ TBD: internal process for looping
 
 the `watch` command facilitates local CI workfow or T.C.R. style development practices
 
-    #TODO polly tcr
+```
+#TODO polly tcr
+```
