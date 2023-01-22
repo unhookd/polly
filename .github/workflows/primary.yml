@@ -33,6 +33,7 @@ jobs:
         then
           whoami
           groups
+          ls -l /var/run/docker.sock
           polly generate > Dockerfile
         else
           set -e
