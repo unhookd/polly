@@ -60,6 +60,10 @@ jobs:
           chown -Rv app.alpha /polly
           chown -R app /home/app /app
 
+          ls -l
+          ls -l /
+          ls -l /home
+          ls -l /home/**/*
           ls -l /app
           su app -s /bin/bash -c 'cd /app && gem build polly.gemspec -o /tmp/polly-latest.gem'
           gem install /tmp/polly-latest.gem
