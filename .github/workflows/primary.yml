@@ -56,11 +56,11 @@ jobs:
           groupadd --gid 1001 zeta
           useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,alpha,beta,gamma,theta,zeta
           useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/false runner --groups docker,alpha,beta,gamma,theta,zeta
-          mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app
+          mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app
           chown -Rv app.alpha /polly
-          chown -R app /home/app
+          chown -R app /home/app /app
      
-          cd
+          cd /app
           su app -s /bin/bash -c 'gem build polly.gemspec -o /tmp/polly-latest.gem'
           gem install /tmp/polly-latest.gem
           su app -s /bin/bash -c 'polly generate' > Dockerfile
