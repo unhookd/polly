@@ -71,7 +71,11 @@ jobs:
           echo INSTALLING POLLY-LATEST GEM
           gem install polly-latest.gem
 
-          su app -s /bin/bash -c 'cd /__w/polly/polly && polly generate' > Dockerfile
+          su app -s /bin/bash -c 'cd /__w/polly/polly && polly generate'
+          whoami
+          groups
+          ls -l /var/run/docker.sock
+          su runner -s /bin/bash -c 'echo runner-bits && whoami && groups'
         fi
 
     - name: Log in to the Container registry
