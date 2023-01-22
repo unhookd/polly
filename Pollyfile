@@ -44,6 +44,9 @@
 
   run %q{mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app}
   run %q{chown -Rv app.alpha /polly}
+  #mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app /__w/polly/polly
+  #chown -R app.alpha /polly /__w/polly/polly
+  #chown -R app /home/app /app /__w/polly/polly
 
   #TODO: workdir module
   command("WORKDIR") {
@@ -83,6 +86,7 @@
   }
 
   run %q{gem build polly.gemspec -o polly-latest.gem}
+  #su app -s /bin/bash -c 'cd /__w/polly/polly && gem build polly.gemspec -o polly-latest.gem'
 }
 
 # final bits are just the .gem install as if on end-user box
@@ -102,6 +106,7 @@
   root
 
   run %q{TMPDIR=/polly/app gem install --no-document --minimal-deps /polly/app/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /polly/app/polly-latest.gem}
+  #gem install polly-latest.gem
 
   app
 
@@ -110,9 +115,11 @@
   }
 
   run %q{cd /polly/app && polly generate > Dockerfile}
+  #su app -s /bin/bash -c 'cd /__w/polly/polly && polly generate > Dockerfile'
+
 }
 
-#description("For pollyci")
+description("For pollyci")
 
 #workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
 workflow_image = "polly:latest"
