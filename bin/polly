@@ -723,7 +723,7 @@ HEREDOC
   desc "init", "bootstraps project polly controller pod"
   option "re-init", :type => :boolean, :default => false
   option "with-registry", :type => :boolean, :default => false
-  option "with-bootstrap", :type => :string, :default => "polly:latest"
+  option "with-bootstrap", :type => :string, :default => "polly:3.0-rc1"
   def init
     exe = ::Polly::Execute.new
 
@@ -925,16 +925,10 @@ spec:
         - name: registry-certificates
           secret:
             secretName: registry-certificates
-        - name: dood
-          hostPath:
-            path: /var/run/docker.sock
-        - name: ssh-auth-sock
-          hostPath:
-            path: #{ENV["SSH_AUTH_SOCK"]}
       securityContext:
         runAsUser: 0
         fsGroup: 999
-        supplementalGroups: [1000, 999, #{File.stat("/var/run/docker.sock").gid}]
+        supplementalGroups: [1000, 999, 123, 1001]
       initContainers:
       containers:
       - name: polly-git
@@ -946,21 +940,13 @@ spec:
           - mountPath: /etc/ssl/private
             name: registry-certificates
             readOnly: true
-          - mountPath: /var/run/docker.sock
-            name: dood
-          - mountPath: /home/app/.ssh-auth-sock
-            name: ssh-auth-sock
         image: #{git_image}
         imagePullPolicy: IfNotPresent
         env:
-        - name: SSH_AUTH_SOCK
-          value: /home/app/.ssh-auth-sock
-        - name: POLLY_SSH_AUTH_SOCK
-          value: #{ENV["SSH_AUTH_SOCK"]}
         resources:
           requests:
             memory: 500Mi
-            cpu: 1000m
+            cpu: 10m
           limits:
             memory: 8000Mi
             cpu: 5000m
