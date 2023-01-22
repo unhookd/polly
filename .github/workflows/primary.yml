@@ -16,14 +16,9 @@ jobs:
       packages: write
 
     container:
-      #TODO: !!!!
-      #TODO: --reboot bootstrap step to polly generate --bootstrap=github
-      #image: ubuntu:jammy-20220421
-      #options: "--user 0"
-
-      image: ghcr.io/unhookd/polly:3.0-rc1@sha256:b823b8b49ec74acdf34e956394647962adb1bf76f85c3e8a115ec2b13634b090
-      #options: "--user 1001"
       options: "--user 0"
+      image: ubuntu:jammy-20220421
+      #image: ghcr.io/unhookd/polly:3.0-rc1@sha256:73bf71eaabbdbdacae8876f4d023aa730fb7147642194ae3de7a8275007b9fb6
 
     steps:
     - uses: actions/checkout@v3
