@@ -67,7 +67,7 @@
   #run %q{bundle install --jobs=4 --retry=3}
 
   command("COPY") {
-    "--chown=app Pollyfile Thorfile /polly/app/"
+    "--chown=app Thorfile /polly/app/"
   }
 
   command("COPY") {
@@ -88,6 +88,10 @@
 
   run %q{gem build polly.gemspec -o polly-latest.gem}
 
+  command("COPY") {
+    "--chown=app Pollyfile /polly/app/"
+  }
+
   command("USER") {
     "root"
   }
@@ -101,6 +105,8 @@
   command("WORKDIR") {
     "/home/app"
   }
+
+  run %q{cd /polly/app && polly generate > Dockerfile}
 }
 
 #workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"

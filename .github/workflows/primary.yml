@@ -62,11 +62,14 @@ jobs:
           apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*
 
           mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app /__w/polly/polly
-          chown -Rv app.alpha /polly /__w/polly/polly
-          chown -Rv app /home/app /app /__w/polly/polly
+          chown -R app.alpha /polly /__w/polly/polly
+          chown -R app /home/app /app /__w/polly/polly
 
           su app -s /bin/bash -c 'cd /__w/polly/polly && gem build polly.gemspec -o polly-latest.gem'
+
+          echo INSTALLING POLLY-LATEST GEM
           gem install polly-latest.gem
+
           su app -s /bin/bash -c 'cd /__w/polly/polly && polly generate' > Dockerfile
         fi
 

@@ -13,12 +13,13 @@ Gem::Specification.new do |spec|
   spec.homepage      = "https://unctl.io/"
   spec.license       = "MIT"
 
-  spec.files         = ["Thorfile"] + Dir.glob("lib/**/*")
+  #spec.files         = ["Gemfile", "Thorfile", "polly.gemspec", "VERSION"] + Dir.glob("lib/**/*")
+  spec.files         = ["Thorfile", "polly.gemspec", "VERSION"] + Dir.glob("lib/**/*")
   spec.bindir        = ["bin"]
   spec.executables   = ["polly"]
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "thor", ">= 0.18.1"
+  spec.add_dependency "thor", "= 0.20.3"
   spec.add_dependency "net-ssh", "~> 6.0"
   spec.add_dependency "yajl-ruby", "= 1.4.1"
   spec.add_dependency "guard", "~> 2.18"
