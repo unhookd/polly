@@ -99,8 +99,8 @@
 
 description("For pollyci")
 
-#workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
-workflow_image = "polly:latest"
+workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
+#TODO: !!!! make this make sense to configure workflow_image = "polly:latest"
 
 @plain_workflow = plan {
   job("primary",
@@ -115,6 +115,7 @@ workflow_image = "polly:latest"
 }
 
 @gitch_pipeline = continuous {
+  #TODO: !!!!
   #publish @bootstrap_artifact
   test @plain_workflow
 }
