@@ -104,7 +104,7 @@
 
   root
 
-  run %q{TMPDIR=/polly/app gem install --no-document --minimal-deps /polly/app/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {}}
+  run %q{TMPDIR=/polly/app gem install --no-document --minimal-deps /polly/app/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /polly/app/polly-latest.gem}
 
   app
 
