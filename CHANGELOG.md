@@ -1,3 +1,9 @@
+# [2.20.0] - 2023-01-22 - Jon Bardin
+
+Test image container diff
+
+#######
+
 # [2.19.0] - 2023-01-22 - Jon Bardin
 
 Add CHANGELOG to .gem build output
