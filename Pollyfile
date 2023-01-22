@@ -1,9 +1,9 @@
 #!/usr/bin/env ruby
 
 @base = image {
-  #stage "base", "ghcr.io/unhookd/polly:3.0-rc1@sha256:125ca8484458d8ffd0aec848b0cd8aae70848b1880359d8e82922ba6419360fc"
+  stage "base", "ghcr.io/unhookd/polly:3.0-rc1@sha256:0861d2728962f4bf89f86723f366a2f93fd4d2f0861798e490cac3a16cb63953"
   #stage "base", "ghcr.io/unhookd/polly:3.0-rc1"
-  stage "base", "ubuntu:jammy-20220421"
+  #stage "base", "ubuntu:jammy-20220421"
 
   root
 

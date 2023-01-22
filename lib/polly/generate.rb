@@ -89,8 +89,9 @@ module Polly
         @command_list << s
 
         cache_sweep = (
-          @last_known_user == "root" ? "; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)" : ""
+          @last_known_user == "root" ? "; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf /var/lib/gems/3.0.0/gems/ffi-1.15.5/ext/ffi_c/libffi-x86_64-linux-gnu/libtool /var/lib/gems/3.0.0/gems/ffi-1.15.5/ext/ffi_c/libffi-x86_64-linux-gnu/config.status /var/lib/gems/3.0.0/gems/ffi-1.15.5/ext/ffi_c/libffi-x86_64-linux-gnu/config.log; (rm -Rf /run/buildkit || true)" : ""
         )
+
 
         command("RUN") {
           "set -ex; " + s + cache_sweep
