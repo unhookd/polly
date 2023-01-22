@@ -82,8 +82,9 @@ module Polly
       def run(s)
         @command_list << s
 
+        cache_sweep = "; rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id"
         command("RUN") {
-          "--mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; " + s
+          "--mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; " + s + cache_sweep
         }
       end
 
