@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile-upstream:master-experimental
-FROM ubuntu:jammy-20220421 AS base
+FROM ghcr.io/unhookd/polly:3.0-rc1@sha256:8984c2a507669c8ee53783df68d836b5943afb345f7fc26cbdc6837211a99b94 AS base
 USER root
 ENV DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8 LANG=en_US LANGUAGE=en_US ACCEPT_EULA=y
 RUN set -ex; (getent group alpha || groupadd --gid 121 alpha); rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
