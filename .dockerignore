@@ -8,5 +8,4 @@ Dockerfile
 Pollyfile
 Dockerfile.default
 .dockerignore
-CHANGELOG.md
 Gemfile

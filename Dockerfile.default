@@ -24,7 +24,7 @@ RUN set -ex; \
 FROM base AS gem
 WORKDIR /__w/polly/polly
 USER root
-COPY --chown=app polly.gemspec VERSION /__w/polly/polly/
+COPY --chown=app polly.gemspec VERSION CHANGELOG.md /__w/polly/polly/
 COPY --chown=app Thorfile /__w/polly/polly/
 COPY --chown=app config /__w/polly/polly/config/
 COPY --chown=app lib /__w/polly/polly/lib

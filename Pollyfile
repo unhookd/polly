@@ -50,7 +50,7 @@
 
   #TODO: more prototype-z detection
   command("COPY") {
-    "--chown=app polly.gemspec VERSION /__w/polly/polly/"
+    "--chown=app polly.gemspec VERSION CHANGELOG.md /__w/polly/polly/"
   }
 
   command("COPY") {
