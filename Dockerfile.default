@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile-upstream:master-experimental
-FROM ghcr.io/unhookd/polly@sha256:22e7f77d9662f02183cb68ae328c7c3b1f38cbbd20d047322c445b121214a1c AS base
+FROM ghcr.io/unhookd/polly:3.0-rc1 AS base
 USER root
 ENV DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8 LANG=en_US LANGUAGE=en_US ACCEPT_EULA=y
 RUN --mount=type=ssh,uid=1000,gid=1000,mode=741 set -ex; (getent group alpha || groupadd --gid 121 alpha); rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
