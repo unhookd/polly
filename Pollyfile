@@ -11,12 +11,12 @@
       "LANGUAGE" => "en_US",
       "ACCEPT_EULA" => "y"
 
-  run %q{groupadd --gid 121 alpha}
-  run %q{groupadd --gid 123 tau}
-  run %q{groupadd --gid 134 beta}
-  run %q{groupadd --gid 999 docker}
-  run %q{groupadd --gid 1000 theta}
-  run %q{groupadd --gid 1001 zeta}
+  group(121, "alpha")
+  group(123, "tau")
+  group(134, "beta")
+  group(999, "docker")
+  group(1000, "theta")
+  group(1001, "zeta")
 
   run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups alpha,beta,docker,theta,zeta,tau}
   run %q{useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/false runner --groups alpha,beta,docker,theta,zeta,tau}

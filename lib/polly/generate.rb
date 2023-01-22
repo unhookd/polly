@@ -115,6 +115,10 @@ module Polly
         }
       end
 
+      def group(gid, name)
+        run "(getent group #{name} || groupadd --gid #{gid} #{name})"
+      end
+
       def root
         user("root")
       end
