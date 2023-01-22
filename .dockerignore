@@ -6,3 +6,4 @@ vendor
 .github
 Dockerfile
 Pollyfile
+Dockerfile.default
