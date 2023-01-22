@@ -116,7 +116,7 @@
     "root"
   }
 
-  run %q{gem install --clear-sources --debug --no-document --minimal-deps /polly/app/polly-latest.gem}
+  run %q{TMPDIR=/polly/app gem install --clear-sources --debug --no-document --minimal-deps /polly/app/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {}}
 
   command("USER") {
     "app"
