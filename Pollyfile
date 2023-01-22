@@ -56,7 +56,7 @@
 
   #TODO: more prototype-z detection
   command("COPY") {
-    "--chown=app Gemfile polly.gemspec VERSION /__w/polly/polly/"
+    "--chown=app polly.gemspec VERSION /__w/polly/polly/"
   }
 
   command("COPY") {
@@ -103,7 +103,7 @@
 
   root
 
-  run %q{TMPDIR=/__w/polly/polly gem install --no-document --minimal-deps /__w/polly/polly/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /__w/polly/polly/polly-latest.gem}
+  run %q{gem install --no-document --minimal-deps /__w/polly/polly/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /__w/polly/polly/polly-latest.gem}
 
   #command("COPY") {
   #  "--chown=app Pollyfile /__w/polly/polly/"

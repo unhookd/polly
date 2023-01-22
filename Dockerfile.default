@@ -26,7 +26,7 @@ RUN set -ex; chown -R app.alpha /home/app /polly /app /__w/polly/polly; rm -Rf /
 RUN set -ex; chown -R app /home/app /polly /app /__w/polly/polly; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
 WORKDIR /__w/polly/polly
 RUN set -ex; chown -R app /home/app; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
-COPY --chown=app Gemfile polly.gemspec VERSION /__w/polly/polly/
+COPY --chown=app polly.gemspec VERSION /__w/polly/polly/
 COPY --chown=app Thorfile /__w/polly/polly/
 COPY --chown=app config /__w/polly/polly/config/
 COPY --chown=app lib /__w/polly/polly/lib
@@ -39,5 +39,5 @@ USER app
 WORKDIR /home/app
 COPY --chown=app --from=gem /__w/polly/polly/polly-latest.gem /__w/polly/polly/polly-latest.gem
 USER root
-RUN set -ex; TMPDIR=/__w/polly/polly gem install --no-document --minimal-deps /__w/polly/polly/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /__w/polly/polly/polly-latest.gem; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
+RUN set -ex; gem install --no-document --minimal-deps /__w/polly/polly/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /__w/polly/polly/polly-latest.gem; rm -Rf /var/cache/debconf /var/lib/apt/lists/* /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf; (rm -Rf /run/buildkit || true)
 LABEL org.opencontainers.image.description For pollyci
