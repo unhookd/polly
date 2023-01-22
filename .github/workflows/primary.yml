@@ -31,25 +31,25 @@ jobs:
       run: |
         set -ex
 
-        (getent group alpha || groupadd --gid 121 alpha); rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        (getent group tau || groupadd --gid 123 tau); rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        (getent group beta || groupadd --gid 134 beta); rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        (getent group docker || groupadd --gid 999 docker); rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        (getent group theta || groupadd --gid 1000 theta); rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        (getent group zeta || groupadd --gid 1001 zeta); rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        (getent passwd app || useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups alpha,beta,docker,theta,zeta,tau); rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        (getent passwd runner || useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/bash runner --groups alpha,beta,docker,theta,zeta,tau); rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        apt-get update; apt-get install -y locales locales-all; apt-get clean; rm -rf /var/lib/apt/lists/*; rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        locale-gen --purge en_US; rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        /bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale; rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        locale-gen $LANGUAGE; rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        dpkg-reconfigure locales; rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        apt-get update; apt-get install -y vim git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby3* libruby3* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper; apt-get clean; rm -rf /var/lib/apt/lists/*; rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add; rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"; rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*; rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        usermod -a -G $(grep docker /etc/group | cut -d: -f3) app; rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
-        usermod -a -G $(grep docker /etc/group | cut -d: -f3) runner; rm -Rf /var/log/* /var/lib/gems/**/cache/*.gem /var/lib/gems/**/*.out /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /run/systemd/resolve/stub-resolv.conf
+        (getent group alpha || groupadd --gid 121 alpha);
+        (getent group tau || groupadd --gid 123 tau);
+        (getent group beta || groupadd --gid 134 beta);
+        (getent group docker || groupadd --gid 999 docker);
+        (getent group theta || groupadd --gid 1000 theta);
+        (getent group zeta || groupadd --gid 1001 zeta);
+        (getent passwd app || useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups alpha,beta,docker,theta,zeta,tau);
+        (getent passwd runner || useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/bash runner --groups alpha,beta,docker,theta,zeta,tau);
+        apt-get update; apt-get install -y locales locales-all; apt-get clean; rm -rf /var/lib/apt/lists/*;
+        locale-gen --purge en_US;
+        /bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale;
+        locale-gen $LANGUAGE;
+        dpkg-reconfigure locales;
+        apt-get update; apt-get install -y vim git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby3* libruby3* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper; apt-get clean; rm -rf /var/lib/apt/lists/*;
+        curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add;
+        apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main";
+        apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*;
+        usermod -a -G $(grep docker /etc/group | cut -d: -f3) app;
+        usermod -a -G $(grep docker /etc/group | cut -d: -f3) runner;
 
         mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app /__w/polly/polly
         chown -R app.alpha /polly /__w/polly/polly
