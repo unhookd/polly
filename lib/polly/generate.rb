@@ -200,7 +200,7 @@ module Polly
 
         yield
 
-        comment "Generated #{Time.now}"
+        #comment "Generated #{Time.now}"
 
         new_image = OpenStruct.new(:stage => @image_name, :from => @image_from, :command_list => @command_list)
         @all_images ||= []
