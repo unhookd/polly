@@ -129,7 +129,7 @@
   run %q{cd /polly/app && polly generate > Dockerfile}
 }
 
-description("For pollyci")
+#description("For pollyci")
 
 #workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
 workflow_image = "polly:latest"
