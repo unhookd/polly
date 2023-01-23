@@ -177,8 +177,20 @@ module Polly
       def prototype1
         @prototype1 = true
         @bootstrap = image {
-          stage "bootstrap", "ubuntu:focal-20210827"
+          stage "bootstrap", "ubuntu:focal-20221130"
+
           root
+
+          env "DEBIAN_FRONTEND" => "noninteractive",
+              "LC_ALL" => "C.UTF-8",
+              "LANG" => "en_US",
+              "LANGUAGE" => "en_US",
+              "ACCEPT_EULA" => "y"
+
+          apt %w{locales locales-all}
+
+          run %q{test -e /usr/lib/locale/locale-archive || ((locale-gen --purge en_US); (echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale); (locale-gen $LANGUAGE); (dpkg-reconfigure locales))}
+
           apt %w{curl mysql-client-8.0 mysql-server-core-8.0 ruby2* libruby2* ruby-bundler rubygems-integration rake git build-essential default-libmysqlclient-dev}
           run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app}
           command("WORKDIR") {
