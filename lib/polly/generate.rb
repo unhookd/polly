@@ -110,7 +110,7 @@ module Polly
 
       def description(s) # adds annotation for github packages, etc
         command("LABEL") {
-          "org.opencontainers.image.description #{s}"
+          "\"org.opencontainers.image.description\"=#{s.inspect}"
         }
       end
 

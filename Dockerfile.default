@@ -45,4 +45,4 @@ RUN set -ex; \
     gem install --no-document --minimal-deps /home/app/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /home/app/polly-latest.gem; \
     true;
 USER app
-LABEL org.opencontainers.image.description For pollyci
+LABEL "org.opencontainers.image.description"="For pollyci"
