@@ -897,6 +897,67 @@ HEREDOC
     polly_deployments << <<-HEREDOC
 ---
 apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: buildkitd
+  name: polly-buildkitd
+spec:
+  serviceName: buildkitd
+  podManagementPolicy: Parallel
+  replicas: 1
+  selector:
+    matchLabels:
+      app: buildkitd
+  template:
+    metadata:
+      labels:
+        app: buildkitd
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/buildkitd: unconfined
+    # see buildkit/docs/rootless.md for caveats of rootless mode
+    spec:
+      containers:
+        - name: buildkitd
+          image: moby/buildkit:master-rootless
+          args:
+            - --oci-worker-no-process-sandbox
+          readinessProbe:
+            exec:
+              command:
+                - buildctl
+                - debug
+                - workers
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          livenessProbe:
+            exec:
+              command:
+                - buildctl
+                - debug
+                - workers
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          securityContext:
+            # Needs Kubernetes >= 1.19
+            seccompProfile:
+              type: Unconfined
+            # To change UID/GID, you need to rebuild the image
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+            # Dockerfile has `VOLUME /home/user/.local/share/buildkit` by default too,
+            # but the default VOLUME does not work with rootless on Google's Container-Optimized OS
+            # as it is mounted with `nosuid,nodev`.
+            # https://github.com/moby/buildkit/issues/879#issuecomment-1240347038
+            - mountPath: /home/user/.local/share/buildkit
+              name: buildkitd
+      volumes:
+        - name: buildkitd
+          emptyDir: {}
+...
+---
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: polly-git
@@ -926,14 +987,14 @@ spec:
           secret:
             secretName: registry-certificates
       securityContext:
-        runAsUser: 0
-        fsGroup: 999
-        supplementalGroups: [1000, 999, 123, 1001]
+        runAsUser: 1000
+        fsGroup: 1000
+        supplementalGroups: [121, 123, 134, 999, 1000, 1001]
       initContainers:
       containers:
       - name: polly-git
         securityContext:
-          runAsUser: 0
+          runAsUser: 1000
         volumeMounts:
           - mountPath: /polly/safe
             name: polly-mount
@@ -1067,11 +1128,18 @@ HEREDOC
     puts [o, e, s]
   end
 
-  desc "sh", "debug shell into polly controller"
-  def sh(sh_cmd = "bash")
+  desc "xxh", "debug shell into polly controller"
+  def xxh(sh_cmd = "bash")
     exe = ::Polly::Execute.new
 
     exec(*["kubectl", "exec", exe.polly_pod, "-i", $stdin.tty? ? "-t" : nil, "--", sh_cmd].compact)
+  end
+
+  desc "shh", "debug instance of polly controller"
+  def shh(sh_cmd = "bash")
+    exe = ::Polly::Execute.new
+
+    exec(*["kubectl", "run", "-it", "--image=polly:latest", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", sh_cmd].compact)
   end
 
   desc "waitx", "TBD: wait for pod availability, execute subsequent command"
@@ -1396,6 +1464,7 @@ HEREDOC
       offset += 1
     }
 
+    #TODO: tbd if this is needed
     if options["build"]
       buildctl_local_cmd = [
         "buildctl",
@@ -1417,15 +1486,15 @@ HEREDOC
       puts [o, e, s]
     end
 
+    if options["generate"]
+      puts all_jobs_yaml
+    end
+
     if options["create"]
       create_vertical_ci = ["kubectl", "create", "--namespace", namespace, "-f", "-"]
       create_options = {:stdin_data => all_jobs_yaml}
       o,e,s = exe.execute_simple(:output, create_vertical_ci, create_options)
       puts [o, e]
-    end
-
-    if options["generate"]
-      puts all_jobs_yaml
     end
   end
 

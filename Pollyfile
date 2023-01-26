@@ -35,6 +35,8 @@
 
   run %q{usermod -a -G $(grep docker /etc/group | cut -d: -f3) app}
   run %q{usermod -a -G $(grep docker /etc/group | cut -d: -f3) runner}
+
+  run %q{mkdir /tmp/buildkit && curl -sL -o buildkit.tar.gz "https://github.com/moby/buildkit/releases/download/v0.11.1/buildkit-v0.11.1.linux-amd64.tar.gz" && tar zxf buildkit.tar.gz && mv bin/buildctl /usr/local/bin && rm -Rf /tmp/buildkit}
 }
 
 # image declares container artifacts
@@ -97,7 +99,7 @@
   app
 }
 
-description("For pollyci")
+#description("For pollyci")
 
 workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
 #TODO: !!!! make this make sense to configure workflow_image = "polly:latest"
