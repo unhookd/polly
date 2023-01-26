@@ -75,7 +75,7 @@
     "--chown=app doc /__w/polly/polly/doc"
   }
 
-  run %q{mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app /__w/polly/polly}
+  run %q{mkdir -p /polly/app /app /__w/polly/polly}
   run %q{chown -R app.alpha /home/app /polly /app /__w/polly/polly}
   run %q{chown -R app /home/app /polly /app /__w/polly/polly}
   run %q{chown -R app /home/app}
@@ -111,7 +111,8 @@ workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
       {"run"=>{"name"=>"demo","command"=>"echo DEMO!!!!"}},
       {"run"=>{"name"=>"config","command"=>"bundle config set --local path vendor/bundle"}},
       {"run"=>{"name"=>"bundler","command"=>"bundle install"}},
-      {"run"=>{"name"=>"rspec","command"=>"bundle exec rspec"}}
+      {"run"=>{"name"=>"rspec","command"=>"bundle exec rspec"}},
+      {"run"=>{"name"=>"build","command"=>"buildctl --addr kube-pod://buildkitd build --frontend dockerfile.v0 --local context=. --local dockerfile=."}}
     ],{},"/home/app/polly"
   )
 }

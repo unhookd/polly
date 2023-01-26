@@ -213,23 +213,23 @@ class PollyTasks < Thor
       #  obv.report_stdout("plan", "started #{started_this_loop.collect(&:run_name)}")
       #end
 
-      $stderr.write("#")
+      #$stderr.write("#")
       finished_this_loop, io_this_loop = exe.wait_for_jobs_to_finish
       
-      $stderr.write("$")
+      #$stderr.write("$")
       finished_this_loop.collect do |finished_job|
         plan.complete_job!(finished_job)
         finished_job
       end
 
-      $stderr.write("%")
+      #$stderr.write("%")
       #NOTE, sort ordering of parallell observation channels arent supported, flush needed twice
       io_this_loop.each do |job_run_name, stdout, stderr|
         obv.report_io(job_run_name, stdout, stderr)
       end
       obv.flush($stdout, $stderr)
 
-      $stderr.write("^")
+      #$stderr.write("^")
       unless finished_this_loop.empty?
         ran_failed, ran_ok = finished_this_loop.partition { |j| j.failed? }
         obv.report_stdout("plan", "finished #{ran_ok.collect(&:run_name)}") unless ran_ok.empty?
@@ -989,7 +989,7 @@ spec:
       securityContext:
         runAsUser: 1000
         fsGroup: 1000
-        supplementalGroups: [121, 123, 134, 999, 1000, 1001]
+        #supplementalGroups: [121, 123, 134, 999, 1000, 1001]
       initContainers:
       containers:
       - name: polly-git
