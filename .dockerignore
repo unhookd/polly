@@ -1,5 +1,11 @@
 .git
 .bundle
+Gemfile.lock
 vendor
 .circleci
 .github
+Dockerfile
+Pollyfile
+Dockerfile.default
+.dockerignore
+Gemfile

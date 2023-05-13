@@ -1,0 +1,23 @@
+#!/usr/bin/env ruby
+  
+@bootstrap_artifact = image {
+  stage "bootstrap", "polly:latest"
+
+  run %q{echo '<!doctype html><html lang="en"><meta charset=utf-8><title>hello</title>' > index.html}
+}
+
+@plain_workflow = plan {
+  job(
+    "bootstrap",
+    [{"image"=>"polly:latest","user"=>"root"}],
+    [{"run"=>{"name"=>"bootstrap","command"=>"
+      echo sleeping 15
+      sleep 15
+    "}}],{},"/home/app"
+  )
+}
+
+@gitch_pipeline = continuous {
+  #TODO: build @bootstrap_artifact w/ --in-cluster
+  test @plain_workflow
+}

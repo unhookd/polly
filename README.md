@@ -8,17 +8,28 @@ There are also the notion of the `polly` deployment "itself", known as `$POLLY`.
 
 polly can be used to debug several types of ci platforms, to facilitate local CI, and as a general purpose dev tool.
 
+# safety instructions
+
+Do not expose polly to a kubernetes cluster unless you have thoroughly understood the risk.
+
+# installation
+
+TODO, in the future, `polly` will be available via `sudo gem install polly` ... until then it must be installed manually, see below
+
+    sudo apt-get install ruby rubygems-integration libffi-dev build-essential --no-install-recommends
+    sudo gem install bundler
+    cd ~/workspace
+    git clone git@github.com:unhookd/polly.git
+    cd polly
+    bundle config set --local path vendor/bundle
+    bundle install
+    sudo ln -fs ${HOME}/workspace/polly/bin/polly /usr/local/bin/polly
+    polly help
+
 # .circleci/config.yml
 
 polly understands circleci config and is able to plan and execute workflows on a local or remote kubernetes cluster
 
-# installation
-
-    sudo apt-get install ruby2* ruby2*-dev libruby2* ruby-bundler rubygems-integration build-essential --no-install-recommends
-    cd ~/workspace
-    git clone git@github.com:unhookd/polly.git
-    cd polly
-    make install #NOTE: will prompt for sudo password
 
 TBD: rebake this bootstrap script into github actions as test-suite cross-check
 
@@ -119,21 +130,6 @@ TBD: manages authentication
 
 TBD: useful gitflow utilities
 
-#  polly gitch feature-7
-#  
-#    `git checkout -b feature-7 || git checkout feature-7`
-#  
-#  polly gitch -u
-#  
-#    `git push -u origin HEAD`
-#  
-#  polly gitch -m
-#  
-#    `git add . && git commit -m $MSG`
-#  
-#  polly gitch -y
-#  
-#    `git add -y . && git commit -y -m 'yolo' && git push -f -u -y origin master`
 
 # polly continuous
 
@@ -144,12 +140,10 @@ TBD: internal process for looping
     polly gitch -m -u
 ```
 
-# polly watch
+# polly tcr / ctr
 
-the `watch` command facilitates local CI workfow or C.T.R. style development practices
+the `watch` command facilitates local CI workfow or T.C.R. style development practices
 
-    #TODO polly watch
-
-# safety instructions
-
-do not expose or use polly unless you have thoroughly understood the risk.
+```
+#TODO polly tcr
+```

@@ -8,39 +8,53 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     permissions:
       contents: read
       packages: write
 
     container:
-      image: ubuntu:focal-20200606
       options: "--user 0"
+      #image: ubuntu:jammy-20220421
+      image: ghcr.io/unhookd/polly:3.0-rc1@sha256:7cc65086b101fe352a8ff83180888f0f7079b2f80139b0f39ba7b2a4cb34b168
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: bootstrap
       run: |
-        set -e
+        set -ex
 
-        id app || (export  DEBIAN_FRONTEND=noninteractive; export  LC_ALL=C.UTF-8; export  LANG=en_US; export  LANGUAGE=en_US; export  ACCEPT_EULA=y; apt-get update; apt-get install -y locales locales-all; apt-get clean; rm -rf /var/lib/apt/lists/*; locale-gen --purge en_US; /bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale; locale-gen $LANGUAGE; dpkg-reconfigure locales; apt-get update; apt-get install -y git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper; apt-get clean; rm -rf /var/lib/apt/lists/*; curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add; apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"; apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*; groupadd --gid 134 abc-otf; groupadd --gid 999 efg-nnn; useradd --uid 1001 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn; ln -sfv /home/app/polly/bin/polly /usr/local/bin/polly; chown -R app /home/app)
+        (getent group alpha || groupadd --gid 121 alpha);
+        (getent group tau || groupadd --gid 123 tau);
+        (getent group beta || groupadd --gid 134 beta);
+        (getent group docker || groupadd --gid 999 docker);
+        (getent group theta || groupadd --gid 1000 theta);
+        (getent group zeta || groupadd --gid 1001 zeta);
+        (getent passwd app || useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app --groups alpha,beta,docker,theta,zeta,tau);
+        (getent passwd runner || useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/bash runner --groups alpha,beta,docker,theta,zeta,tau);
+        apt-get update; apt-get install -y locales locales-all; apt-get clean;
+        test -e /usr/lib/locale/locale-archive || ((locale-gen --purge en_US); (echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale); (locale-gen $LANGUAGE); (dpkg-reconfigure locales));
+        apt-get update; apt-get install -y vim git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby3* libruby3* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper; apt-get clean;
+        curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add;
+        apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main";
+        apt-get update; apt-get install -y kubectl; apt-get clean;
+        usermod -a -G $(grep docker /etc/group | cut -d: -f3) app;
+        usermod -a -G $(grep docker /etc/group | cut -d: -f3) runner;
 
-        #export SSH_AUTH_SOCK=/tmp/ssh-auth.sock
-        #ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+        mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app /__w/polly/polly;
+        chown -R app.alpha /home/app /polly /app /__w/polly/polly;
+        chown -R app /home/app /polly /app /__w/polly/polly;
+        chown -R app /home/app;
+        su app -s /bin/bash -c 'cd /__w/polly/polly && gem build polly.gemspec -o /home/app/polly-latest.gem';
 
-        chown -R app . # /home/app
-        #su app -s /bin/test -- -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1001 $SSH_AUTH_SOCK && chgrp 1001 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && su app -s /bin/test -- -w $SSH_AUTH_SOCK)
-        #test -z $DOCKER_CERT_PATH || (chown -R 1001 $(dirname $DOCKER_CERT_PATH))
-        #chown root:docker /var/run/docker.sock
-        #su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /bin/bash -c 'bundle exec polly build'
-        su app -s /bin/bash -c 'bundle config set --local path /home/app/vendor/bundle && bundle config set --local jobs 4 && bundle config set --local retry 3 && bundle config set --local deploment true && bundle config set --local without development && bundle install'
-        su app -s /bin/bash -c 'bundle exec polly generate' > Dockerfile
-        #docker run --rm=true polly:latest bundle exec rspec
+        gem install --no-document --minimal-deps /home/app/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /home/app/polly-latest.gem;
+
+        su app -s /bin/bash -c 'cd /__w/polly/polly && polly generate > Dockerfile';
 
     - name: Log in to the Container registry
-      uses: docker/login-action@v1
+      uses: docker/login-action@v2
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
@@ -48,7 +62,7 @@ jobs:
 
     - name: Extract metadata (tags, labels) for Docker
       id: meta
-      uses: docker/metadata-action@v3
+      uses: docker/metadata-action@v4
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
@@ -59,7 +73,7 @@ jobs:
 
     - name: Set up Docker Buildx
       id: buildx
-      uses: docker/setup-buildx-action@v1
+      uses: docker/setup-buildx-action@v2
 
     - name: Inspect builder
       run: |
@@ -70,7 +84,7 @@ jobs:
         echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
 
     - name: Build and push Docker image
-      uses: docker/build-push-action@v2
+      uses: docker/build-push-action@v3
       with:
         context: .
         push: true

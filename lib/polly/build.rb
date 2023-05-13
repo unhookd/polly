@@ -7,8 +7,8 @@ module Polly
       app + ":" + build_image_stage + "-" + version
     end
 
-    def self.generated_dockerfile_fd(generated_dockerfile)
-      fd = Tempfile.new("dockerfile")
+    def self.generated_string_fd(generated_dockerfile)
+      fd = Tempfile.new("polly-string-fd")
       fd.write(generated_dockerfile)
       fd.rewind
       fd
@@ -25,7 +25,7 @@ module Polly
         "-t", tag, 
         "-f", "-",
         ".",
-        {:in => generated_dockerfile_fd(generated_dockerfile)}
+        {:in => generated_string_fd(generated_dockerfile)}
       ].compact
 
       #o,e,s = exe.execute_simple(:output, build_dockerfile, io_options)
@@ -57,7 +57,7 @@ HEREDOC
       o,e,s = exe.execute_simple(:output, apply_job, apply_options)
       puts [o, e]
 
-      origin = "/polly-safe/git/#{app}"
+      origin = "/polly/safe/git/#{app}"
 
       build_jobs = ""
 
@@ -109,7 +109,7 @@ spec:
         - name: workspace
           mountPath: /home/app/#{app}
         - name: polly-mount
-          mountPath: /polly-safe
+          mountPath: /polly/safe
         - mountPath: /etc/ssl/certs
           name: ca-certificates
           readOnly: true
@@ -128,7 +128,7 @@ spec:
         #- --import-cache
         #- type=registry,ref=polly-registry:443/#{app}
         - --import-cache
-        - type=local,src=/polly-safe/buildkit,mode=max
+        - type=local,src=/polly/safe/buildkit,mode=max
         - --frontend
         - dockerfile.v0
         - --local
@@ -140,7 +140,7 @@ spec:
         #- --export-cache
         #- type=registry,ref=polly-registry:443/#{app}
         - --export-cache
-        - type=local,dest=/polly-safe/buildkit,mode=max
+        - type=local,dest=/polly/safe/buildkit,mode=max
         #- --output
         #- type=tar,dest=/polly-safe/buildkit/#{tag}.tar
         #- --output
@@ -168,7 +168,7 @@ spec:
           mountPath: /home/app/#{app}
           readOnly: true
         - name: polly-mount
-          mountPath: /polly-safe
+          mountPath: /polly/safe
           #readOnly: true
         - mountPath: /etc/ssl/certs
           name: ca-certificates
@@ -225,6 +225,35 @@ HEREDOC
 
       build_pod = exe.polly_pod(build_pod_label)
       exec(*["kubectl", "logs", build_pod, "-f"].compact)
+    end
+
+    def self.build_cloudinit_yaml(exe, vertical_lookup, public_ssh_key)
+      prewrites = vertical_lookup["prewrites"]
+
+      users = [{
+        'name' => 'app',
+        'shell' => '/bin/bash',
+        'groups' => 'sudo',
+        'sudo' => 'ALL=(ALL) NOPASSWD:ALL',
+        'ssh_authorized_keys' => [public_ssh_key]
+      }]
+
+      write_files = []
+
+      prewrites.each { |glob|
+        Dir.glob(glob).find_all { |f| File.file?(f) }.each { |f|
+          write_files << {
+            'content' => File.read(f),
+            'path' => File.join('/var/tmp', exe.current_app, f),
+            'permissions' => File.stat(f).mode.to_s(8)
+          }
+        }
+      }
+
+      {
+        'users' => users,
+        'write_files' => write_files
+      }.to_yaml
     end
   end
 end

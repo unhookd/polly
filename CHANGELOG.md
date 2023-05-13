@@ -1,3 +1,39 @@
+# [2.20.0] - 2023-01-22 - Jon Bardin
+
+Test image container diff
+
+#######
+
+# [2.19.0] - 2023-01-22 - Jon Bardin
+
+Add CHANGELOG to .gem build output
+
+#######
+
+# [2.18.0] - 2023-01-22 - Jon Bardin
+
+Add better reboostrappable base builds with run layer stacking optimization
+
+#######
+
+# [2.17.0] - 2022-11-22 - Jon Bardin
+
+Add new stack bits for multipass development
+
+#######
+
+# [2.16.0] - 2022-10-15 - Jon Bardin
+
+
+
+#######
+
+# [2.15.0] - 2022-04-28 - Jon Bardin
+
+Add better tag support
+
+#######
+
 # [2.14.0] - 2021-06-25 - Jon Bardin
 
 lol this should work ok

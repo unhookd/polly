@@ -27,6 +27,10 @@ module Polly
       @parameters = parameters
     end
 
+    def to_json(*args)
+      [@run_name, @parameters].to_json(*args)
+    end
+
     def valid?
       #TODO: more validation
       !!(@run_name && !@run_name.empty?)
