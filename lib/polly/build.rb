@@ -227,7 +227,7 @@ HEREDOC
       exec(*["kubectl", "logs", build_pod, "-f"].compact)
     end
 
-    def self.build_cloudinit_yaml(exe, vertical_lookup, public_ssh_key)
+    def self.build_cloudinit_yaml(exe, vertical_lookup, client_key_pub, server_key, server_key_pub)
       prewrites = vertical_lookup["prewrites"]
 
       users = [{
@@ -235,7 +235,7 @@ HEREDOC
         'shell' => '/bin/bash',
         'groups' => 'sudo',
         'sudo' => 'ALL=(ALL) NOPASSWD:ALL',
-        'ssh_authorized_keys' => [public_ssh_key]
+        'ssh_authorized_keys' => [client_key_pub]
       }]
 
       write_files = []
@@ -248,6 +248,24 @@ HEREDOC
             'permissions' => File.stat(f).mode.to_s(8)
           }
         }
+      }
+
+      write_files << {
+        'content' => server_key.strip + "\n",
+        'path' => '/etc/ssh/custom_ssh_host_rsa_key',
+        'permissions' => '0600'
+      }
+
+      write_files << {
+        'content' => server_key_pub.strip + " root@threep" + "\n",
+        'path' => '/etc/ssh/custom_ssh_host_rsa_key.pub',
+        'permissions' => '0600'
+      }
+
+      write_files << {
+        'content' => "HostKey /etc/ssh/custom_ssh_host_rsa_key" + "\n",
+        'path' => '/etc/ssh/sshd_config.d/custom.conf',
+        'permissions' => '0644'
       }
 
       {

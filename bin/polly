@@ -570,12 +570,23 @@ HEREDOC
   desc "certificates [PRIVATE_KEY] [PUBLIC_KEY]", "installs some common ca certificate secret material into cluster"
   option "namespace", :type => :string, :default => "default"
   option "mode", :type => :string, :default => "directory"
-  def certificates(inbound_ssh_key, inbound_ssh_key_pub, cname = "polly-registry", cname_two = "0.0.0.0")
-    inbound_ssh_key = File.read(inbound_ssh_key)
-    inbound_ssh_key_pub = File.read(inbound_ssh_key_pub)
+  def certificates(inbound_ssh_key="", inbound_ssh_key_pub="", cname = "polly-registry", cname_two = "0.0.0.0")
+    inbound_ssh_key = File.read(inbound_ssh_key) unless inbound_ssh_key.empty?
+    inbound_ssh_key_pub = File.read(inbound_ssh_key_pub) unless inbound_ssh_key_pub.empty?
 
-    key = OpenSSL::PKey::RSA.new 2048
-    key_dsa = OpenSSL::PKey::DSA.new 2048
+    key = OpenSSL::PKey::RSA.new 4096
+    key_dsa = OpenSSL::PKey::DSA.new 4096
+
+    #TODO
+    #ssh_key = StringIO.new
+    #ssh_key.write(key.ssh_type)
+    #ssh_key.write([key.to_blob.length].pack('N'))
+    #ssh_key.write(key.to_blob)
+    #ssh_priv_key = ssh_key.string
+    #type = key.ssh_type
+    #data2 = [ key.to_blob ].pack('m0')
+    #openssh_format = "#{type} #{data2}"
+    ###puts openssh_format
 
     data = key.to_pem
     data_dsa = key_dsa.to_pem
@@ -640,10 +651,6 @@ HEREDOC
     #known_hosts = File.read("/var/tmp/cheese.known_hosts")
     #puts known_hosts.inspect
 
-    #type = key.ssh_type
-    #data2 = [ key.to_blob ].pack('m0')
-    #openssh_format = "#{type} #{data2}"
-    ##puts openssh_format
 
     case options["mode"]
       when "k8s-secret"
@@ -706,16 +713,21 @@ HEREDOC
       dir = File.join("/var/tmp", SecureRandom.uuid)
       FileUtils.mkdir_p(dir)
 
-      #TODO: fill in ssh bits
-      #File.write("#{dir}/sshd_rsa", data)
+      File.umask(0077)
 
       File.write("#{dir}/web-server-certificate.pem", cert)
       File.write("#{dir}/web-server-key.pem", key)
+
+      #TODO: sort out certificate-stack documentation
+      File.write("#{dir}/etc_slash_ssh_slash_ssh_host_rsa_key", key)
+      exe.ssh_private_key_from_rsa_private_key("#{dir}/etc_slash_ssh_slash_ssh_host_rsa_key")
+      File.write("#{dir}/etc_slash_ssh_slash_ssh_host_rsa_key.pub", exe.ssh_keygen_from_private_key("#{dir}/etc_slash_ssh_slash_ssh_host_rsa_key"))
 
       File.write("#{dir}/from-workstation-ca.crt", a)
       File.write("#{dir}/polly-root-ca.crt", b)
       File.write("#{dir}/multipass-mega.crt", c)
 
+      #TODO: link with vertical.yaml specification
       puts "certificates will be found in #{dir}"
     end
   end
@@ -1142,6 +1154,13 @@ HEREDOC
     exec(*["kubectl", "run", "-it", "--image=polly:latest", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", sh_cmd].compact)
   end
 
+  desc "whx", "workstation instance"
+  def whx(profile)
+    exe = ::Polly::Execute.new
+
+    exec("ssh", "-AX", "app@#{exe.multipass_ip(profile)}")
+  end
+
   desc "waitx", "TBD: wait for pod availability, execute subsequent command"
   def waitx(clean_name, *cmd)
     exe = ::Polly::Execute.new
@@ -1518,21 +1537,51 @@ HEREDOC
   end
 
   desc "launch [PROFILE]", "todo"
-  option "platform", :type => :string, :default => "multipass", :desc => "todo"
-  option "distro", :type => :string, :default => "focal"
-  option "public-ssh-key", :type => :string, :default => "~/.ssh/id_rsa.pub", :desc => "todo"
+  option "debug", :default => false, :type => :boolean
+  option "automatic-host-key", :default => false, :type => :boolean
   def launch(profile = "foo")
     exe = ::Polly::Execute.new
 
     vertical_lookup = YAML.load(File.read("vertical.yaml"))
-    public_key = File.read(File.expand_path(options["public-ssh-key"]))
+    station_profile = vertical_lookup["platforms"][profile]
 
-    cloud_init_yaml = ::Polly::Build.build_cloudinit_yaml(exe, vertical_lookup, public_key)
+    station_profile.each { |platform, params|
+      case platform
+        when "multipass"
+          #TODO: pattern-matching ruby3x jazz
+          raise unless (distro = params["distro"]) && (ssh = params["ssh"]) &&
+                         (client_key_pub = ssh["client_key_pub"]) &&
+                         (server_key = ssh["server_key"]) &&
+                         (server_key_pub = ssh["server_key_pub"])
 
-    multipass_launch_cmd = ["multipass", "launch", "--name", profile, "--disk=60G", "--cpus=4", "--mem=10G", "--cloud-init=-", options["distro"]]
+          cloud_init_yaml = ::Polly::Build.build_cloudinit_yaml(exe, vertical_lookup, File.read(client_key_pub), File.read(server_key), File.read(server_key_pub))
 
-    options = {:out => $stdout, :err => $stderr, :in => ::Polly::Build.generated_string_fd(cloud_init_yaml)}
-    exe.system({}, *multipass_launch_cmd, options)
+          if options["debug"]
+            puts cloud_init_yaml
+            exit
+          end
+
+          known_hosts_file = File.expand_path("~/.ssh/known_hosts")
+          known_hosts = File.read(known_hosts_file) if File.exists?(known_hosts_file)
+
+          multipass_launch_cmd = ["multipass", "launch", "--name", profile, "--disk=60G", "--cpus=4", "--memory=10G", "--cloud-init=-", distro]
+          multipass_options = {:out => $stdout, :err => $stderr, :in => ::Polly::Build.generated_string_fd(cloud_init_yaml)}
+          exe.system({}, *multipass_launch_cmd, multipass_options)
+
+          server_key_pub_pem = File.read(server_key_pub)
+          known_hosts_line = "#{exe.multipass_ip(profile)} #{server_key_pub_pem}"
+
+          if known_hosts && known_hosts.index(known_hosts_line)
+          else
+            if options["automatic-host-key"] || yes?("append #{known_hosts_file}?")
+              # echo $(ruby devstack/wkip.rb threep) $(ssh-keygen -yf tmp/threep/sshd_rsa_key) > ~/.ssh/known_hosts
+              File.write(known_hosts_file, (known_hosts || "") + "\n" + known_hosts_line + "\n")
+            end
+          end
+
+      end
+    }
+
   end
 
   desc "stationkeep [PROFILE]", "todo"

@@ -126,6 +126,41 @@ module Polly
       end
     end
 
+    def ssh_keygen_from_private_key(private_key)
+      keygen_cmd = [
+        "ssh-keygen",
+        "-yf",
+        private_key
+      ]
+
+      stdout_and_stderr_str, status = Open3.capture2e(*keygen_cmd)
+      unless status.success?
+        puts stdout_and_stderr_str
+        exit(1)
+      end
+
+      stdout_and_stderr_str
+    end
+
+    def ssh_private_key_from_rsa_private_key(private_key)
+      keygen_cmd = [
+        "ssh-keygen",
+        "-p",
+        "-N",
+        "",
+        "-f",
+        private_key
+      ]
+
+      stdout_and_stderr_str, status = Open3.capture2e(*keygen_cmd)
+      unless status.success?
+        puts stdout_and_stderr_str
+        exit(1)
+      end
+
+      stdout_and_stderr_str
+    end
+
     def start_job!(job)
       clean_name = (current_app + "-" + job.run_name).gsub(/[^\.a-z0-9]/, "-")[0..34]
 
