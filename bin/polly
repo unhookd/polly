@@ -23,7 +23,7 @@ class PollyTasks < Thor
     today = Date.today.to_s
     username = IO.popen("git config user.name").read.strip || ENV["USER"] || "ac"
     template_args = [today, username]
-    version = "2.#{version_count + 1}.0"
+    version = "#{File.exists?('VERSION.major') ? File.read('VERSION.major').strip : 1}.#{version_count + 1}.0"
     opening_line_template = "# [#{version}] - %s - %s\n\n\n\n#{version_delim}\n" % template_args
 
     Tempfile.create(changelog) do |new_entry_tmp|
