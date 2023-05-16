@@ -1,3 +1,9 @@
+# [4.24.0] - 2023-05-16 - Jon Bardin
+
+repair wxh git push hooks
+
+#######
+
 # [4.23.0] - 2023-05-16 - Jon Bardin
 
 Add better version support

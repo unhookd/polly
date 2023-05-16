@@ -1154,8 +1154,8 @@ HEREDOC
     exec(*["kubectl", "run", "-it", "--image=polly:latest", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", sh_cmd].compact)
   end
 
-  desc "whx", "workstation instance"
-  def whx(profile)
+  desc "wxh", "workstation instance"
+  def wxh(profile)
     exe = ::Polly::Execute.new
 
     exec("ssh", "-AX", "app@#{exe.multipass_ip(profile)}")
@@ -1639,7 +1639,7 @@ HEREDOC
   end
 
   desc "mkhooks [PROFILE]", "todo"
-  option "user", :type => :string, :default => "bip", :desc => "todo"
+  option "user", :type => :string, :default => "app", :desc => "todo"
   def mkhooks(profile = "foo")
     exe = ::Polly::Execute.new
 
@@ -1658,9 +1658,9 @@ HEREDOC
       system("ssh", remote_user, "--", "git", "clone", "/home/#{options['user']}/workspace/#{uuid}.git", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}", "--branch", `git rev-parse --abbrev-ref HEAD`) || fail
       system("ssh", remote_user, "--", "ln", "-sf", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}/devstack/git-hooks", "/home/#{options['user']}/workspace/#{uuid}.git/hooks")
       system("ssh", remote_user, "--", "git", "-C", "/home/#{options['user']}/workspace/#{uuid}.git config", "receive.advertisePushOptions", "true")
-      #git config core.sshCommand 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ForwardAgent=yes -X'
+      system("git", "config", "core.sshCommand", 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ForwardAgent=yes -X')
     else
-      puts "re-init manually... git remote remove #{foo}"
+      puts "re-init manually... git remote remove #{profile}"
       #system("ssh", remote_user, "--", "git", "-C", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}", "pull")
       #system("ssh", remote_user, "--", "git", "-C", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}", "show")
       #system("ssh", remote_user, "--", "git", "--git-dir", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}/.git", "pull")
