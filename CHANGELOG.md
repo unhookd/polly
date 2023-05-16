@@ -1,3 +1,9 @@
+# [4.0.1] - 2023-05-16 - Jon Bardin
+
+Add support for multi-platform launch configuration
+
+#######
+
 # [2.20.0] - 2023-01-22 - Jon Bardin
 
 Test image container diff
