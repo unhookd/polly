@@ -1,3 +1,9 @@
+# [4.25.0] - 2023-05-16 - Jon Bardin
+
+Allow `host-aliases` block to be defined and written out to /etc/hosts via cloud-init
+
+#######
+
 # [4.24.0] - 2023-05-16 - Jon Bardin
 
 repair wxh git push hooks

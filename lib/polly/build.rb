@@ -268,9 +268,16 @@ HEREDOC
         'permissions' => '0644'
       }
 
+      write_files << {
+        'content' => "127.0.1.1 $hostname $hostname\n127.0.0.1 localhost\n" + vertical_lookup["host-aliases"].collect { |ha| ha["hostnames"].collect { |hn| ha["ip"] + " " + hn }.join("\n") }.join("\n") + "" + "\n",
+        'path' => '/etc/cloud/templates/hosts.debian.tmpl',
+        'permissions' => '0644'
+      }
+
       {
         'users' => users,
-        'write_files' => write_files
+        'write_files' => write_files,
+        'manage_etc_hosts' => true
       }.to_yaml
     end
   end
