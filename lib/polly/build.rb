@@ -282,6 +282,48 @@ HEREDOC
         'path' => '/etc/ssh/sshd_config.d/custom.conf',
         'permissions' => '0644'
       }
+#mirrors:
+#  "docker.io":
+#    endpoint:
+#      - "https://polly-registry:443"
+#  "polly-registry":
+#    endpoint:
+#      - "https://polly-registry:443"
+#configs:
+#  "polly-registry:443":
+#    tls:
+#      #cert_file: # path to the cert file used in the registry
+#      #key_file:  # path to the key file used in the registry
+#      ca_file: /home/app/workspace/polly/ca  # path to the ca file used in the registry
+      polly_registry_k3s_config = {
+        "mirrors" => {
+          "docker.io" => {
+            "endpoint" => [
+              "https://polly-registry:443"
+            ]
+          },
+          "polly-registry" => {
+            "endpoint" => [
+              "https://polly-registry:443"
+            ]
+          }
+        },
+        "configs" => {
+          "polly-registry:443" => {
+            "tls" => {
+              "ca_file" => "/home/app/workspace/polly/ca"
+            }
+          }
+        }
+      }
+
+      write_files << {
+        'content' => YAML.dump(polly_registry_k3s_config),
+        'path' => '/etc/rancher/k3s/registries.yaml',
+        'permissions' => '0644'
+      }
+
+
 
       write_files << {
         'content' => "127.0.1.1 $hostname $hostname\n127.0.0.1 localhost\n" + vertical_lookup["host-aliases"].collect { |ha| ha["hostnames"].collect { |hn| ha["ip"] + " " + hn }.join("\n") }.join("\n") + "" + "\n",
