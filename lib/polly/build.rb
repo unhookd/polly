@@ -179,9 +179,6 @@ spec:
           runAsUser: 1000
           runAsGroup: 1000
         volumeMounts:
-        #- mountPath: /home/user/.docker/config.json
-        #  subPath: config.json
-        #  name: docker-config
         - mountPath: /tmp/#{app}/Dockerfile
           subPath: Dockerfile
           name: polly-dockerfile-#{app}
@@ -198,9 +195,6 @@ spec:
           subPath: ca-certificates.crt
           name: ca-certificates
       volumes:
-      #- name: docker-config
-      #  secret:
-      #    secretName: docker-config
       - name: polly-dockerfile-#{app}
         configMap:
           name: polly-dockerfile-#{app}

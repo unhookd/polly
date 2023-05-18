@@ -108,8 +108,8 @@ class PollyTasks < Thor
       end
     end
 
-    if options["u"] === true
-      if exe.systemx("git", "push", "-u", "origin", "HEAD")
+    if options["u"]
+      if exe.systemx("git", "push", "-u", options["u"], "HEAD")
         exit(0)
       end
     end
@@ -402,29 +402,6 @@ class PollyTasks < Thor
     #  puts [o, e]
     #  exit(1)
     #end
-  end
-
-  desc "docker-config", "installs docker-config-json secret"
-  def docker_config
-    exe = ::Polly::Execute.new
-
-    docker_config_secret = []
-    docker_config_secret << <<-HEREDOC
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: docker-config
-type: Opaque
-data:
-  config.json: #{Base64.strict_encode64($stdin.read)}
-...
-HEREDOC
-
-    apply_job = ["kubectl", "apply", "-f", "-"]
-    options = {:stdin_data => docker_config_secret.join}
-    o,e,s = exe.execute_simple(:output, apply_job, options)
-    puts [o, e]
   end
 
   desc "build [container_def]", "Build the current working directory's Dockerfile"
@@ -1138,11 +1115,11 @@ HEREDOC
     exec(*["kubectl", "exec", exe.polly_pod(service), "-i", $stdin.tty? ? "-t" : nil, "--", sh_cmd].compact)
   end
 
-  desc "shh", "debug instance of polly controller"
-  def shh(sh_cmd = "bash")
+  desc "shr", "run a polly shell"
+  def shr(shr_cmd = "bash")
     exe = ::Polly::Execute.new
 
-    exec(*["kubectl", "run", "shh", "-it", "--image=ghcr.io/unhookd/polly:master", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", sh_cmd].compact)
+    exec(*["kubectl", "run", "shr", "-it", "--image=ghcr.io/unhookd/polly:master", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", shr_cmd].compact)
   end
 
   desc "wxh", "workstation instance"
@@ -1508,24 +1485,31 @@ HEREDOC
     end
   end
 
-  #TODO: detect other repo categories to login different mech
-  desc "login [REPO]", "utility to authenticate to docker repo"
-  def login(repo_registry_url = nil)
-    exe = ::Polly::Execute.new
-    vertical_lookup = YAML.load(File.read("vertical.yaml"))
-    repo_registry = vertical_lookup["repo-registry"]
+  ##TODO: re-impl without /usr/bin/docker
+  ##mkdir -p ~/.docker
+  ##kubectl create secret docker-registry --dry-run=client docker-regcred \
+  ##  --docker-server=XXX/repo \
+  ##  --docker-username=AWS \
+  ##  --docker-password=${PASSWORD} \
+  ##  --namespace=xxx \
+  ##  -o json | jq -r '.data.".dockerconfigjson"' | base64 -d > ~/.docker/config.json
+  #desc "login [REPO]", "utility to authenticate to docker repo"
+  #def login(repo_registry_url = nil)
+  #  exe = ::Polly::Execute.new
+  #  vertical_lookup = YAML.load(File.read("vertical.yaml"))
+  #  repo_registry = vertical_lookup["repo-registry"]
 
-    docker_login_password = IO.popen("aws ecr get-login-password").read
-    Process.wait
-    unless $?.success?
-      exit(1)
-    end
+  #  docker_login_password = IO.popen("aws ecr get-login-password").read
+  #  Process.wait
+  #  unless $?.success?
+  #    exit(1)
+  #  end
 
-    docker_login_cmd = ["docker", "login", "--username", "AWS", "--password-stdin", repo_registry]
-    options = {:stdin_data => docker_login_password}
-    o,e,s = exe.execute_simple(:output, docker_login_cmd, options)
-    puts [o, e, s]
-  end
+  #  docker_login_cmd = ["docker", "login", "--username", "AWS", "--password-stdin", repo_registry]
+  #  options = {:stdin_data => docker_login_password}
+  #  o,e,s = exe.execute_simple(:output, docker_login_cmd, options)
+  #  puts [o, e, s]
+  #end
 
   desc "launch [PROFILE]", "todo"
   option "debug", :default => false, :type => :boolean
