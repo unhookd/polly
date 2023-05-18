@@ -772,7 +772,7 @@ spec:
   - ReadWriteMany
   resources:
     requests:
-      storage: 10Gi
+      storage: 5Gi
   storageClassName: local-path
 ...
 ---
@@ -784,7 +784,7 @@ metadata:
     stack: polly
 spec:
   capacity:
-    storage: 10Gi
+    storage: 5Gi
   accessModes:
     - ReadWriteMany
   storageClassName: local-path
@@ -890,6 +890,7 @@ kind: StatefulSet
 metadata:
   labels:
     app: buildkitd
+    stack: polly
   name: polly-buildkitd
 spec:
   serviceName: buildkitd
@@ -903,6 +904,7 @@ spec:
       labels:
         name: polly-buildkitd
         app: buildkitd
+        stack: polly
       annotations:
         container.apparmor.security.beta.kubernetes.io/buildkitd: unconfined
     # see buildkit/docs/rootless.md for caveats of rootless mode
