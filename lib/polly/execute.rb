@@ -957,7 +957,8 @@ module Polly
       $stdout.write($/)
     end
 
-    def polly_pod(label = "name=#{POLLY}-git")
+    def polly_pod(service = "controller")
+      label = "name=#{POLLY}-#{service}"
       @polly_pods ||= {}
       @polly_pods[label] ||= begin
         cmd = "kubectl get pods --field-selector=status.phase=Running -l #{label} -o name | cut -d/ -f2"

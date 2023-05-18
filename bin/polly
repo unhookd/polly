@@ -430,7 +430,6 @@ HEREDOC
   desc "build [container_def]", "Build the current working directory's Dockerfile"
   #? option "run", :type => :string, :default => nil
   #? option "push", :type => :string, :default => nil
-  #option "docker-config-json", :type => :string, :default => nil
   option "cache", :type => :boolean, :default => true
   option "explain", :type => :boolean, :default => false
   option "in-cluster", :type => :boolean, :default => false
@@ -453,7 +452,10 @@ HEREDOC
       Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, default_pollyfile)
       generated_dockerfile = Polly::Generate.read_output
     elsif container_definition == "-" && File.exists?(default_dockerfile)
-      generated_dockerfile = File.read(default_dockerfile)
+      #generated_dockerfile = File.read(default_dockerfile)
+      raise if version.empty?
+      Polly::Build.buildkit_workstation_to_controller(exe, app, "wkndr", version, options["no-cache"])
+      exit
     else
       generated_dockerfile = File.read(container_definition)
       sub_version = container_definition.split(".").last
@@ -464,50 +466,12 @@ HEREDOC
 
     if options["in-cluster"]
       Polly::Generate.all_images.each { |build_image|
-      puts app.inspect
         Polly::Build.buildkit_internal(exe, app, build_image, version, generated_dockerfile, options["no-cache"])
       }
     else
-      #build_dockerfile = [
-      #  {"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
-      #  "docker", "build", "--progress=plain", "--ssh", "default",
-      #  options["no-cache"] ? "--no-cache" : nil, "-t",
-      #  app + ":" + version, ".", "-f", "-", generated_dockerfile.nil? ? {:in => File.open(container_definition) } : {:in => generated_dockerfile}
-      #].compact
-
-      #build_dockerfile = [
-      #  {"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
-      #  "docker", "build", "--progress=plain", "--ssh", "default",
-      #  options["no-cache"] ? "--no-cache" : nil, "-t",
-      #  app + ":" + version, ".", "-f", "-", generated_string_fd.nil? ? {:in => File.open(container_definition) } : {:in => generated_string_fd}
-      #].compact
-
-      #Polly::Generate.all_images.each { |build_image|
-      #  Polly::Build.buildkit_external(exe, app, build_image.stage, version, generated_dockerfile, options["no-cache"])
-      #}
-
       raise if version.empty?
-
       Polly::Build.buildkit_external(exe, app, "wkndr", version, generated_dockerfile, options["no-cache"])
-
-      tag_dockerfile = ["docker", "tag", app + ":wkndr-" + version, app + ":latest"]
-      exe.systemx(*tag_dockerfile)
-
-      tag_dockerfile = ["docker", "tag", app + ":wkndr-" + version, app + ":git-latest"]
-      exe.systemx(*tag_dockerfile)
-
-      tag_dockerfile = ["docker", "tag", app + ":wkndr-" + version, "localhost/" + app + ":git-latest"]
-      exe.systemx(*tag_dockerfile)
     end
-
-    #if options["push"]
-    #  tag_dockerfile = ["docker", "tag", app + ":" + version, options["push"] + "/" + app + ":" + version]
-    #  puts tag_dockerfile
-    #  exe.systemx(*tag_dockerfile)
-
-    #  push_dockerfile = ["docker", "push", options["push"] + "/" + app + ":" + version]
-    #  exe.systemx(*push_dockerfile)
-    #end
   end
 
 #  desc "checkout [REPO] [VERSION] [DESTINATION]", ""
@@ -651,6 +615,9 @@ HEREDOC
     #known_hosts = File.read("/var/tmp/cheese.known_hosts")
     #puts known_hosts.inspect
 
+  #TODO: !!!
+  #ssh_key: #{Base64.strict_encode64(inbound_ssh_key || "")}
+  #ssh_key_pub: #{Base64.strict_encode64(inbound_ssh_key_pub || "")}
 
     case options["mode"]
       when "k8s-secret"
@@ -666,8 +633,6 @@ data:
   dsa: #{Base64.strict_encode64(data_dsa)}
   dsa_pub: #{Base64.strict_encode64(key_dsa.public_key.to_s)}
   rsa_pub: #{Base64.strict_encode64(key.public_key.to_s)}
-  ssh_key: #{Base64.strict_encode64(inbound_ssh_key)}
-  ssh_key_pub: #{Base64.strict_encode64(inbound_ssh_key_pub)}
 ...
 ---
 apiVersion: v1
@@ -808,7 +773,7 @@ spec:
   resources:
     requests:
       storage: 10Gi
-  storageClassName: local-storage
+  storageClassName: local-path
 ...
 ---
 apiVersion: v1
@@ -822,7 +787,7 @@ spec:
     storage: 10Gi
   accessModes:
     - ReadWriteMany
-  storageClassName: local-storage
+  storageClassName: local-path
   hostPath:
     path: /var/tmp/polly-safe
 ...
@@ -908,6 +873,18 @@ HEREDOC
 
     polly_deployments << <<-HEREDOC
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: polly-buildkitd-configuration
+data:
+  buildkitd.toml: |-
+    debug = true
+    [registry."polly-registry:443"]
+    ca=["/certs/ca.polly.crt"]
+    insecure = true
+...
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -924,6 +901,7 @@ spec:
   template:
     metadata:
       labels:
+        name: polly-buildkitd
         app: buildkitd
       annotations:
         container.apparmor.security.beta.kubernetes.io/buildkitd: unconfined
@@ -964,17 +942,28 @@ spec:
             # https://github.com/moby/buildkit/issues/879#issuecomment-1240347038
             - mountPath: /home/user/.local/share/buildkit
               name: buildkitd
+            - name: configurations
+              subPath: buildkitd.toml
+              mountPath: /home/user/.config/buildkit/buildkitd.toml
+            - name: ca-certificates
+              mountPath: /certs
       volumes:
         - name: buildkitd
           emptyDir: {}
+        - name: configurations
+          configMap:
+            name: polly-buildkitd-configuration
+        - name: ca-certificates
+          secret:
+            secretName: ca-certificates
 ...
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: polly-git
+  name: polly-controller
   labels:
-    app: polly-git
+    app: polly-controller
     stack: polly
 spec:
   revisionHistoryLimit: 1
@@ -983,11 +972,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      name: polly-git
+      name: polly-controller
   template:
     metadata:
       labels:
-        name: polly-git
+        name: polly-controller
         stack: polly
     spec:
       serviceAccountName: polly
@@ -1004,7 +993,7 @@ spec:
         #supplementalGroups: [121, 123, 134, 999, 1000, 1001]
       initContainers:
       containers:
-      - name: polly-git
+      - name: polly-controller
         securityContext:
           runAsUser: 1000
         volumeMounts:
@@ -1131,27 +1120,27 @@ HEREDOC
     o,e,s = exe.execute_simple(:output, deploy_polly_app, options)
     puts [o, e, s]
 
-    wait_polly_app = ["kubectl", "wait", "--for=condition=available", "deployment/polly-git"]
+    wait_polly_app = ["kubectl", "wait", "--for=condition=available", "deployment/polly-controller"]
     o,e,s = exe.execute_simple(:output, wait_polly_app, {})
     puts [o, e, s]
 
-    wait_polly_app = ["kubectl", "rollout", "status", "deployment/polly-git"]
+    wait_polly_app = ["kubectl", "rollout", "status", "deployment/polly-controller"]
     o,e,s = exe.execute_simple(:output, wait_polly_app, {})
     puts [o, e, s]
   end
 
   desc "xxh", "debug shell into polly controller"
-  def xxh(sh_cmd = "bash")
+  def xxh(service = "git", sh_cmd = "sh")
     exe = ::Polly::Execute.new
 
-    exec(*["kubectl", "exec", exe.polly_pod, "-i", $stdin.tty? ? "-t" : nil, "--", sh_cmd].compact)
+    exec(*["kubectl", "exec", exe.polly_pod(service), "-i", $stdin.tty? ? "-t" : nil, "--", sh_cmd].compact)
   end
 
   desc "shh", "debug instance of polly controller"
   def shh(sh_cmd = "bash")
     exe = ::Polly::Execute.new
 
-    exec(*["kubectl", "run", "-it", "--image=polly:latest", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", sh_cmd].compact)
+    exec(*["kubectl", "run", "shh", "-it", "--image=ghcr.io/unhookd/polly:master", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", sh_cmd].compact)
   end
 
   desc "wxh", "workstation instance"
@@ -1487,7 +1476,7 @@ HEREDOC
     if options["build"]
       buildctl_local_cmd = [
         "buildctl",
-        "--addr", "kube-pod://buildkitd-0?namespace=#{namespace}",
+        "--addr", "kube-pod://polly-buildkitd-0?namespace=#{namespace}",
         "build",
         "--ssh", "default=#{Dir.home}/.ssh/id_rsa",
         "--frontend", "dockerfile.v0",
