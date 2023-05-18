@@ -2,7 +2,6 @@
 
 module Polly
   class Build
-
     def self.build_image_to_tag(app, build_image_stage, version)
       app + ":" + build_image_stage + "-" + version
     end
@@ -14,26 +13,48 @@ module Polly
       fd
     end
 
-    def self.buildkit_external(exe, app, build_image_stage, version, generated_dockerfile, force_no_cache)
+    def self.buildkit_workstation_to_controller(exe, app, build_image_stage, version, force_no_cache)
+      #file = Tempfile.new('Dockerfile', Dir.pwd)
+      #file.write(generated_dockerfile)
+      #file.rewind
+      #puts file.path
       tag = build_image_to_tag(app, build_image_stage, version)
-
-      build_dockerfile = [
-        {"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
-        "docker", "build", "--progress=plain", "--ssh", "default",
-        force_no_cache ? "--no-cache" : nil,
-        #"--target", build_image_stage,
-        "-t", tag, 
-        "-f", "-",
-        ".",
-        {:in => generated_string_fd(generated_dockerfile)}
-      ].compact
-
-      #o,e,s = exe.execute_simple(:output, build_dockerfile, io_options)
-      #puts [o, e]
-      puts build_dockerfile.inspect
-      exe.systemx(*build_dockerfile)
-    
+      buildctl_local_cmd = [
+        {"SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
+        "buildctl",
+        "--addr", "kube-pod://polly-buildkitd-0",
+        "build",
+        "--ssh", "default", #"default=#{Dir.home}/.ssh/id_rsa",
+        "--frontend", "dockerfile.v0",
+        "--local", "context=.", "--local", "dockerfile=.",
+        "--output", "type=image,name=polly-registry:443/polly-registry/#{tag},push=true"
+      ]
+      puts buildctl_local_cmd.inspect
+      exe.systemx(*buildctl_local_cmd) || fail("unable to build")
       puts "Built and tagged: #{tag} OK"
+    end
+
+    def self.buildkit_external(exe, app, build_image_stage, version, generated_dockerfile, force_no_cache)
+      raise
+      ##file = Tempfile.new('Dockerfile', Dir.pwd)
+      ##file.write(generated_dockerfile)
+      ##file.rewind
+      ##puts file.path
+      #tag = build_image_to_tag(app, build_image_stage, version)
+      #buildctl_local_cmd = [
+      #  {"SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
+      #  "buildctl",
+      #  "--addr", "kube-pod://polly-buildkitd-0",
+      #  "build",
+      #  "--ssh", "default", #"default=#{Dir.home}/.ssh/id_rsa",
+      #  "--frontend", "dockerfile.v0",
+      #  "--local", "context=.", "--local", "dockerfile=.", #"--opt", "filename=#{File.basename(file.path)}",
+      #  "--output", "type=image,name=polly-registry:443/polly-registry/#{tag},push=true" #,
+      #  #{:in => generated_string_fd(generated_dockerfile)}
+      #]
+      #puts buildctl_local_cmd.inspect
+      #exe.systemx(*buildctl_local_cmd)
+      #puts "Built and tagged: #{tag} OK"
     end
 
     def self.buildkit_internal(exe, app, build_image_stage, version, generated_dockerfile, force_no_cache)
@@ -158,9 +179,6 @@ spec:
           runAsUser: 1000
           runAsGroup: 1000
         volumeMounts:
-        #- mountPath: /home/user/.docker/config.json
-        #  subPath: config.json
-        #  name: docker-config
         - mountPath: /tmp/#{app}/Dockerfile
           subPath: Dockerfile
           name: polly-dockerfile-#{app}
@@ -177,9 +195,6 @@ spec:
           subPath: ca-certificates.crt
           name: ca-certificates
       volumes:
-      #- name: docker-config
-      #  secret:
-      #    secretName: docker-config
       - name: polly-dockerfile-#{app}
         configMap:
           name: polly-dockerfile-#{app}

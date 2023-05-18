@@ -11,7 +11,7 @@ module Polly
     end
 
     def self.allowed_contexts
-      rc["allowed_contexts"] || ["polly-ci", "kubernetes-admin@kubernetes"]
+      rc["allowed_contexts"] || ["polly-ci", "kubernetes-admin@kubernetes", "default"]
     end
 
     def self.image_repo
