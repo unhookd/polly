@@ -116,12 +116,6 @@ exec's into the polly controller deployement to provide a debugging interactive 
 
 prints logs of polly controller deployement for debugging
 
-# polly docker-config
-
-accepts on STDIN a `~/.docker/config.json` document, and creates a specific secret for allowin fetching from private repos in private clusters.
-
-TBD: allow STDIN creation of a variety of configMap/secretMap resources (SEE: `polly certificate`)
-
 # polly key
 
 TBD: manages authentication
