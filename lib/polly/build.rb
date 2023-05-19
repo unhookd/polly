@@ -322,7 +322,7 @@ HEREDOC
           }
         },
         "configs" => {
-          "polly-registry:24443" => {
+          "polly-registry:23443" => {
             "tls" => {
               "ca_file" => "/usr/local/share/ca-certificates/polly-ca.crt"
             }
