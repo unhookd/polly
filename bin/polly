@@ -674,11 +674,11 @@ HEREDOC
     end
   end
 
-  desc "init", "bootstraps project polly controller pod"
+  desc "init [CERTS]", "bootstraps project polly controller pod"
   option "re-init", :type => :boolean, :default => false
   option "with-registry", :type => :boolean, :default => false
   option "with-bootstrap", :type => :string, :default => "ghcr.io/unhookd/polly:3.0-rc1" # "polly:3.0-rc1"
-  def init
+  def init(cert_package_dir)
     exe = ::Polly::Execute.new
 
     unless exe.in_polly?
@@ -699,7 +699,71 @@ HEREDOC
     git_image = options["with-bootstrap"] # "alpine/git:latest"
     git_command = ["sleep", "2147483647"].to_json
 
-    polly_resources << <<-HEREDOC
+    #etc_slash_ssh_slash_ssh_host_rsa_key
+    #etc_slash_ssh_slash_ssh_host_rsa_key.pub
+    #from-workstation-ca.crt
+    #id_rsa.pub
+    #multipass-mega.crt
+    #polly-root-ca.crt
+    #web-server-certificate.pem
+    #web-server-key.pem
+    #File.write("#{dir}/web-server-certificate.pem", cert)
+    #File.write("#{dir}/web-server-key.pem", key)
+    #File.write("#{dir}/from-workstation-ca.crt", a)
+    #File.write("#{dir}/polly-root-ca.crt", b)
+    #File.write("#{dir}/multipass-mega.crt", c)
+    #
+    a = File.open(File.join(cert_package_dir, "from-workstation-ca.crt")).read
+    b = File.open(File.join(cert_package_dir, "polly-root-ca.crt")).read
+    c = File.open(File.join(cert_package_dir, "multipass-mega.crt")).read
+
+    cert = File.open(File.join(cert_package_dir, "web-server-certificate.pem")).read
+    key = File.open(File.join(cert_package_dir, "web-server-key.pem")).read
+
+    polly_certificates = <<-HEREDOC
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "registry-certificates"
+type: Opaque
+data:
+  registry.polly.pem: #{Base64.strict_encode64(cert)}
+  registry.polly.key: #{Base64.strict_encode64(key)}
+...
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "ca-certificates"
+type: Opaque
+data:
+  ca.workstation.crt: #{Base64.strict_encode64(a)}
+  ca.polly.crt: #{Base64.strict_encode64(b)}
+...
+HEREDOC
+
+#puts polly_certificates
+#exit
+
+    #  obv = ::Polly::Observe.new
+    #  obv.register_channels(["certificates"])
+
+    #  delete_polly_certificates = ["kubectl", "delete", "--namespace=#{options['namespace']}", "-f", "-"]
+    #  create_polly_certificates = ["kubectl", "create", "--namespace=#{options['namespace']}", "-f", "-"]
+
+    #  options = {:stdin_data => polly_certificates}
+    #  o,e,s = exe.execute_simple(:output, delete_polly_certificates, options)
+    #  obv.report_io("certificates", o, e)
+    #  obv.flush($stdout, $stderr)
+
+    #  o,e,s = exe.execute_simple(:output, create_polly_certificates, options)
+    #  obv.report_io("certificates", o, e)
+    #  obv.flush($stdout, $stderr)
+
+    #  obv.flush($stdout, $stderr, true)
+
+    polly_resources << polly_certificates << <<-HEREDOC
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -821,8 +885,9 @@ metadata:
   name: "polly-registry"
 spec:
   ports:
-  - port: 443
-    name: docker-registry
+  - port: 23443
+    targetPort: 23443
+    name: https
     protocol: TCP
   selector:
     name: "polly-registry"
@@ -857,7 +922,7 @@ metadata:
 data:
   buildkitd.toml: |-
     debug = true
-    [registry."polly-registry:443"]
+    [registry."polly-registry:23443"]
     ca=["/certs/ca.polly.crt"]
     insecure = true
 ...
@@ -915,26 +980,26 @@ spec:
             runAsUser: 1000
             runAsGroup: 1000
           volumeMounts:
-            # Dockerfile has `VOLUME /home/user/.local/share/buildkit` by default too,
-            # but the default VOLUME does not work with rootless on Google's Container-Optimized OS
-            # as it is mounted with `nosuid,nodev`.
-            # https://github.com/moby/buildkit/issues/879#issuecomment-1240347038
-            - mountPath: /home/user/.local/share/buildkit
-              name: buildkitd
-            - name: configurations
-              subPath: buildkitd.toml
-              mountPath: /home/user/.config/buildkit/buildkitd.toml
-            - name: ca-certificates
-              mountPath: /certs
+          # Dockerfile has `VOLUME /home/user/.local/share/buildkit` by default too,
+          # but the default VOLUME does not work with rootless on Google's Container-Optimized OS
+          # as it is mounted with `nosuid,nodev`.
+          # https://github.com/moby/buildkit/issues/879#issuecomment-1240347038
+          - mountPath: /home/user/.local/share/buildkit
+            name: buildkitd
+          - name: configurations
+            subPath: buildkitd.toml
+            mountPath: /home/user/.config/buildkit/buildkitd.toml
+          - name: ca-certificates
+            mountPath: /certs
       volumes:
-        - name: buildkitd
-          emptyDir: {}
-        - name: configurations
-          configMap:
-            name: polly-buildkitd-configuration
-        - name: ca-certificates
-          secret:
-            secretName: ca-certificates
+      - name: buildkitd
+        emptyDir: {}
+      - name: configurations
+        configMap:
+          name: polly-buildkitd-configuration
+      - name: ca-certificates
+        secret:
+          secretName: ca-certificates
 ...
 ---
 apiVersion: apps/v1
@@ -1031,6 +1096,7 @@ spec:
         name: polly-registry
         stack: polly
     spec:
+      hostNetwork: true
       volumes:
         - name: registry-config
           configMap:
@@ -1063,7 +1129,8 @@ spec:
             memory: 1000Mi
             cpu: 2000m
         ports:
-        - containerPort: 443
+        - containerPort: 23443
+          name: https
         command:
         - /bin/registry
         args:
@@ -1075,7 +1142,7 @@ spec:
         - name: REGISTRY_HTTP_TLS_KEY
           value: /etc/ssl/private/registry.polly.key
         - name: REGISTRY_HTTP_ADDR
-          value: 0.0.0.0:443
+          value: 0.0.0.0:23443
 ...
 HEREDOC
     end
@@ -1120,6 +1187,28 @@ HEREDOC
     exe = ::Polly::Execute.new
 
     exec(*["kubectl", "run", "shr", "-it", "--image=ghcr.io/unhookd/polly:master", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", shr_cmd].compact)
+  end
+
+  desc "rxn", "run app pod"
+  def rxn(rxn_cmd = "bash")
+    exe = ::Polly::Execute.new
+
+    vertical_lookup = YAML.load(File.read("vertical.yaml"))
+    environment_overrides = vertical_lookup["environment-overrides"]
+
+    env_flags = (environment_overrides || []).collect { |env| "--env=#{env["name"]}=#{env["value"]}" }
+
+    version = exe.current_revision
+    branch = exe.current_branch
+    app = exe.current_app
+    image_repo = Polly::Config.image_repo
+
+    tag = Polly::Build.build_image_to_tag(app, "wkndr", version)
+
+    cmd = ["kubectl", "run", "rxn", "-it", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", rxn_cmd].compact
+    #puts cmd.inspect
+
+    exec(*cmd)
   end
 
   desc "wxh", "workstation instance"

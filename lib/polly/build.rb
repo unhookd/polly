@@ -14,6 +14,7 @@ module Polly
     end
 
     def self.buildkit_workstation_to_controller(exe, app, build_image_stage, version, force_no_cache)
+      #TODO: figure out refactor for stdin/generated container image specification
       #file = Tempfile.new('Dockerfile', Dir.pwd)
       #file.write(generated_dockerfile)
       #file.rewind
@@ -24,12 +25,12 @@ module Polly
         "buildctl",
         "--addr", "kube-pod://polly-buildkitd-0",
         "build",
+        "--progress=plain",
         "--ssh", "default", #"default=#{Dir.home}/.ssh/id_rsa",
         "--frontend", "dockerfile.v0",
         "--local", "context=.", "--local", "dockerfile=.",
-        "--output", "type=image,name=polly-registry:443/polly-registry/#{tag},push=true"
+        "--output", "type=image,name=polly-registry:23443/polly-registry/#{tag},push=true"
       ]
-      puts buildctl_local_cmd.inspect
       exe.systemx(*buildctl_local_cmd) || fail("unable to build")
       puts "Built and tagged: #{tag} OK"
     end
@@ -147,7 +148,7 @@ spec:
         args:
         - build
         #- --import-cache
-        #- type=registry,ref=polly-registry:443/#{app}
+        #- type=registry,ref=polly-registry:23443/#{app}
         - --import-cache
         - type=local,src=/polly/safe/buildkit,mode=max
         - --frontend
@@ -159,7 +160,7 @@ spec:
         #- --export-cache
         #- type=inline
         #- --export-cache
-        #- type=registry,ref=polly-registry:443/#{app}
+        #- type=registry,ref=polly-registry:23443/#{app}
         - --export-cache
         - type=local,dest=/polly/safe/buildkit,mode=max
         #- --output
@@ -167,7 +168,7 @@ spec:
         #- --output
         #- type=image,name=#{app}/#{tag},push=true
         ##- --output
-        ##- type=image,name=polly-registry:443/#{tag},push=true
+        ##- type=image,name=polly-registry:23443/#{tag},push=true
         resources:
           requests:
             memory: 5000Mi
@@ -300,9 +301,9 @@ HEREDOC
 #      - "https://polly-registry:443"
 #  "polly-registry":
 #    endpoint:
-#      - "https://polly-registry:443"
+#      - "https://polly-registry:23443"
 #configs:
-#  "polly-registry:443":
+#  "polly-registry:23443":
 #    tls:
 #      #cert_file: # path to the cert file used in the registry
 #      #key_file:  # path to the key file used in the registry
@@ -316,12 +317,12 @@ HEREDOC
           #},
           "polly-registry" => {
             "endpoint" => [
-              "https://polly-registry:443"
+              "https://polly-registry:23443"
             ]
           }
         },
         "configs" => {
-          "polly-registry:443" => {
+          "polly-registry:24443" => {
             "tls" => {
               "ca_file" => "/usr/local/share/ca-certificates/polly-ca.crt"
             }
