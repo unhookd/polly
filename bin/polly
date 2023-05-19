@@ -674,11 +674,11 @@ HEREDOC
     end
   end
 
-  desc "init", "bootstraps project polly controller pod"
+  desc "init [CERTS]", "bootstraps project polly controller pod"
   option "re-init", :type => :boolean, :default => false
   option "with-registry", :type => :boolean, :default => false
   option "with-bootstrap", :type => :string, :default => "ghcr.io/unhookd/polly:3.0-rc1" # "polly:3.0-rc1"
-  def init
+  def init(cert_package_dir)
     exe = ::Polly::Execute.new
 
     unless exe.in_polly?
@@ -699,7 +699,54 @@ HEREDOC
     git_image = options["with-bootstrap"] # "alpine/git:latest"
     git_command = ["sleep", "2147483647"].to_json
 
-    polly_resources << <<-HEREDOC
+    #etc_slash_ssh_slash_ssh_host_rsa_key
+    #etc_slash_ssh_slash_ssh_host_rsa_key.pub
+    #from-workstation-ca.crt
+    #id_rsa.pub
+    #multipass-mega.crt
+    #polly-root-ca.crt
+    #web-server-certificate.pem
+    #web-server-key.pem
+    #File.write("#{dir}/web-server-certificate.pem", cert)
+    #File.write("#{dir}/web-server-key.pem", key)
+    #File.write("#{dir}/from-workstation-ca.crt", a)
+    #File.write("#{dir}/polly-root-ca.crt", b)
+    #File.write("#{dir}/multipass-mega.crt", c)
+
+    cert = File.open(File.join(cert_package_dir, "web-server-certificate.pem")).read
+    key = File.open(File.join(cert_package_dir, "web-server-key.pem")).read
+
+    polly_certificates = <<-HEREDOC
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "registry-certificates"
+type: Opaque
+data:
+  registry.polly.pem: #{Base64.strict_encode64(cert)}
+  registry.polly.key: #{Base64.strict_encode64(key)}
+...
+HEREDOC
+
+    #  obv = ::Polly::Observe.new
+    #  obv.register_channels(["certificates"])
+
+    #  delete_polly_certificates = ["kubectl", "delete", "--namespace=#{options['namespace']}", "-f", "-"]
+    #  create_polly_certificates = ["kubectl", "create", "--namespace=#{options['namespace']}", "-f", "-"]
+
+    #  options = {:stdin_data => polly_certificates}
+    #  o,e,s = exe.execute_simple(:output, delete_polly_certificates, options)
+    #  obv.report_io("certificates", o, e)
+    #  obv.flush($stdout, $stderr)
+
+    #  o,e,s = exe.execute_simple(:output, create_polly_certificates, options)
+    #  obv.report_io("certificates", o, e)
+    #  obv.flush($stdout, $stderr)
+
+    #  obv.flush($stdout, $stderr, true)
+
+    polly_resources << polly_certificates << <<-HEREDOC
 ---
 apiVersion: v1
 kind: ServiceAccount
