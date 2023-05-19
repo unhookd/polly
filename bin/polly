@@ -1527,9 +1527,10 @@ HEREDOC
           raise unless (distro = params["distro"]) && (ssh = params["ssh"]) &&
                          (client_key_pub = ssh["client_key_pub"]) &&
                          (server_key = ssh["server_key"]) &&
-                         (server_key_pub = ssh["server_key_pub"])
+                         (server_key_pub = ssh["server_key_pub"]) &&
+                         (ca_cert = ssh["ca_cert"])
 
-          cloud_init_yaml = ::Polly::Build.build_cloudinit_yaml(exe, vertical_lookup, File.read(client_key_pub), File.read(server_key), File.read(server_key_pub))
+          cloud_init_yaml = ::Polly::Build.build_cloudinit_yaml(exe, vertical_lookup, File.read(ca_cert), File.read(client_key_pub), File.read(server_key), File.read(server_key_pub))
 
           if options["debug"]
             puts cloud_init_yaml
@@ -1644,8 +1645,11 @@ HEREDOC
       system("ssh", remote_user, "--", "ln", "-sf", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}/devstack/git-hooks", "/home/#{options['user']}/workspace/#{uuid}.git/hooks")
       system("ssh", remote_user, "--", "git", "-C", "/home/#{options['user']}/workspace/#{uuid}.git config", "receive.advertisePushOptions", "true")
 
+      system("ssh", remote_user, "--", "git", "config", "--global", "user.name", IO.popen("git config user.name").read.strip)
+      system("ssh", remote_user, "--", "git", "config", "--global", "user.email", IO.popen("git config user.email").read.strip)
+
       polly_ssh_config_d = "#{Dir.home}/.ssh/polly_config.d"
-      Dir.mkdir_p(polly_ssh_config_d)
+      FileUtils.mkdir_p(polly_ssh_config_d)
       File.write(File.join(polly_ssh_config_d, profile), "Host #{multipass_ip}\n  ForwardAgent yes")
 
       #system("git", "config", "remote.#{profile}.sshCommand", 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ForwardAgent=yes -X')

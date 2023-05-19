@@ -242,7 +242,7 @@ HEREDOC
       exec(*["kubectl", "logs", build_pod, "-f"].compact)
     end
 
-    def self.build_cloudinit_yaml(exe, vertical_lookup, client_key_pub, server_key, server_key_pub)
+    def self.build_cloudinit_yaml(exe, vertical_lookup, ca_cert, client_key_pub, server_key, server_key_pub)
       prewrites = vertical_lookup["prewrites"]
 
       users = [{
@@ -278,6 +278,18 @@ HEREDOC
       }
 
       write_files << {
+        'content' => ca_cert.strip + "\n",
+        'path' => '/usr/local/share/ca-certificates/polly-ca.crt',
+        'permissions' => '0644'
+      }
+
+      #write_files << {
+      #  'content' => "KUBECONFIG=\"~/.kube/k3s-config:~/.kube/config\"" + "\n" + "PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin\"" + "\n",
+      #  'path' => '/etc/environment',
+      #  'permissions' => '0644'
+      #}
+
+      write_files << {
         'content' => "HostKey /etc/ssh/custom_ssh_host_rsa_key" + "\n",
         'path' => '/etc/ssh/sshd_config.d/custom.conf',
         'permissions' => '0644'
@@ -311,7 +323,7 @@ HEREDOC
         "configs" => {
           "polly-registry:443" => {
             "tls" => {
-              "ca_file" => "/home/app/workspace/polly/ca"
+              "ca_file" => "/usr/local/share/ca-certificates/polly-ca.crt"
             }
           }
         }
@@ -323,10 +335,8 @@ HEREDOC
         'permissions' => '0644'
       }
 
-
-
       write_files << {
-        'content' => "127.0.1.1 $hostname $hostname\n127.0.0.1 localhost\n" + vertical_lookup["host-aliases"].collect { |ha| ha["hostnames"].collect { |hn| ha["ip"] + " " + hn }.join("\n") }.join("\n") + "" + "\n",
+        'content' => "127.0.0.1 polly-registry\n127.0.1.1 $hostname $hostname\n127.0.0.1 localhost\n" + vertical_lookup["host-aliases"].collect { |ha| ha["hostnames"].collect { |hn| ha["ip"] + " " + hn }.join("\n") }.join("\n") + "" + "\n",
         'path' => '/etc/cloud/templates/hosts.debian.tmpl',
         'permissions' => '0644'
       }
