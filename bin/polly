@@ -712,6 +712,10 @@ HEREDOC
     #File.write("#{dir}/from-workstation-ca.crt", a)
     #File.write("#{dir}/polly-root-ca.crt", b)
     #File.write("#{dir}/multipass-mega.crt", c)
+    #
+    a = File.open(File.join(cert_package_dir, "from-workstation-ca.crt")).read
+    b = File.open(File.join(cert_package_dir, "polly-root-ca.crt")).read
+    c = File.open(File.join(cert_package_dir, "multipass-mega.crt")).read
 
     cert = File.open(File.join(cert_package_dir, "web-server-certificate.pem")).read
     key = File.open(File.join(cert_package_dir, "web-server-key.pem")).read
@@ -727,7 +731,20 @@ data:
   registry.polly.pem: #{Base64.strict_encode64(cert)}
   registry.polly.key: #{Base64.strict_encode64(key)}
 ...
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "ca-certificates"
+type: Opaque
+data:
+  ca.workstation.crt: #{Base64.strict_encode64(a)}
+  ca.polly.crt: #{Base64.strict_encode64(b)}
+...
 HEREDOC
+
+#puts polly_certificates
+#exit
 
     #  obv = ::Polly::Observe.new
     #  obv.register_channels(["certificates"])
@@ -868,8 +885,9 @@ metadata:
   name: "polly-registry"
 spec:
   ports:
-  - port: 443
-    name: docker-registry
+  - port: 23443
+    targetPort: 23443
+    name: https
     protocol: TCP
   selector:
     name: "polly-registry"
@@ -904,7 +922,7 @@ metadata:
 data:
   buildkitd.toml: |-
     debug = true
-    [registry."polly-registry:443"]
+    [registry."polly-registry:23443"]
     ca=["/certs/ca.polly.crt"]
     insecure = true
 ...
@@ -962,26 +980,26 @@ spec:
             runAsUser: 1000
             runAsGroup: 1000
           volumeMounts:
-            # Dockerfile has `VOLUME /home/user/.local/share/buildkit` by default too,
-            # but the default VOLUME does not work with rootless on Google's Container-Optimized OS
-            # as it is mounted with `nosuid,nodev`.
-            # https://github.com/moby/buildkit/issues/879#issuecomment-1240347038
-            - mountPath: /home/user/.local/share/buildkit
-              name: buildkitd
-            - name: configurations
-              subPath: buildkitd.toml
-              mountPath: /home/user/.config/buildkit/buildkitd.toml
-            - name: ca-certificates
-              mountPath: /certs
+          # Dockerfile has `VOLUME /home/user/.local/share/buildkit` by default too,
+          # but the default VOLUME does not work with rootless on Google's Container-Optimized OS
+          # as it is mounted with `nosuid,nodev`.
+          # https://github.com/moby/buildkit/issues/879#issuecomment-1240347038
+          - mountPath: /home/user/.local/share/buildkit
+            name: buildkitd
+          - name: configurations
+            subPath: buildkitd.toml
+            mountPath: /home/user/.config/buildkit/buildkitd.toml
+          - name: ca-certificates
+            mountPath: /certs
       volumes:
-        - name: buildkitd
-          emptyDir: {}
-        - name: configurations
-          configMap:
-            name: polly-buildkitd-configuration
-        - name: ca-certificates
-          secret:
-            secretName: ca-certificates
+      - name: buildkitd
+        emptyDir: {}
+      - name: configurations
+        configMap:
+          name: polly-buildkitd-configuration
+      - name: ca-certificates
+        secret:
+          secretName: ca-certificates
 ...
 ---
 apiVersion: apps/v1
@@ -1078,6 +1096,7 @@ spec:
         name: polly-registry
         stack: polly
     spec:
+      hostNetwork: true
       volumes:
         - name: registry-config
           configMap:
@@ -1110,7 +1129,8 @@ spec:
             memory: 1000Mi
             cpu: 2000m
         ports:
-        - containerPort: 443
+        - containerPort: 23443
+          name: https
         command:
         - /bin/registry
         args:
@@ -1122,7 +1142,7 @@ spec:
         - name: REGISTRY_HTTP_TLS_KEY
           value: /etc/ssl/private/registry.polly.key
         - name: REGISTRY_HTTP_ADDR
-          value: 0.0.0.0:443
+          value: 0.0.0.0:23443
 ...
 HEREDOC
     end
@@ -1185,7 +1205,7 @@ HEREDOC
 
     tag = Polly::Build.build_image_to_tag(app, "wkndr", version)
 
-    cmd = ["kubectl", "run", "rxn", "-it", *env_flags, "--image=polly-registry:443/polly-registry/#{tag}", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", rxn_cmd].compact
+    cmd = ["kubectl", "run", "rxn", "-it", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", rxn_cmd].compact
     #puts cmd.inspect
 
     exec(*cmd)

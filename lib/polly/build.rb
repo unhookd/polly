@@ -29,7 +29,7 @@ module Polly
         "--ssh", "default", #"default=#{Dir.home}/.ssh/id_rsa",
         "--frontend", "dockerfile.v0",
         "--local", "context=.", "--local", "dockerfile=.",
-        "--output", "type=image,name=polly-registry:443/polly-registry/#{tag},push=true"
+        "--output", "type=image,name=polly-registry:23443/polly-registry/#{tag},push=true"
       ]
       exe.systemx(*buildctl_local_cmd) || fail("unable to build")
       puts "Built and tagged: #{tag} OK"
@@ -148,7 +148,7 @@ spec:
         args:
         - build
         #- --import-cache
-        #- type=registry,ref=polly-registry:443/#{app}
+        #- type=registry,ref=polly-registry:23443/#{app}
         - --import-cache
         - type=local,src=/polly/safe/buildkit,mode=max
         - --frontend
@@ -160,7 +160,7 @@ spec:
         #- --export-cache
         #- type=inline
         #- --export-cache
-        #- type=registry,ref=polly-registry:443/#{app}
+        #- type=registry,ref=polly-registry:23443/#{app}
         - --export-cache
         - type=local,dest=/polly/safe/buildkit,mode=max
         #- --output
@@ -168,7 +168,7 @@ spec:
         #- --output
         #- type=image,name=#{app}/#{tag},push=true
         ##- --output
-        ##- type=image,name=polly-registry:443/#{tag},push=true
+        ##- type=image,name=polly-registry:23443/#{tag},push=true
         resources:
           requests:
             memory: 5000Mi
@@ -289,28 +289,28 @@ HEREDOC
 #      - "https://polly-registry:443"
 #  "polly-registry":
 #    endpoint:
-#      - "https://polly-registry:443"
+#      - "https://polly-registry:23443"
 #configs:
-#  "polly-registry:443":
+#  "polly-registry:23443":
 #    tls:
 #      #cert_file: # path to the cert file used in the registry
 #      #key_file:  # path to the key file used in the registry
 #      ca_file: /home/app/workspace/polly/ca  # path to the ca file used in the registry
       polly_registry_k3s_config = {
         "mirrors" => {
-          "docker.io" => {
-            "endpoint" => [
-              "https://polly-registry:443"
-            ]
-          },
+          #"docker.io" => {
+          #  "endpoint" => [
+          #    "https://polly-registry:443"
+          #  ]
+          #},
           "polly-registry" => {
             "endpoint" => [
-              "https://polly-registry:443"
+              "https://polly-registry:23443"
             ]
           }
         },
         "configs" => {
-          "polly-registry:443" => {
+          "polly-registry:24443" => {
             "tls" => {
               "ca_file" => "/home/app/workspace/polly/ca"
             }
