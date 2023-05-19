@@ -410,14 +410,14 @@ class PollyTasks < Thor
   option "cache", :type => :boolean, :default => true
   option "explain", :type => :boolean, :default => false
   option "in-cluster", :type => :boolean, :default => false
-  def build(container_definition="-")
+  def build(container_definition="-", in_version = nil, in_branch = nil)
     default_pollyfile = "Pollyfile"
     default_dockerfile = "Dockerfile"
 
     exe = ::Polly::Execute.new(options)
 
-    version = exe.current_revision
-    branch = exe.current_branch
+    version = in_version || exe.current_revision
+    branch = in_branch || exe.current_branch
     app = exe.current_app
     image_repo = Polly::Config.image_repo
 
@@ -1190,7 +1190,7 @@ HEREDOC
   end
 
   desc "rxn", "run app pod"
-  def rxn(rxn_cmd = "bash")
+  def rxn(in_version = nil, in_branch = nil, rxn_cmd = "bash")
     exe = ::Polly::Execute.new
 
     vertical_lookup = YAML.load(File.read("vertical.yaml"))
@@ -1198,8 +1198,8 @@ HEREDOC
 
     env_flags = (environment_overrides || []).collect { |env| "--env=#{env["name"]}=#{env["value"]}" }
 
-    version = exe.current_revision
-    branch = exe.current_branch
+    version = in_version || exe.current_revision
+    branch = in_branch || exe.current_branch
     app = exe.current_app
     image_repo = Polly::Config.image_repo
 

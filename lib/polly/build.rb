@@ -29,8 +29,34 @@ module Polly
         "--ssh", "default", #"default=#{Dir.home}/.ssh/id_rsa",
         "--frontend", "dockerfile.v0",
         "--local", "context=.", "--local", "dockerfile=.",
-        "--output", "type=image,name=polly-registry:23443/polly-registry/#{tag},push=true"
+        "--output", "type=image,name=polly-registry:23443/polly-registry/#{tag},push=true",
+        "--import-cache",
+        "type=registry,ref=polly-registry:23443/#{app}",
+        #"--import-cache",
+        #"type=local,src=/polly/safe/buildkit,mode=max",
+        #- --frontend
+        #- dockerfile.v0
+        #- --local
+        #- context=/home/app/#{app}
+        #- --local
+        #- dockerfile=/tmp/#{app}
+        "--export-cache",
+        "type=inline",
+        "--export-cache",
+        "type=registry,ref=polly-registry:23443/#{app}"
+        #- --export-cache
+        #- type=registry,ref=polly-registry:23443/#{app}
+        #"--export-cache",
+        #"type=local,dest=/polly/safe/buildkit,mode=max"
+        #- --output
+        #- type=tar,dest=/polly-safe/buildkit/#{tag}.tar
+        #- --output
+        #- type=image,name=#{app}/#{tag},push=true
+        ##- --output
+        ##- type=image,name=polly-registry:23443/#{tag},push=true
+
       ]
+      puts buildctl_local_cmd.inspect
       exe.systemx(*buildctl_local_cmd) || fail("unable to build")
       puts "Built and tagged: #{tag} OK"
     end
