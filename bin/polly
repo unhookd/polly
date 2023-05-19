@@ -1122,6 +1122,28 @@ HEREDOC
     exec(*["kubectl", "run", "shr", "-it", "--image=ghcr.io/unhookd/polly:master", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", shr_cmd].compact)
   end
 
+  desc "rxn", "run app pod"
+  def rxn(rxn_cmd = "bash")
+    exe = ::Polly::Execute.new
+
+    vertical_lookup = YAML.load(File.read("vertical.yaml"))
+    environment_overrides = vertical_lookup["environment-overrides"]
+
+    env_flags = (environment_overrides || []).collect { |env| "--env=#{env["name"]}=#{env["value"]}" }
+
+    version = exe.current_revision
+    branch = exe.current_branch
+    app = exe.current_app
+    image_repo = Polly::Config.image_repo
+
+    tag = Polly::Build.build_image_to_tag(app, "wkndr", version)
+
+    cmd = ["kubectl", "run", "rxn", "-it", *env_flags, "--image=polly-registry:443/polly-registry/#{tag}", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", rxn_cmd].compact
+    #puts cmd.inspect
+
+    exec(*cmd)
+  end
+
   desc "wxh", "workstation instance"
   def wxh(profile)
     exe = ::Polly::Execute.new

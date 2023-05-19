@@ -14,6 +14,7 @@ module Polly
     end
 
     def self.buildkit_workstation_to_controller(exe, app, build_image_stage, version, force_no_cache)
+      #TODO: figure out refactor for stdin/generated container image specification
       #file = Tempfile.new('Dockerfile', Dir.pwd)
       #file.write(generated_dockerfile)
       #file.rewind
@@ -24,12 +25,12 @@ module Polly
         "buildctl",
         "--addr", "kube-pod://polly-buildkitd-0",
         "build",
+        "--progress=plain",
         "--ssh", "default", #"default=#{Dir.home}/.ssh/id_rsa",
         "--frontend", "dockerfile.v0",
         "--local", "context=.", "--local", "dockerfile=.",
         "--output", "type=image,name=polly-registry:443/polly-registry/#{tag},push=true"
       ]
-      puts buildctl_local_cmd.inspect
       exe.systemx(*buildctl_local_cmd) || fail("unable to build")
       puts "Built and tagged: #{tag} OK"
     end
