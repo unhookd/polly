@@ -1539,7 +1539,7 @@ HEREDOC
           known_hosts_file = File.expand_path("~/.ssh/known_hosts")
           known_hosts = File.read(known_hosts_file) if File.exists?(known_hosts_file)
 
-          multipass_launch_cmd = ["multipass", "launch", "--name", profile, "--disk=60G", "--cpus=4", "--memory=10G", "--cloud-init=-", distro]
+          multipass_launch_cmd = ["multipass", "launch", "--name", profile, "--disk=100G", "--cpus=4", "--memory=10G", "--cloud-init=-", distro]
           multipass_options = {:out => $stdout, :err => $stderr, :in => ::Polly::Build.generated_string_fd(cloud_init_yaml)}
           exe.system({}, *multipass_launch_cmd, multipass_options)
 
@@ -1560,7 +1560,7 @@ HEREDOC
   end
 
   desc "stationkeep [PROFILE]", "todo"
-  def stationkeep(profile = "foo")
+  def stationkeep(profile = "foo", substation = nil)
     exe = ::Polly::Execute.new
 
     vertical_lookup = YAML.load(File.read("vertical.yaml"))
@@ -1568,45 +1568,55 @@ HEREDOC
 
     multipass_ip = exe.multipass_ip(profile)
 
+    if substation
+      stationkeeps = stationkeeps.select { |stationkeep| stationkeep["name"] == substation }
+    end
+
     stationkeeps.each { |stationkeep|
-      if bootstrap = stationkeep["bootstrap"]
-        bootstrap_script = File.read(bootstrap)
-        shebang = bootstrap_script.split("\n")[0].split("!", 2)[1].split(" ")
-
-        options = {:stdin_data => bootstrap_script}
-        ssh_pipe = ["ssh", "app@#{multipass_ip}", "sudo", *shebang]
-        stdin, stdout, stderr, wait_thr = Open3.popen3(*ssh_pipe)
-        stdin.write(options[:stdin_data])
-        stdin.close
-
-        resolution = :ok
-        begin
-          until wait_thr.join(1.0 / 24.0)
-            if bits = begin
-                        stdout.readpartial(8192)
-                      rescue EOFError
-                      end
-
-              $stdout.write(bits)
-            end
-          end
-        rescue Interrupt
-          Process.kill("INT", wait_thr.pid)
-          $stderr.write(stderr.read)
-          resolution = :interrupt
-        end
-
-        $stdout.write(stdout.read) unless stdout.eof?
-        #$stderr.write(stderr.read) unless stderr.eof?
-
-        unless wait_thr.value.success?
-          puts wait_thr.value.inspect
-          puts stderr.read
-          resolution = :errored
-        end
-
-        break unless resolution == :ok
+      sudo = false
+      if bootstrap = stationkeep["root"]
+        sudo = true
+      elsif bootstrap = stationkeep["app"]
+      else
+        raise
       end
+
+      bootstrap_script = File.read(bootstrap)
+      shebang = bootstrap_script.split("\n")[0].split("!", 2)[1].split(" ")
+
+      options = {:stdin_data => bootstrap_script}
+      ssh_pipe = ["ssh", "-AX", "app@#{multipass_ip}", sudo ? "sudo" : nil, *shebang].compact
+      stdin, stdout, stderr, wait_thr = Open3.popen3(*ssh_pipe)
+      stdin.write(options[:stdin_data])
+      stdin.close
+
+      resolution = :ok
+      begin
+        until wait_thr.join(1.0 / 24.0)
+          if bits = begin
+                      stdout.readpartial(8192)
+                    rescue EOFError
+                    end
+
+            $stdout.write(bits)
+          end
+        end
+      rescue Interrupt
+        Process.kill("INT", wait_thr.pid)
+        $stderr.write(stderr.read)
+        resolution = :interrupt
+      end
+
+      $stdout.write(stdout.read) unless stdout.eof?
+      #$stderr.write(stderr.read) unless stderr.eof?
+
+      unless wait_thr.value.success?
+        puts wait_thr.value.inspect
+        puts stderr.read
+        resolution = :errored
+      end
+
+      break unless resolution == :ok
     }
 
     puts
@@ -1633,7 +1643,12 @@ HEREDOC
       system("ssh", remote_user, "--", "git", "clone", "/home/#{options['user']}/workspace/#{uuid}.git", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}", "--branch", `git rev-parse --abbrev-ref HEAD`) || fail
       system("ssh", remote_user, "--", "ln", "-sf", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}/devstack/git-hooks", "/home/#{options['user']}/workspace/#{uuid}.git/hooks")
       system("ssh", remote_user, "--", "git", "-C", "/home/#{options['user']}/workspace/#{uuid}.git config", "receive.advertisePushOptions", "true")
-      system("git", "config", "core.sshCommand", 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ForwardAgent=yes -X')
+
+      polly_ssh_config_d = "#{Dir.home}/.ssh/polly_config.d"
+      Dir.mkdir_p(polly_ssh_config_d)
+      File.write(File.join(polly_ssh_config_d, profile), "Host #{multipass_ip}\n  ForwardAgent yes")
+
+      #system("git", "config", "remote.#{profile}.sshCommand", 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ForwardAgent=yes -X')
     else
       puts "re-init manually... git remote remove #{profile}"
       #system("ssh", remote_user, "--", "git", "-C", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}", "pull")

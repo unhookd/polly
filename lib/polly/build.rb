@@ -297,11 +297,11 @@ HEREDOC
 #      ca_file: /home/app/workspace/polly/ca  # path to the ca file used in the registry
       polly_registry_k3s_config = {
         "mirrors" => {
-          "docker.io" => {
-            "endpoint" => [
-              "https://polly-registry:443"
-            ]
-          },
+          #"docker.io" => {
+          #  "endpoint" => [
+          #    "https://polly-registry:443"
+          #  ]
+          #},
           "polly-registry" => {
             "endpoint" => [
               "https://polly-registry:443"
