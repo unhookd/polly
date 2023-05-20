@@ -557,7 +557,7 @@ class PollyTasks < Thor
     root_ca.sign(root_key, OpenSSL::Digest::SHA256.new)
 
     cnames = cnames.split(":") + ["polly-registry"]
-    cname = cnames.shift
+    cname = cnames.first
 
     key = OpenSSL::PKey::RSA.new 2048
     cert = OpenSSL::X509::Certificate.new
