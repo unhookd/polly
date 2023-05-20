@@ -1205,7 +1205,7 @@ HEREDOC
 
     tag = Polly::Build.build_image_to_tag(app, "wkndr", version)
 
-    cmd = ["kubectl", "run", "rxn", "-it", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", rxn_cmd].compact
+    cmd = ["kubectl", "run", "rxn", "--attach=true", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", rxn_cmd].compact
     #puts cmd.inspect
 
     exec(*cmd)
