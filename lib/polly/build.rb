@@ -321,6 +321,31 @@ HEREDOC
         'path' => '/etc/ssh/sshd_config.d/custom.conf',
         'permissions' => '0644'
       }
+
+      write_files << {
+        'path' => '/etc/systemd/resolved.conf',
+        'append' => true,
+        'content' => "MulticastDNS=yes\n"
+      }
+
+      write_files << {
+        'path' => '/etc/systemd/system/mdns@.service',
+        'content' => "[Service]
+Type=oneshot
+ExecStart=/usr/bin/resolvectl mdns %i yes
+After=sys-subsystem-net-devices-%i.device
+
+[Install]
+WantedBy=sys-subsystem-net-devices-%i.device
+"
+      }
+
+      runcmd = [
+        "systemctl restart systemd-resolved.service",
+        "systemctl start mdns@ens3.service", # https://github.com/canonical/multipass/issues/1830
+        "systemctl enable mdns@ens3.service"
+      ]
+
 #mirrors:
 #  "docker.io":
 #    endpoint:
@@ -371,7 +396,8 @@ HEREDOC
       {
         'users' => users,
         'write_files' => write_files,
-        'manage_etc_hosts' => true
+        'manage_etc_hosts' => true,
+        'runcmd' => runcmd
       }.to_yaml
     end
   end
