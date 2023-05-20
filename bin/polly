@@ -1198,8 +1198,8 @@ HEREDOC
 
     env_flags = (environment_overrides || []).collect { |env| "--env=#{env["name"]}=#{env["value"]}" }
 
-    version = in_version || exe.current_revision
-    branch = in_branch || exe.current_branch
+    version = exe.current_revision
+    branch = exe.current_branch
     app = exe.current_app
     image_repo = Polly::Config.image_repo
 
