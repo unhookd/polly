@@ -1,3 +1,9 @@
+# [4.26.0] - 2023-05-19 - Jon
+
+add more build/run options
+
+#######
+
 # [4.25.0] - 2023-05-16 - Jon Bardin
 
 Allow `host-aliases` block to be defined and written out to /etc/hosts via cloud-init
