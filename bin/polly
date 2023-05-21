@@ -512,6 +512,7 @@ class PollyTasks < Thor
   option "namespace", :type => :string, :default => "default"
   option "mode", :type => :string, :default => "directory"
   def certificates(inbound_ssh_key="", inbound_ssh_key_pub="", cname = "polly-registry", cname_two = "0.0.0.0")
+    # openssl pkcs12 -export -in server.crt -inkey server.key -out server.p12
     inbound_ssh_key = File.read(inbound_ssh_key) unless inbound_ssh_key.empty?
     inbound_ssh_key_pub = File.read(inbound_ssh_key_pub) unless inbound_ssh_key_pub.empty?
 
@@ -534,7 +535,7 @@ class PollyTasks < Thor
 
     exe = ::Polly::Execute.new
 
-    root_key = OpenSSL::PKey::RSA.new 2048 # the CA's public/private key
+    root_key = OpenSSL::PKey::RSA.new 2048 # the CA's public/private key #!!!!!!
 
     root_ca = OpenSSL::X509::Certificate.new
     root_ca.version = 2 # cf. RFC 5280 - to make it a "v3" certificate
