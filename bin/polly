@@ -511,10 +511,16 @@ class PollyTasks < Thor
   desc "certificates [PRIVATE_KEY] [PUBLIC_KEY]", "installs some common ca certificate secret material into cluster"
   option "namespace", :type => :string, :default => "default"
   option "mode", :type => :string, :default => "directory"
-  def certificates(inbound_ssh_key="", inbound_ssh_key_pub="", cname = "polly-registry", cname_two = "0.0.0.0")
-    # openssl pkcs12 -export -in server.crt -inkey server.key -out server.p12
-    inbound_ssh_key = File.read(inbound_ssh_key) unless inbound_ssh_key.empty?
-    inbound_ssh_key_pub = File.read(inbound_ssh_key_pub) unless inbound_ssh_key_pub.empty?
+#  def certificates(inbound_ssh_key="", inbound_ssh_key_pub="", cname = "polly-registry", cname_two = "0.0.0.0")
+#    # openssl pkcs12 -export -in server.crt -inkey server.key -out server.p12
+#    inbound_ssh_key = File.read(inbound_ssh_key) unless inbound_ssh_key.empty?
+#    inbound_ssh_key_pub = File.read(inbound_ssh_key_pub) unless inbound_ssh_key_pub.empty?
+  def certificates(cnames = "polly.local")
+    #inbound_ssh_key = File.read(inbound_ssh_key) unless inbound_ssh_key.empty?
+    #inbound_ssh_key_pub = File.read(inbound_ssh_key_pub) unless inbound_ssh_key_pub.empty?
+    #TODO: openssl pkcs12 -export -in server.crt -inkey server.key -out server.p12
+    #
+    key_client = OpenSSL::PKey::RSA.new 4096
 
     key = OpenSSL::PKey::RSA.new 4096
     key_dsa = OpenSSL::PKey::DSA.new 4096
@@ -525,10 +531,10 @@ class PollyTasks < Thor
     #ssh_key.write([key.to_blob.length].pack('N'))
     #ssh_key.write(key.to_blob)
     #ssh_priv_key = ssh_key.string
-    #type = key.ssh_type
-    #data2 = [ key.to_blob ].pack('m0')
-    #openssh_format = "#{type} #{data2}"
-    ###puts openssh_format
+
+    type = key_client.ssh_type
+    data2 = [ key_client.to_blob ].pack('m0')
+    openssh_format = "#{type} #{data2}"
 
     data = key.to_pem
     data_dsa = key_dsa.to_pem
@@ -555,6 +561,9 @@ class PollyTasks < Thor
     root_ca.add_extension(ef.create_extension("authorityKeyIdentifier","keyid:always",false))
     root_ca.sign(root_key, OpenSSL::Digest::SHA256.new)
 
+    cnames = cnames.split(":") + ["polly-registry"]
+    cname = cnames.first
+
     key = OpenSSL::PKey::RSA.new 2048
     cert = OpenSSL::X509::Certificate.new
     cert.version = 2
@@ -569,7 +578,7 @@ class PollyTasks < Thor
     ef.issuer_certificate = root_ca
     cert.add_extension(ef.create_extension("keyUsage", "digitalSignature", true))
     cert.add_extension(ef.create_extension("subjectKeyIdentifier", "hash", false))
-    cert.add_extension(ef.create_extension("subjectAltName", "DNS:#{cname},IP:#{cname_two}", false))
+    cert.add_extension(ef.create_extension("subjectAltName", cnames.collect { |cn| "DNS:#{cn}" }.join(",") + ",IP:0.0.0.0", false))
     cert.sign(root_key, OpenSSL::Digest::SHA256.new)
 
     #key = File.read("/usr/local/etc/openssl/misc/workstation-key.pem")
@@ -592,10 +601,11 @@ class PollyTasks < Thor
     #kn.add("wkstation-service", key)
     #known_hosts = File.read("/var/tmp/cheese.known_hosts")
     #puts known_hosts.inspect
+    #TODO: !!!
+    #ssh_key: #{Base64.strict_encode64(inbound_ssh_key || "")}
+    #ssh_key_pub: #{Base64.strict_encode64(inbound_ssh_key_pub || "")}
 
-  #TODO: !!!
-  #ssh_key: #{Base64.strict_encode64(inbound_ssh_key || "")}
-  #ssh_key_pub: #{Base64.strict_encode64(inbound_ssh_key_pub || "")}
+
 
     case options["mode"]
       when "k8s-secret"
@@ -657,6 +667,9 @@ HEREDOC
       FileUtils.mkdir_p(dir)
 
       File.umask(0077)
+
+      File.write("#{dir}/id_rsa.pub", openssh_format)
+      File.write("#{dir}/id_rsa", key_client.to_s)
 
       File.write("#{dir}/web-server-certificate.pem", cert)
       File.write("#{dir}/web-server-key.pem", key)
