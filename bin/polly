@@ -1200,7 +1200,7 @@ HEREDOC
   def shr(shr_cmd = "bash")
     exe = ::Polly::Execute.new
 
-    exec(*["kubectl", "run", "shr", "-it", "--image=ghcr.io/unhookd/polly:master", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", shr_cmd].compact)
+    exec(*["kubectl", "run", "shr", "-it", "--pod-running-timeout=3m0s", "--image=ghcr.io/unhookd/polly:master", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", shr_cmd].compact)
   end
 
   desc "rxn", "run app pod"
@@ -1219,7 +1219,7 @@ HEREDOC
 
     tag = Polly::Build.build_image_to_tag(app, "wkndr", version)
 
-    cmd = ["kubectl", "run", "rxn", "--attach=true", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", rxn_cmd].compact
+    cmd = ["kubectl", "run", "rxn", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", rxn_cmd].compact
     #puts cmd.inspect
 
     exec(*cmd)
