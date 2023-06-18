@@ -581,6 +581,38 @@ class PollyTasks < Thor
     cert.add_extension(ef.create_extension("subjectAltName", cnames.collect { |cn| "DNS:#{cn}" }.join(",") + ",IP:0.0.0.0", false))
     cert.sign(root_key, OpenSSL::Digest::SHA256.new)
 
+    key2 = OpenSSL::PKey::RSA.new 2048
+    cert2 = OpenSSL::X509::Certificate.new
+    cert2.version = 2
+    cert2.serial = 2
+    cert2.subject = OpenSSL::X509::Name.parse "/DC=org/DC=unhookd/CN=polly-buildkitd"
+    cert2.issuer = root_ca.subject # root CA is the issuer
+    cert2.public_key = key2.public_key
+    cert2.not_before = Time.now
+    cert2.not_after = cert2.not_before + 2 * 365 * 24 * 60 * 60 # 2 years validity
+    ef = OpenSSL::X509::ExtensionFactory.new
+    ef.subject_certificate = cert2
+    ef.issuer_certificate = root_ca
+    cert2.add_extension(ef.create_extension("keyUsage", "digitalSignature", true))
+    cert2.add_extension(ef.create_extension("subjectKeyIdentifier", "hash", false))
+    cert2.add_extension(ef.create_extension("subjectAltName", "DNS:polly-buildkitd,IP:127.0.0.1", false))
+    cert2.sign(root_key, OpenSSL::Digest::SHA256.new)
+
+    key3 = OpenSSL::PKey::RSA.new 2048
+    cert3 = OpenSSL::X509::Certificate.new
+    cert3.version = 2
+    cert3.serial = 2
+    cert3.subject = OpenSSL::X509::Name.parse "/DC=org/DC=unhookd/CN=polly-buildctl"
+    cert3.issuer = root_ca.subject # root CA is the issuer
+    cert3.public_key = key3.public_key
+    cert3.not_before = Time.now
+    cert3.not_after = cert3.not_before + 2 * 365 * 24 * 60 * 60 # 2 years validity
+    ef = OpenSSL::X509::ExtensionFactory.new
+    ef.subject_certificate = cert3
+    ef.issuer_certificate = root_ca
+    cert3.add_extension(ef.create_extension("keyUsage", "digitalSignature", true))
+    cert3.sign(root_key, OpenSSL::Digest::SHA256.new)
+
     #key = File.read("/usr/local/etc/openssl/misc/workstation-key.pem")
     #cert = File.read("/usr/local/etc/openssl/misc/workstation-cert.pem")
 
@@ -642,6 +674,28 @@ data:
   ca.workstation.crt: #{Base64.strict_encode64(a)}
   ca.polly.crt: #{Base64.strict_encode64(b)}
   ca-certificates.crt: #{Base64.strict_encode64(c)}
+...
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "buildkit-daemon-certs"
+type: Opaque
+data:
+  ca.pem: #{Base64.strict_encode64(b)}
+  cert.pem: #{Base64.strict_encode64(cert2.to_pem)}
+  key.pem: #{Base64.strict_encode64(key2.to_pem)}
+...
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "buildkit-client-certs"
+type: Opaque
+data:
+  ca.pem: #{Base64.strict_encode64(b)}
+  cert.pem: #{Base64.strict_encode64(cert3.to_pem)}
+  key.pem: #{Base64.strict_encode64(key3.to_pem)}
 ...
 HEREDOC
 
@@ -848,6 +902,23 @@ spec:
 ...
 HEREDOC
 
+    polly_services << <<-HEREDOC
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: buildkitd
+  name: polly-buildkitd
+spec:
+  ports:
+    - port: 1234
+      protocol: TCP
+  selector:
+    app: buildkitd
+...
+HEREDOC
+
 #    polly_services << <<-HEREDOC
 #---
 #apiVersion: v1
@@ -949,9 +1020,9 @@ metadata:
     stack: polly
   name: polly-buildkitd
 spec:
-  serviceName: buildkitd
-  podManagementPolicy: Parallel
+  serviceName: polly-buildkitd
   replicas: 1
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
       app: buildkitd
@@ -963,9 +1034,11 @@ spec:
         stack: polly
       annotations:
         container.apparmor.security.beta.kubernetes.io/buildkitd: unconfined
-    # see buildkit/docs/rootless.md for caveats of rootless mode
+        container.seccomp.security.alpha.kubernetes.io/buildkitd: unconfined
     spec:
+      terminationGracePeriodSeconds: 180
       containers:
+#####<<<<<<< HEAD
         - name: buildkitd
           image: moby/buildkit:master-rootless
           args:
@@ -1014,6 +1087,93 @@ spec:
       - name: ca-certificates
         secret:
           secretName: ca-certificates
+####=======
+#      - name: buildkitd
+#        image: moby/buildkit:master-rootless
+#        resources:
+#          requests:
+#            memory: 10Mi
+#            cpu: 10m
+#          limits:
+#            memory: 12000Mi
+#        args:
+#        - --addr
+#        - tcp://0.0.0.0:1234
+#        - --tlscacert
+#        - /certs/server/ca.pem
+#        - --tlscert
+#        - /certs/server/cert.pem
+#        - --tlskey
+#        - /certs/server/key.pem
+#        - --oci-worker=true
+#        - --oci-worker-rootless=true
+#        - --oci-worker-no-process-sandbox=true
+#        - --oci-worker-gc=true
+#        - --oci-worker-gc-keepstorage=20000
+#        - --oci-worker-snapshotter=overlayfs
+#        readinessProbe:
+#          exec:
+#            command:
+#            - buildctl
+#            - --addr
+#            - tcp://127.0.0.1:1234
+#            - --tlscacert
+#            - /certs/client/ca.pem
+#            - --tlscert
+#            - /certs/client/cert.pem
+#            - --tlskey
+#            - /certs/client/key.pem
+#            - debug
+#            - workers
+#          initialDelaySeconds: 30
+#          periodSeconds: 60
+#          successThreshold: 1
+#          failureThreshold: 16
+#          timeoutSeconds: 30
+#        livenessProbe:
+#          exec:
+#            command:
+#            - buildctl
+#            - --addr
+#            - tcp://127.0.0.1:1234
+#            - --tlscacert
+#            - /certs/client/ca.pem
+#            - --tlscert
+#            - /certs/client/cert.pem
+#            - --tlskey
+#            - /certs/client/key.pem
+#            - debug
+#            - workers
+#          initialDelaySeconds: 30
+#          periodSeconds: 60
+#          successThreshold: 1
+#          failureThreshold: 16
+#          timeoutSeconds: 30
+#        securityContext:
+#          runAsUser: 1000
+#          runAsGroup: 1000
+#        ports:
+#        - containerPort: 1234
+#        volumeMounts:
+#        - name: "share-dir"
+#          mountPath: /home/user/.local/share/buildkit
+#        - name: buildkit-daemon-certs
+#          readOnly: true
+#          mountPath: /certs/server
+#        - name: buildkit-client-certs
+#          readOnly: true
+#          mountPath: /certs/client
+#      securityContext:
+#        fsGroup: 1000
+#      volumes:
+#      - name: buildkit-daemon-certs
+#        secret:
+#          secretName: buildkit-daemon-certs
+#      - name: buildkit-client-certs
+#        secret:
+#          secretName: buildkit-client-certs
+#      - name: share-dir
+#        emptyDir: {}
 ...
 ---
 apiVersion: apps/v1
@@ -1039,12 +1199,15 @@ spec:
     spec:
       serviceAccountName: polly
       volumes:
-        - name: polly-mount
-          persistentVolumeClaim:
-            claimName: polly-mount
-        - name: registry-certificates
-          secret:
-            secretName: registry-certificates
+      - name: buildkit-client-certs
+        secret:
+          secretName: buildkit-client-certs
+      - name: polly-mount
+        persistentVolumeClaim:
+          claimName: polly-mount
+      - name: registry-certificates
+        secret:
+          secretName: registry-certificates
       securityContext:
         runAsUser: 1000
         fsGroup: 1000
@@ -1055,11 +1218,14 @@ spec:
         securityContext:
           runAsUser: 1000
         volumeMounts:
-          - mountPath: /polly/safe
-            name: polly-mount
-          - mountPath: /etc/ssl/private
-            name: registry-certificates
-            readOnly: true
+        - mountPath: /polly/safe
+          name: polly-mount
+        - mountPath: /etc/ssl/private
+          name: registry-certificates
+          readOnly: true
+        - mountPath: /certs/client
+          name: buildkit-client-certs
+          readOnly: true
         image: #{git_image}
         imagePullPolicy: IfNotPresent
         env:
@@ -1311,19 +1477,7 @@ HEREDOC
         $stdout.write(generated_circleci_config_yml)
 
       when "github"
-        #set -e
-        #id app || (export  DEBIAN_FRONTEND=noninteractive; export  LC_ALL=C.UTF-8; export  LANG=en_US; export  LANGUAGE=en_US; export  ACCEPT_EULA=y; apt-get update; apt-get install -y locales locales-all; apt-get clean; rm -rf /var/lib/apt/lists/*; locale-gen --purge en_US; /bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale; locale-gen $LANGUAGE; dpkg-reconfigure locales; apt-get update; apt-get install -y git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper; apt-get clean; rm -rf /var/lib/apt/lists/*; curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add; apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"; apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*; groupadd --gid 134 abc-otf; groupadd --gid 999 efg-nnn; useradd --uid 1001 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn; ln -sfv /home/app/polly/bin/polly /usr/local/bin/polly; chown -R app /home/app)
-        ####export SSH_AUTH_SOCK=/tmp/ssh-auth.sock
-        ####ssh-agent -a $SSH_AUTH_SOCK > /dev/null
-        #chown -R app .
-        #### /home/app
-        ####su app -s /bin/test -- -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1001 $SSH_AUTH_SOCK && chgrp 1001 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && su app -s /bin/test -- -w $SSH_AUTH_SOCK)
-        ####test -z $DOCKER_CERT_PATH || (chown -R 1001 $(dirname $DOCKER_CERT_PATH))
-        ####chown root:docker /var/run/docker.sock
-        ####su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /bin/bash -c 'bundle exec polly build'
-        #su app -s /bin/bash -c 'bundle config set --local path /home/app/vendor/bundle && bundle config set --local jobs 4 && bundle config set --local retry 3 && bundle config set --local deploment true && bundle config set --local without development && bundle install'
-        #su app -s /bin/bash -c 'bundle exec polly generate' > Dockerfile
-        ####docker run --rm=true polly:latest bundle exec rspec
+        #TODO: re-emit githubrc file
 
       when "dockerfile"
         $stdout.write(Polly::Generate.read_output)

@@ -299,6 +299,7 @@ module Polly
                 "mountPath" => "/polly/safe/git/#{current_app}",
                 "name" => "git-repo"
               },
+
             ]
           }
         ],
@@ -342,8 +343,9 @@ module Polly
             "args" => sleep_cmd_args,
             "volumeMounts" => [
               {
-                "mountPath" => "/var/run/docker.sock",
-                "name" => "dood"
+                "mountPath" => "/certs/client",
+                "name" => "buildkit-client-certs",
+                "readOnly" => true
               },
               {
                 "mountPath" => build_manifest_dir,
@@ -357,6 +359,7 @@ module Polly
                 "mountPath" => "/var/tmp/artifacts",
                 "name" => "build-artifacts"
               },
+              #TODO: configurable secrets/mounts certs/ssh/tmp/etc
               #{
               #  "mountPath" => "/home/app/.ssh",
               #  "name" => "ssh-key"
@@ -367,9 +370,9 @@ module Polly
         ],
         "volumes" => [
           {
-            "name" => "dood",
-            "hostPath" => {
-              "path" => "/var/run/docker.sock"
+            "name" => "buildkit-client-certs",
+            "secret" => {
+              "secretName" => "buildkit-client-certs"
             }
           },
           {
