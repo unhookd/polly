@@ -26,7 +26,7 @@ module Polly
         "--addr", "kube-pod://polly-buildkitd-0",
         "build",
         "--progress=plain",
-        "--ssh", "default", #"default=#{Dir.home}/.ssh/id_rsa",
+        #"--ssh", "default", #"default=#{Dir.home}/.ssh/id_rsa",
         "--frontend", "dockerfile.v0",
         "--local", "context=.", "--local", "dockerfile=.",
         "--output", "type=image,name=polly-registry:23443/polly-registry/#{tag},push=true",

@@ -422,7 +422,7 @@ class PollyTasks < Thor
     image_repo = Polly::Config.image_repo
 
     generated_dockerfile = nil
-
+    puts [container_definition, default_dockerfile].inspect
     if container_definition == "-" && File.exists?(default_pollyfile)
       pollyfile_ruby = File.read(default_pollyfile)
       #TODO: ??? Polly::Generate.options = options
@@ -441,14 +441,14 @@ class PollyTasks < Thor
       end
     end
 
-    if options["in-cluster"]
-      Polly::Generate.all_images.each { |build_image|
-        Polly::Build.buildkit_internal(exe, app, build_image, version, generated_dockerfile, options["no-cache"])
-      }
-    else
-      raise if version.empty?
-      Polly::Build.buildkit_external(exe, app, "wkndr", version, generated_dockerfile, options["no-cache"])
-    end
+    #if options["in-cluster"]
+    #  Polly::Generate.all_images.each { |build_image|
+    #    Polly::Build.buildkit_internal(exe, app, build_image, version, generated_dockerfile, options["no-cache"])
+    #  }
+    #else
+    #  raise if version.empty?
+    #  Polly::Build.buildkit_external(exe, app, "wkndr", version, generated_dockerfile, options["no-cache"])
+    #end
   end
 
 #  desc "checkout [REPO] [VERSION] [DESTINATION]", ""
@@ -654,27 +654,27 @@ data:
   dsa_pub: #{Base64.strict_encode64(key_dsa.public_key.to_s)}
   rsa_pub: #{Base64.strict_encode64(key.public_key.to_s)}
 ...
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: "registry-certificates"
-type: Opaque
-data:
-  registry.polly.pem: #{Base64.strict_encode64(cert.to_pem)}
-  registry.polly.key: #{Base64.strict_encode64(key.to_pem)}
-...
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: "ca-certificates"
-type: Opaque
-data:
-  ca.workstation.crt: #{Base64.strict_encode64(a)}
-  ca.polly.crt: #{Base64.strict_encode64(b)}
-  ca-certificates.crt: #{Base64.strict_encode64(c)}
-...
+#---
+#apiVersion: v1
+#kind: Secret
+#metadata:
+#  name: "registry-certificates"
+#type: Opaque
+#data:
+#  registry.polly.pem: #{Base64.strict_encode64(cert.to_pem)}
+#  registry.polly.key: #{Base64.strict_encode64(key.to_pem)}
+#...
+#---
+#apiVersion: v1
+#kind: Secret
+#metadata:
+#  name: "ca-certificates"
+#type: Opaque
+#data:
+#  ca.workstation.crt: #{Base64.strict_encode64(a)}
+#  ca.polly.crt: #{Base64.strict_encode64(b)}
+#  ca-certificates.crt: #{Base64.strict_encode64(c)}
+#...
 ---
 apiVersion: v1
 kind: Secret
@@ -811,7 +811,7 @@ data:
 ...
 HEREDOC
 
-#puts polly_certificates
+puts polly_certificates
 #exit
 
     #  obv = ::Polly::Observe.new
@@ -1340,7 +1340,7 @@ HEREDOC
       puts [o, e, s]
     end
 
-    deploy_polly_app = ["kubectl", "apply", "-f", "-"]
+    deploy_polly_app = ["kubectl", "apply", "--server-side=true", "-f", "-"]
     options = {:stdin_data => polly_run}
 
     o,e,s = exe.execute_simple(:output, deploy_polly_app, options)
