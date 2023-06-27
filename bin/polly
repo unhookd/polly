@@ -640,82 +640,82 @@ class PollyTasks < Thor
 
 
     case options["mode"]
-      when "k8s-secret"
-        polly_certificates = <<-HEREDOC
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: sshd
-type: Opaque
-data:
-  rsa: #{Base64.strict_encode64(data)}
-  dsa: #{Base64.strict_encode64(data_dsa)}
-  dsa_pub: #{Base64.strict_encode64(key_dsa.public_key.to_s)}
-  rsa_pub: #{Base64.strict_encode64(key.public_key.to_s)}
-...
+#      when "k8s-secret"
+#        polly_certificates = <<-HEREDOC
 #---
 #apiVersion: v1
 #kind: Secret
 #metadata:
-#  name: "registry-certificates"
+#  name: sshd
 #type: Opaque
 #data:
-#  registry.polly.pem: #{Base64.strict_encode64(cert.to_pem)}
-#  registry.polly.key: #{Base64.strict_encode64(key.to_pem)}
+#  rsa: #{Base64.strict_encode64(data)}
+#  dsa: #{Base64.strict_encode64(data_dsa)}
+#  dsa_pub: #{Base64.strict_encode64(key_dsa.public_key.to_s)}
+#  rsa_pub: #{Base64.strict_encode64(key.public_key.to_s)}
+#...
+##---
+##apiVersion: v1
+##kind: Secret
+##metadata:
+##  name: "registry-certificates"
+##type: Opaque
+##data:
+##  registry.polly.pem: #{Base64.strict_encode64(cert.to_pem)}
+##  registry.polly.key: #{Base64.strict_encode64(key.to_pem)}
+##...
+##---
+##apiVersion: v1
+##kind: Secret
+##metadata:
+##  name: "ca-certificates"
+##type: Opaque
+##data:
+##  ca.workstation.crt: #{Base64.strict_encode64(a)}
+##  ca.polly.crt: #{Base64.strict_encode64(b)}
+##  ca-certificates.crt: #{Base64.strict_encode64(c)}
+##...
+#---
+#apiVersion: v1
+#kind: Secret
+#metadata:
+#  name: "buildkit-daemon-certs"
+#type: Opaque
+#data:
+#  ca.pem: #{Base64.strict_encode64(b)}
+#  cert.pem: #{Base64.strict_encode64(cert2.to_pem)}
+#  key.pem: #{Base64.strict_encode64(key2.to_pem)}
 #...
 #---
 #apiVersion: v1
 #kind: Secret
 #metadata:
-#  name: "ca-certificates"
+#  name: "buildkit-client-certs"
 #type: Opaque
 #data:
-#  ca.workstation.crt: #{Base64.strict_encode64(a)}
-#  ca.polly.crt: #{Base64.strict_encode64(b)}
-#  ca-certificates.crt: #{Base64.strict_encode64(c)}
+#  ca.pem: #{Base64.strict_encode64(b)}
+#  cert.pem: #{Base64.strict_encode64(cert3.to_pem)}
+#  key.pem: #{Base64.strict_encode64(key3.to_pem)}
 #...
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: "buildkit-daemon-certs"
-type: Opaque
-data:
-  ca.pem: #{Base64.strict_encode64(b)}
-  cert.pem: #{Base64.strict_encode64(cert2.to_pem)}
-  key.pem: #{Base64.strict_encode64(key2.to_pem)}
-...
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: "buildkit-client-certs"
-type: Opaque
-data:
-  ca.pem: #{Base64.strict_encode64(b)}
-  cert.pem: #{Base64.strict_encode64(cert3.to_pem)}
-  key.pem: #{Base64.strict_encode64(key3.to_pem)}
-...
-HEREDOC
-
-      obv = ::Polly::Observe.new
-      obv.register_channels(["certificates"])
-
-      delete_polly_certificates = ["kubectl", "delete", "--namespace=#{options['namespace']}", "-f", "-"]
-      create_polly_certificates = ["kubectl", "create", "--namespace=#{options['namespace']}", "-f", "-"]
-
-      options = {:stdin_data => polly_certificates}
-      o,e,s = exe.execute_simple(:output, delete_polly_certificates, options)
-      obv.report_io("certificates", o, e)
-      obv.flush($stdout, $stderr)
-
-      o,e,s = exe.execute_simple(:output, create_polly_certificates, options)
-      obv.report_io("certificates", o, e)
-      obv.flush($stdout, $stderr)
-
-      obv.flush($stdout, $stderr, true)
-
+#HEREDOC
+#
+#      obv = ::Polly::Observe.new
+#      obv.register_channels(["certificates"])
+#
+#      delete_polly_certificates = ["kubectl", "delete", "--namespace=#{options['namespace']}", "-f", "-"]
+#      create_polly_certificates = ["kubectl", "create", "--namespace=#{options['namespace']}", "-f", "-"]
+#
+#      options = {:stdin_data => polly_certificates}
+#      o,e,s = exe.execute_simple(:output, delete_polly_certificates, options)
+#      obv.report_io("certificates", o, e)
+#      obv.flush($stdout, $stderr)
+#
+#      o,e,s = exe.execute_simple(:output, create_polly_certificates, options)
+#      obv.report_io("certificates", o, e)
+#      obv.flush($stdout, $stderr)
+#
+#      obv.flush($stdout, $stderr, true)
+#
     when "directory"
       dir = File.join("/var/tmp", SecureRandom.uuid)
       FileUtils.mkdir_p(dir)
@@ -736,6 +736,12 @@ HEREDOC
       File.write("#{dir}/from-workstation-ca.crt", a)
       File.write("#{dir}/polly-root-ca.crt", b)
       File.write("#{dir}/multipass-mega.crt", c)
+
+      File.write("#{dir}/buildkit-server-cert.crt", cert2)
+      File.write("#{dir}/buildkit-server-cert.key", key2)
+
+      File.write("#{dir}/buildkit-client-cert.crt", cert3)
+      File.write("#{dir}/buildkit-client-cert.key", key3)
 
       #TODO: link with vertical.yaml specification
       puts "certificates will be found in #{dir}"
@@ -788,6 +794,23 @@ HEREDOC
     cert = File.open(File.join(cert_package_dir, "web-server-certificate.pem")).read
     key = File.open(File.join(cert_package_dir, "web-server-key.pem")).read
 
+    key2 = File.open(File.join(cert_package_dir, "buildkit-server-cert.key")).read
+    cert2 = File.open(File.join(cert_package_dir, "buildkit-server-cert.crt")).read
+    key3 = File.open(File.join(cert_package_dir, "buildkit-client-cert.key")).read
+    cert3 = File.open(File.join(cert_package_dir, "buildkit-client-cert.crt")).read
+
+#---
+#apiVersion: v1
+#kind: Secret
+#metadata:
+#  name: sshd
+#type: Opaque
+#data:
+#  rsa: #{Base64.strict_encode64(data)}
+#  dsa: #{Base64.strict_encode64(data_dsa)}
+#  dsa_pub: #{Base64.strict_encode64(key_dsa.public_key.to_s)}
+#  rsa_pub: #{Base64.strict_encode64(key.public_key.to_s)}
+#...
     polly_certificates = <<-HEREDOC
 ---
 apiVersion: v1
@@ -809,9 +832,31 @@ data:
   ca.workstation.crt: #{Base64.strict_encode64(a)}
   ca.polly.crt: #{Base64.strict_encode64(b)}
 ...
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "buildkit-daemon-certs"
+type: Opaque
+data:
+  ca.pem: #{Base64.strict_encode64(b)}
+  cert.pem: #{Base64.strict_encode64(cert2)}
+  key.pem: #{Base64.strict_encode64(key2)}
+...
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "buildkit-client-certs"
+type: Opaque
+data:
+  ca.pem: #{Base64.strict_encode64(b)}
+  cert.pem: #{Base64.strict_encode64(cert3)}
+  key.pem: #{Base64.strict_encode64(key3)}
+...
 HEREDOC
 
-puts polly_certificates
+#puts polly_certificates
 #exit
 
     #  obv = ::Polly::Observe.new
@@ -1373,8 +1418,12 @@ HEREDOC
   def rxn(rxn_cmd = "bash")
     exe = ::Polly::Execute.new
 
-    vertical_lookup = YAML.load(File.read("vertical.yaml"))
-    environment_overrides = vertical_lookup["environment-overrides"]
+    environment_variables = nil
+
+    if File.exist?("vertical.yaml")
+      vertical_lookup = YAML.load(File.read("vertical.yaml"))
+      environment_overrides = vertical_lookup["environment-overrides"]
+    end
 
     env_flags = (environment_overrides || []).collect { |env| "--env=#{env["name"]}=#{env["value"]}" }
 
