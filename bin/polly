@@ -417,21 +417,21 @@ class PollyTasks < Thor
     exe = ::Polly::Execute.new(options)
 
     version = exe.current_revision
-    branch = exe.current_branch
+    branch = exe.current_branch.gsub("/", "-")
     app = exe.current_app
     image_repo = Polly::Config.image_repo
 
     generated_dockerfile = nil
 
-    if container_definition == "-" && File.exists?(default_pollyfile)
+    if (container_definition == "-" || container_definition == default_pollyfile) && File.exists?(default_pollyfile)
       pollyfile_ruby = File.read(default_pollyfile)
       #TODO: ??? Polly::Generate.options = options
       Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, default_pollyfile)
       generated_dockerfile = Polly::Generate.read_output
-    elsif container_definition == "-" && File.exists?(default_dockerfile)
+    elsif (container_definition == "-" || container_definition == default_dockerfile) && File.exists?(default_dockerfile)
       #generated_dockerfile = File.read(default_dockerfile)
       raise if version.empty?
-      Polly::Build.buildkit_workstation_to_controller(exe, app, "wkndr", version, options["no-cache"])
+      Polly::Build.buildkit_workstation_to_controller(exe, app, branch, version, options["no-cache"])
       exit
     else
       generated_dockerfile = File.read(container_definition)
@@ -447,7 +447,7 @@ class PollyTasks < Thor
       }
     else
       raise if version.empty?
-      Polly::Build.buildkit_external(exe, app, "wkndr", version, generated_dockerfile, options["no-cache"])
+      Polly::Build.buildkit_external(exe, app, branch, version, generated_dockerfile, options["no-cache"])
     end
   end
 
@@ -508,7 +508,7 @@ class PollyTasks < Thor
 #    obv.flush($stdout, $stderr, true)
 #  end
 
-  desc "certificates [PRIVATE_KEY] [PUBLIC_KEY]", "installs some common ca certificate secret material into cluster"
+  desc "certificates [CNAME]", "installs some common ca certificate secret material into cluster"
   option "namespace", :type => :string, :default => "default"
   option "mode", :type => :string, :default => "directory"
 #  def certificates(inbound_ssh_key="", inbound_ssh_key_pub="", cname = "polly-registry", cname_two = "0.0.0.0")
@@ -608,7 +608,7 @@ class PollyTasks < Thor
 
 
     case options["mode"]
-      when "k8s-secret"
+      when "k8s-secrets"
         polly_certificates = <<-HEREDOC
 ---
 apiVersion: v1
@@ -622,27 +622,27 @@ data:
   dsa_pub: #{Base64.strict_encode64(key_dsa.public_key.to_s)}
   rsa_pub: #{Base64.strict_encode64(key.public_key.to_s)}
 ...
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: "registry-certificates"
-type: Opaque
-data:
-  registry.polly.pem: #{Base64.strict_encode64(cert.to_pem)}
-  registry.polly.key: #{Base64.strict_encode64(key.to_pem)}
-...
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: "ca-certificates"
-type: Opaque
-data:
-  ca.workstation.crt: #{Base64.strict_encode64(a)}
-  ca.polly.crt: #{Base64.strict_encode64(b)}
-  ca-certificates.crt: #{Base64.strict_encode64(c)}
-...
+#---
+#apiVersion: v1
+#kind: Secret
+#metadata:
+#  name: "registry-certificates"
+#type: Opaque
+#data:
+#  registry.polly.pem: #{Base64.strict_encode64(cert.to_pem)}
+#  registry.polly.key: #{Base64.strict_encode64(key.to_pem)}
+#...
+#---
+#apiVersion: v1
+#kind: Secret
+#metadata:
+#  name: "ca-certificates"
+#type: Opaque
+#data:
+#  ca.workstation.crt: #{Base64.strict_encode64(a)}
+#  ca.polly.crt: #{Base64.strict_encode64(b)}
+#  ca-certificates.crt: #{Base64.strict_encode64(c)}
+#...
 HEREDOC
 
       obv = ::Polly::Observe.new
@@ -1204,11 +1204,15 @@ HEREDOC
   end
 
   desc "rxn", "run app pod"
+  option "stage", :type => :string, :default => nil
   def rxn(rxn_cmd = "bash")
     exe = ::Polly::Execute.new
 
-    vertical_lookup = YAML.load(File.read("vertical.yaml"))
-    environment_overrides = vertical_lookup["environment-overrides"]
+    environment_overrides = nil
+    if File.exists?("vertical.yaml")
+      vertical_lookup = YAML.load(File.read("vertical.yaml"))
+      environment_overrides = vertical_lookup["environment-overrides"]
+    end
 
     env_flags = (environment_overrides || []).collect { |env| "--env=#{env["name"]}=#{env["value"]}" }
 
@@ -1217,9 +1221,9 @@ HEREDOC
     app = exe.current_app
     image_repo = Polly::Config.image_repo
 
-    tag = Polly::Build.build_image_to_tag(app, "wkndr", version)
+    tag = Polly::Build.build_image_to_tag(app, options["stage"] || branch, version)
 
-    cmd = ["kubectl", "run", "rxn", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", rxn_cmd].compact
+    cmd = ["kubectl", "run", "rxn-#{app}", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", rxn_cmd].compact
     #puts cmd.inspect
 
     exec(*cmd)
