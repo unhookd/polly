@@ -1,3 +1,9 @@
+# [4.27.0] - 2024-02-07 - Jon Bardin
+
+Merge build features
+
+#######
+
 # [4.26.0] - 2023-05-19 - Jon
 
 add more build/run options
