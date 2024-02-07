@@ -59,10 +59,12 @@ module Polly
         ###- type=image,name=polly-registry:23443/#{tag},push=true
 
       ]
-      puts buildctl_local_cmd.inspect
+      puts buildctl_local_cmd.join(" ")
+      #.inspect
       #exe.systemx(*buildctl_local_cmd) || fail("unable to build")
       #io_options = {:stdin_data => generated_dockerfile}
       #o,e,s = exe.execute_simple(:output, buildctl_local_cmd, {})
+      #exit
 
       process_stdin, process_stdout, process_stderr, process_waiter = exe.execute_simple(:async, buildctl_local_cmd, {})
 

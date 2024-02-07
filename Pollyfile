@@ -96,7 +96,17 @@
 
   run %q{gem install --no-document --minimal-deps /home/app/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /home/app/polly-latest.gem}
 
+  run %q{ln -sf /usr/local/bin/polly /bin/dockerfile-frontend}
+
+  command("COPY") {
+    "--chown=app Pollyfile /home/app/Pollyfile"
+  }
+
   app
+
+  command("ENTRYPOINT") {
+    '["/bin/dockerfile-frontend"]'
+  }
 }
 
 #description("For pollyci")

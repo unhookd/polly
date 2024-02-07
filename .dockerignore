@@ -5,7 +5,6 @@ vendor
 .circleci
 .github
 Dockerfile
-Pollyfile
 Dockerfile.default
 .dockerignore
 Gemfile
