@@ -13,27 +13,30 @@ module Polly
       fd
     end
 
-    def self.buildkit_workstation_to_controller(exe, app, build_image_stage, version, force_no_cache)
+    def self.buildkit_workstation_to_controller(exe, app, build_image_stage, version, generated_dockerfile, force_no_cache = false)
       #TODO: figure out refactor for stdin/generated container image specification
-      #file = Tempfile.new('Dockerfile', Dir.pwd)
-      #file.write(generated_dockerfile)
-      #file.rewind
-      #puts file.path
+      file = Tempfile.new('Dockerfile.tmp', Dir.pwd)
+      dockerfile_path = file.path + "-tmp"
+      puts File.write(dockerfile_path, generated_dockerfile)
+      puts :foo
+      #puts generated_dockerfile.inspect
+
       tag = build_image_to_tag(app, build_image_stage, version)
       buildctl_local_cmd = [
         {"SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
         "buildctl",
         "--addr", "kube-pod://polly-buildkitd-0",
         "build",
+        ####"debug", "dump-llb",
         "--progress=plain",
         "--ssh", "default", #"default=#{Dir.home}/.ssh/id_rsa",
         "--frontend", "dockerfile.v0",
-        "--local", "context=.", "--local", "dockerfile=.",
+        "--local", "context=.", "--local", "dockerfile=.", "--opt", "filename=#{File.basename(dockerfile_path)}",
         "--output", "type=image,name=polly-registry:23443/polly-registry/#{tag},push=true",
         "--import-cache",
         "type=registry,ref=polly-registry:23443/#{app}",
-        #"--import-cache",
-        #"type=local,src=/polly/safe/buildkit,mode=max",
+        "--import-cache",
+        "type=local,src=/polly/safe/buildkit,mode=max",
         #- --frontend
         #- dockerfile.v0
         #- --local
@@ -44,21 +47,42 @@ module Polly
         "type=inline",
         "--export-cache",
         "type=registry,ref=polly-registry:23443/#{app}"
-        #- --export-cache
-        #- type=registry,ref=polly-registry:23443/#{app}
-        #"--export-cache",
-        #"type=local,dest=/polly/safe/buildkit,mode=max"
-        #- --output
-        #- type=tar,dest=/polly-safe/buildkit/#{tag}.tar
-        #- --output
-        #- type=image,name=#{app}/#{tag},push=true
+        ##- --export-cache
+        ##- type=registry,ref=polly-registry:23443/#{app}
+        ##"--export-cache",
+        ##"type=local,dest=/polly/safe/buildkit,mode=max"
         ##- --output
-        ##- type=image,name=polly-registry:23443/#{tag},push=true
+        ##- type=tar,dest=/polly-safe/buildkit/#{tag}.tar
+        ##- --output
+        ##- type=image,name=#{app}/#{tag},push=true
+        ###- --output
+        ###- type=image,name=polly-registry:23443/#{tag},push=true
 
       ]
-      #puts buildctl_local_cmd.inspect
-      exe.systemx(*buildctl_local_cmd) || fail("unable to build")
-      puts "Built and tagged: #{tag} OK"
+      puts buildctl_local_cmd.join(" ")
+      #.inspect
+      #exe.systemx(*buildctl_local_cmd) || fail("unable to build")
+      #io_options = {:stdin_data => generated_dockerfile}
+      #o,e,s = exe.execute_simple(:output, buildctl_local_cmd, {})
+      #exit
+
+      process_stdin, process_stdout, process_stderr, process_waiter = exe.execute_simple(:async, buildctl_local_cmd, {})
+
+      $stdout.sync = true
+      begin
+        while process_waiter.run
+          #$stdout.write(".")
+          $stdout.write(process_stdout.read_nonblock(1024)) rescue IO::EAGAINWaitReadable
+          $stderr.write(process_stderr.read_nonblock(1024)) rescue IO::EAGAINWaitReadable
+        end
+      rescue ThreadError
+      end
+
+      $stdout.write(process_stdout.read_nonblock(1024)) rescue IO::EAGAINWaitReadable
+      $stderr.write(process_stderr.read_nonblock(1024)) rescue IO::EAGAINWaitReadable
+      File.unlink(dockerfile_path)
+
+      puts "Built and tagged: #{tag} OK #{process_waiter.inspect}"
     end
 
     def self.buildkit_external(exe, app, build_image_stage, version, generated_dockerfile, force_no_cache)

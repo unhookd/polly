@@ -19,6 +19,7 @@ RUN set -ex; \
     apt-get update; apt-get install -y kubectl; apt-get clean; \
     usermod -a -G $(grep docker /etc/group | cut -d: -f3) app; \
     usermod -a -G $(grep docker /etc/group | cut -d: -f3) runner; \
+    mkdir /tmp/buildkit && cd /tmp/buildkit && curl -sL -o buildkit.tar.gz "https://github.com/moby/buildkit/releases/download/v0.11.1/buildkit-v0.11.1.linux-amd64.tar.gz" && tar zxf buildkit.tar.gz && mv bin/buildctl /usr/local/bin && cd && rm -Rf /tmp/buildkit; \
     true;
 # syntax=docker/dockerfile-upstream:master-experimental
 FROM base AS gem
@@ -31,7 +32,7 @@ COPY --chown=app lib /__w/polly/polly/lib
 COPY --chown=app bin /__w/polly/polly/bin
 COPY --chown=app doc /__w/polly/polly/doc
 RUN set -ex; \
-    mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app /__w/polly/polly; \
+    mkdir -p /polly/app /app /__w/polly/polly; \
     chown -R app.alpha /home/app /polly /app /__w/polly/polly; \
     chown -R app /home/app /polly /app /__w/polly/polly; \
     chown -R app /home/app; \
@@ -45,4 +46,3 @@ RUN set -ex; \
     gem install --no-document --minimal-deps /home/app/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /home/app/polly-latest.gem; \
     true;
 USER app
-LABEL "org.opencontainers.image.description"="For pollyci"

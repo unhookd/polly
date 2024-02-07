@@ -16,14 +16,18 @@ Do not expose polly to a kubernetes cluster unless you have thoroughly understoo
 
 TODO, in the future, `polly` will be available via `sudo gem install polly` ... until then it must be installed manually, see below
 
+    #### deps
     sudo apt-get install ruby rubygems-integration libffi-dev build-essential --no-install-recommends
     sudo gem install bundler
-    cd ~/workspace
+
+    #### clone repo
     git clone git@github.com:unhookd/polly.git
     cd polly
+
+    #### install app
     bundle config set --local path vendor/bundle
     bundle install
-    sudo ln -fs ${HOME}/workspace/polly/bin/polly /usr/local/bin/polly
+    sudo ln -fs $(realpath bin/polly) /usr/local/bin/polly
     polly help
 
 # .circleci/config.yml
