@@ -410,6 +410,7 @@ class PollyTasks < Thor
   option "cache", :type => :boolean, :default => true
   option "explain", :type => :boolean, :default => false
   option "in-cluster", :type => :boolean, :default => false
+  option "stage", :type => :string, :default => nil
   def build(container_definition=nil)
     default_pollyfile = "Pollyfile"
     default_dockerfile = "Dockerfile"
@@ -431,7 +432,7 @@ class PollyTasks < Thor
     elsif (container_definition == "-" || container_definition == default_dockerfile) && File.exists?(default_dockerfile)
       #generated_dockerfile = File.read(default_dockerfile)
       raise if version.empty?
-      Polly::Build.buildkit_workstation_to_controller(exe, app, branch, version, options["no-cache"])
+      Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, options["stage"], options["no-cache"])
       exit
     #elsif container_definition == nil && File.exists?(default_dockerfile)
     #  generated_dockerfile = File.read(default_dockerfile)
@@ -1500,7 +1501,7 @@ HEREDOC
     env_flags = (environment_overrides || []).collect { |env| "--env=#{env["name"]}=#{env["value"]}" }
 
     version = exe.current_revision
-    branch = exe.current_branch
+    branch = exe.current_branch.gsub("/", "-")
     app = exe.current_app
     image_repo = Polly::Config.image_repo
 
