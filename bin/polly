@@ -411,6 +411,7 @@ class PollyTasks < Thor
   option "explain", :type => :boolean, :default => false
   option "in-cluster", :type => :boolean, :default => false
   option "stage", :type => :string, :default => nil
+  option "push", :type => :string, :default => nil
   def build(container_definition=nil)
     default_pollyfile = "Pollyfile"
     default_dockerfile = "Dockerfile"
@@ -424,15 +425,16 @@ class PollyTasks < Thor
 
     generated_dockerfile = nil
 
+
     if (container_definition == nil || container_definition == "-" || container_definition == default_pollyfile) && File.exists?(default_pollyfile)
       pollyfile_ruby = File.read(default_pollyfile)
       #TODO: ??? Polly::Generate.options = options
       Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, default_pollyfile)
       generated_dockerfile = Polly::Generate.read_output
-    elsif (container_definition == "-" || container_definition == default_dockerfile) && File.exists?(default_dockerfile)
+    elsif (container_definition != nil || container_definition == "-" || container_definition == default_dockerfile) && File.exists?(container_definition)
       #generated_dockerfile = File.read(default_dockerfile)
       raise if version.empty?
-      Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, options["stage"], options["no-cache"])
+      Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, container_definition, options["stage"], options["no-cache"], options["push"])
       exit
     #elsif container_definition == nil && File.exists?(default_dockerfile)
     #  generated_dockerfile = File.read(default_dockerfile)
@@ -1509,7 +1511,7 @@ HEREDOC
     #tag = Polly::Build.build_image_to_tag(app, "wkndr", version)
     puts tag.inspect
 
-    cmd = ["kubectl", "run", "rxn-#{app}", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--", rxn_cmd].compact
+    cmd = ["kubectl", "run", "rxn-#{app}", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--command", "--", rxn_cmd].compact
     #      cmd = ["kubectl", "run", "rxn", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--command", "--", rxn_cmd].compact
     puts cmd.inspect
 
