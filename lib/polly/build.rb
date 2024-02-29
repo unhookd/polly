@@ -2,7 +2,6 @@
 
 module Polly
   class Build
-
     def self.build_image_to_tag(app, build_image_stage, version)
       app + ":" + build_image_stage + "-" + version
     end
@@ -14,26 +13,67 @@ module Polly
       fd
     end
 
-    def self.buildkit_external(exe, app, build_image_stage, version, generated_dockerfile, force_no_cache)
-      tag = build_image_to_tag(app, build_image_stage, version)
+    def self.buildkit_workstation_to_controller(exe, app, version, branch, dockerfile_path, build_image_stage, force_no_cache = nil, push_stage = nil)
+      tag = build_image_to_tag(app, build_image_stage || branch, version)
+      buildctl_local_cmd = [
+        {"SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
+        "buildctl",
+        "--addr", "kube-pod://polly-buildkitd-0",
+        "build",
+        ####"debug", "dump-llb",
+        "--progress=plain",
+        "--ssh", "default", #"default=#{Dir.home}/.ssh/id_rsa",
+        "--frontend", "dockerfile.v0",
+        "--local", "context=.", "--local", "dockerfile=.",
+        "--opt", "filename=#{dockerfile_path}",
+        "--import-cache",
+        "type=registry,ref=polly-registry:23443/#{app}",
+        "--import-cache",
+        "type=local,src=/var/tmp/polly-safe/buildkit,mode=max",
+        "--export-cache",
+        "type=inline",
+        "--export-cache",
+        "type=registry,ref=polly-registry:23443/#{app}",
+        "--export-cache",
+        "type=local,dest=/var/tmp/polly-safe/buildkit,mode=max" # this is client-side
+      ]
 
-      build_dockerfile = [
-        {"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
-        "docker", "build", "--progress=plain", "--ssh", "default",
-        force_no_cache ? "--no-cache" : nil,
-        #"--target", build_image_stage,
-        "-t", tag, 
-        "-f", "-",
-        ".",
-        {:in => generated_string_fd(generated_dockerfile)}
-      ].compact
+      if build_image_stage
+        buildctl_local_cmd += ["--opt", "target=#{build_image_stage}"]
+      end
 
-      #o,e,s = exe.execute_simple(:output, build_dockerfile, io_options)
-      #puts [o, e]
-      puts build_dockerfile.inspect
-      exe.systemx(*build_dockerfile)
-    
+      if push_stage
+        buildctl_local_cmd += ["--output", "type=image,name=#{push_stage}/#{tag.split(":").last},push=true"]
+      else
+        buildctl_local_cmd += ["--output", "type=image,name=polly-registry:23443/polly-registry/#{tag},push=true"]
+      end
+
+      puts buildctl_local_cmd.inspect
+      exe.systemx(*buildctl_local_cmd) || fail("unable to build")
       puts "Built and tagged: #{tag} OK"
+    end
+
+    def self.buildkit_external(exe, app, build_image_stage, version, generated_dockerfile, force_no_cache)
+      raise
+      ##file = Tempfile.new('Dockerfile', Dir.pwd)
+      ##file.write(generated_dockerfile)
+      ##file.rewind
+      ##puts file.path
+      #tag = build_image_to_tag(app, build_image_stage, version)
+      #buildctl_local_cmd = [
+      #  {"SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
+      #  "buildctl",
+      #  "--addr", "kube-pod://polly-buildkitd-0",
+      #  "build",
+      #  "--ssh", "default", #"default=#{Dir.home}/.ssh/id_rsa",
+      #  "--frontend", "dockerfile.v0",
+      #  "--local", "context=.", "--local", "dockerfile=.", #"--opt", "filename=#{File.basename(file.path)}",
+      #  "--output", "type=image,name=polly-registry:443/polly-registry/#{tag},push=true" #,
+      #  #{:in => generated_string_fd(generated_dockerfile)}
+      #]
+      #puts buildctl_local_cmd.inspect
+      #exe.systemx(*buildctl_local_cmd)
+      #puts "Built and tagged: #{tag} OK"
     end
 
     def self.buildkit_internal(exe, app, build_image_stage, version, generated_dockerfile, force_no_cache)
@@ -126,7 +166,7 @@ spec:
         args:
         - build
         #- --import-cache
-        #- type=registry,ref=polly-registry:443/#{app}
+        #- type=registry,ref=polly-registry:23443/#{app}
         - --import-cache
         - type=local,src=/polly/safe/buildkit,mode=max
         - --frontend
@@ -138,7 +178,7 @@ spec:
         #- --export-cache
         #- type=inline
         #- --export-cache
-        #- type=registry,ref=polly-registry:443/#{app}
+        #- type=registry,ref=polly-registry:23443/#{app}
         - --export-cache
         - type=local,dest=/polly/safe/buildkit,mode=max
         #- --output
@@ -146,7 +186,7 @@ spec:
         #- --output
         #- type=image,name=#{app}/#{tag},push=true
         ##- --output
-        ##- type=image,name=polly-registry:443/#{tag},push=true
+        ##- type=image,name=polly-registry:23443/#{tag},push=true
         resources:
           requests:
             memory: 5000Mi
@@ -158,9 +198,6 @@ spec:
           runAsUser: 1000
           runAsGroup: 1000
         volumeMounts:
-        #- mountPath: /home/user/.docker/config.json
-        #  subPath: config.json
-        #  name: docker-config
         - mountPath: /tmp/#{app}/Dockerfile
           subPath: Dockerfile
           name: polly-dockerfile-#{app}
@@ -177,9 +214,6 @@ spec:
           subPath: ca-certificates.crt
           name: ca-certificates
       volumes:
-      #- name: docker-config
-      #  secret:
-      #    secretName: docker-config
       - name: polly-dockerfile-#{app}
         configMap:
           name: polly-dockerfile-#{app}
@@ -227,7 +261,7 @@ HEREDOC
       exec(*["kubectl", "logs", build_pod, "-f"].compact)
     end
 
-    def self.build_cloudinit_yaml(exe, vertical_lookup, public_ssh_key)
+    def self.build_cloudinit_yaml(exe, vertical_lookup, ca_cert, client_key_pub, server_key, server_key_pub)
       prewrites = vertical_lookup["prewrites"]
 
       users = [{
@@ -235,7 +269,7 @@ HEREDOC
         'shell' => '/bin/bash',
         'groups' => 'sudo',
         'sudo' => 'ALL=(ALL) NOPASSWD:ALL',
-        'ssh_authorized_keys' => [public_ssh_key]
+        'ssh_authorized_keys' => [client_key_pub]
       }]
 
       write_files = []
@@ -250,9 +284,112 @@ HEREDOC
         }
       }
 
+      write_files << {
+        'content' => server_key.strip + "\n",
+        'path' => '/etc/ssh/custom_ssh_host_rsa_key',
+        'permissions' => '0600'
+      }
+
+      write_files << {
+        'content' => server_key_pub.strip + " root@threep" + "\n",
+        'path' => '/etc/ssh/custom_ssh_host_rsa_key.pub',
+        'permissions' => '0600'
+      }
+
+      write_files << {
+        'content' => ca_cert.strip + "\n",
+        'path' => '/usr/local/share/ca-certificates/polly-ca.crt',
+        'permissions' => '0644'
+      }
+
+      #write_files << {
+      #  'content' => "KUBECONFIG=\"~/.kube/k3s-config:~/.kube/config\"" + "\n" + "PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin\"" + "\n",
+      #  'path' => '/etc/environment',
+      #  'permissions' => '0644'
+      #}
+
+      write_files << {
+        'content' => "HostKey /etc/ssh/custom_ssh_host_rsa_key" + "\n",
+        'path' => '/etc/ssh/sshd_config.d/custom.conf',
+        'permissions' => '0644'
+      }
+
+      write_files << {
+        'path' => '/etc/systemd/resolved.conf',
+        'append' => true,
+        'content' => "MulticastDNS=yes\n"
+      }
+
+      write_files << {
+        'path' => '/etc/systemd/system/mdns@.service',
+        'content' => "[Service]
+Type=oneshot
+ExecStart=/usr/bin/resolvectl mdns %i yes
+After=sys-subsystem-net-devices-%i.device
+
+[Install]
+WantedBy=sys-subsystem-net-devices-%i.device
+"
+      }
+
+      runcmd = [
+        "systemctl restart systemd-resolved.service",
+        "systemctl start mdns@ens3.service", # https://github.com/canonical/multipass/issues/1830
+        "systemctl enable mdns@ens3.service"
+      ]
+
+#mirrors:
+#  "docker.io":
+#    endpoint:
+#      - "https://polly-registry:443"
+#  "polly-registry":
+#    endpoint:
+#      - "https://polly-registry:23443"
+#configs:
+#  "polly-registry:23443":
+#    tls:
+#      #cert_file: # path to the cert file used in the registry
+#      #key_file:  # path to the key file used in the registry
+#      ca_file: /home/app/workspace/polly/ca  # path to the ca file used in the registry
+      polly_registry_k3s_config = {
+        "mirrors" => {
+          #"docker.io" => {
+          #  "endpoint" => [
+          #    "https://polly-registry:443"
+          #  ]
+          #},
+          "polly-registry" => {
+            "endpoint" => [
+              "https://polly-registry:23443"
+            ]
+          }
+        },
+        "configs" => {
+          "polly-registry:23443" => {
+            "tls" => {
+              "ca_file" => "/usr/local/share/ca-certificates/polly-ca.crt"
+            }
+          }
+        }
+      }
+
+      write_files << {
+        'content' => YAML.dump(polly_registry_k3s_config),
+        'path' => '/etc/rancher/k3s/registries.yaml',
+        'permissions' => '0644'
+      }
+
+      write_files << {
+        'content' => "127.0.0.1 polly-registry\n127.0.1.1 $hostname $hostname\n127.0.0.1 localhost\n" + vertical_lookup["host-aliases"].collect { |ha| ha["hostnames"].collect { |hn| ha["ip"] + " " + hn }.join("\n") }.join("\n") + "" + "\n",
+        'path' => '/etc/cloud/templates/hosts.debian.tmpl',
+        'permissions' => '0644'
+      }
+
       {
         'users' => users,
-        'write_files' => write_files
+        'write_files' => write_files,
+        'manage_etc_hosts' => true,
+        'runcmd' => runcmd
       }.to_yaml
     end
   end

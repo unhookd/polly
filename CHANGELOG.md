@@ -1,3 +1,45 @@
+# [4.27.0] - 2024-02-07 - Jon Bardin
+
+Merge build features
+
+#######
+
+# [4.26.0] - 2023-05-19 - Jon
+
+add more build/run options
+
+#######
+
+# [4.25.0] - 2023-05-16 - Jon Bardin
+
+Allow `host-aliases` block to be defined and written out to /etc/hosts via cloud-init
+
+#######
+
+# [4.24.0] - 2023-05-16 - Jon Bardin
+
+repair wxh git push hooks
+
+#######
+
+# [4.23.0] - 2023-05-16 - Jon Bardin
+
+Add better version support
+
+#######
+
+# [2.22.0] - 2023-05-16 - Jon Bardin
+
+
+
+#######
+
+# [4.0.1] - 2023-05-16 - Jon Bardin
+
+Add support for multi-platform launch configuration
+
+#######
+
 # [2.20.0] - 2023-01-22 - Jon Bardin
 
 Test image container diff

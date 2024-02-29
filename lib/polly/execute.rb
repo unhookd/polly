@@ -126,6 +126,41 @@ module Polly
       end
     end
 
+    def ssh_keygen_from_private_key(private_key)
+      keygen_cmd = [
+        "ssh-keygen",
+        "-yf",
+        private_key
+      ]
+
+      stdout_and_stderr_str, status = Open3.capture2e(*keygen_cmd)
+      unless status.success?
+        puts stdout_and_stderr_str
+        exit(1)
+      end
+
+      stdout_and_stderr_str
+    end
+
+    def ssh_private_key_from_rsa_private_key(private_key)
+      keygen_cmd = [
+        "ssh-keygen",
+        "-p",
+        "-N",
+        "",
+        "-f",
+        private_key
+      ]
+
+      stdout_and_stderr_str, status = Open3.capture2e(*keygen_cmd)
+      unless status.success?
+        puts stdout_and_stderr_str
+        exit(1)
+      end
+
+      stdout_and_stderr_str
+    end
+
     def start_job!(job)
       clean_name = (current_app + "-" + job.run_name).gsub(/[^\.a-z0-9]/, "-")[0..34]
 
@@ -264,6 +299,7 @@ module Polly
                 "mountPath" => "/polly/safe/git/#{current_app}",
                 "name" => "git-repo"
               },
+
             ]
           }
         ],
@@ -307,8 +343,9 @@ module Polly
             "args" => sleep_cmd_args,
             "volumeMounts" => [
               {
-                "mountPath" => "/var/run/docker.sock",
-                "name" => "dood"
+                "mountPath" => "/certs/client",
+                "name" => "buildkit-client-certs",
+                "readOnly" => true
               },
               {
                 "mountPath" => build_manifest_dir,
@@ -322,6 +359,7 @@ module Polly
                 "mountPath" => "/var/tmp/artifacts",
                 "name" => "build-artifacts"
               },
+              #TODO: configurable secrets/mounts certs/ssh/tmp/etc
               #{
               #  "mountPath" => "/home/app/.ssh",
               #  "name" => "ssh-key"
@@ -332,9 +370,9 @@ module Polly
         ],
         "volumes" => [
           {
-            "name" => "dood",
-            "hostPath" => {
-              "path" => "/var/run/docker.sock"
+            "name" => "buildkit-client-certs",
+            "secret" => {
+              "secretName" => "buildkit-client-certs"
             }
           },
           {
@@ -922,7 +960,8 @@ module Polly
       $stdout.write($/)
     end
 
-    def polly_pod(label = "name=#{POLLY}-git")
+    def polly_pod(service = "controller")
+      label = "name=#{POLLY}-#{service}"
       @polly_pods ||= {}
       @polly_pods[label] ||= begin
         cmd = "kubectl get pods --field-selector=status.phase=Running -l #{label} -o name | cut -d/ -f2"

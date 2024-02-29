@@ -177,7 +177,7 @@ module Polly
       def prototype1
         @prototype1 = true
         @bootstrap = image {
-          stage "bootstrap", "ubuntu:focal-20221130"
+          stage "bootstrap", "ubuntu:jammy-20221130"
 
           root
 
@@ -191,7 +191,7 @@ module Polly
 
           run %q{test -e /usr/lib/locale/locale-archive || ((locale-gen --purge en_US); (echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale); (locale-gen $LANGUAGE); (dpkg-reconfigure locales))}
 
-          apt %w{curl mysql-client-8.0 mysql-server-core-8.0 ruby2* libruby2* ruby-bundler rubygems-integration rake git build-essential default-libmysqlclient-dev}
+          apt %w{curl mysql-client-8.0 mysql-server-core-8.0 ruby3* libruby3* ruby-bundler rubygems-integration rake git build-essential default-libmysqlclient-dev}
           run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app}
           command("WORKDIR") {
             "/home/app"
@@ -206,6 +206,7 @@ module Polly
           run %q{bundle config set --local jobs 4}
           run %q{bundle config set --local retry 3}
           #TODO: figure out conventional bundling strategy
+          #TODO: figure out .gem strategy prototype
           #run %q{bundle config set --local deploment true}
           #run %q{bundle config set --local without development}
           command("COPY") {

@@ -23,7 +23,7 @@ class PollyTasks < Thor
     today = Date.today.to_s
     username = IO.popen("git config user.name").read.strip || ENV["USER"] || "ac"
     template_args = [today, username]
-    version = "2.#{version_count + 1}.0"
+    version = "#{File.exists?('VERSION.major') ? File.read('VERSION.major').strip : 1}.#{version_count + 1}.0"
     opening_line_template = "# [#{version}] - %s - %s\n\n\n\n#{version_delim}\n" % template_args
 
     Tempfile.create(changelog) do |new_entry_tmp|
@@ -108,8 +108,8 @@ class PollyTasks < Thor
       end
     end
 
-    if options["u"] === true
-      if exe.systemx("git", "push", "-u", "origin", "HEAD")
+    if options["u"]
+      if exe.systemx("git", "push", "-u", options["u"], "HEAD")
         exit(0)
       end
     end
@@ -404,110 +404,82 @@ class PollyTasks < Thor
     #end
   end
 
-  desc "docker-config", "installs docker-config-json secret"
-  def docker_config
-    exe = ::Polly::Execute.new
-
-    docker_config_secret = []
-    docker_config_secret << <<-HEREDOC
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: docker-config
-type: Opaque
-data:
-  config.json: #{Base64.strict_encode64($stdin.read)}
-...
-HEREDOC
-
-    apply_job = ["kubectl", "apply", "-f", "-"]
-    options = {:stdin_data => docker_config_secret.join}
-    o,e,s = exe.execute_simple(:output, apply_job, options)
-    puts [o, e]
-  end
-
   desc "build [container_def]", "Build the current working directory's Dockerfile"
   #? option "run", :type => :string, :default => nil
   #? option "push", :type => :string, :default => nil
-  #option "docker-config-json", :type => :string, :default => nil
   option "cache", :type => :boolean, :default => true
   option "explain", :type => :boolean, :default => false
   option "in-cluster", :type => :boolean, :default => false
-  def build(container_definition="-")
+  option "stage", :type => :string, :default => nil
+  option "push", :type => :string, :default => nil
+  def build(container_definition=nil)
     default_pollyfile = "Pollyfile"
     default_dockerfile = "Dockerfile"
 
     exe = ::Polly::Execute.new(options)
 
     version = exe.current_revision
-    branch = exe.current_branch
+    branch = exe.current_branch.gsub("/", "-")
     app = exe.current_app
     image_repo = Polly::Config.image_repo
 
     generated_dockerfile = nil
 
-    if container_definition == "-" && File.exists?(default_pollyfile)
+
+    if (container_definition == nil || container_definition == "-" || container_definition == default_pollyfile) && File.exists?(default_pollyfile)
       pollyfile_ruby = File.read(default_pollyfile)
       #TODO: ??? Polly::Generate.options = options
       Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, default_pollyfile)
       generated_dockerfile = Polly::Generate.read_output
-    elsif container_definition == "-" && File.exists?(default_dockerfile)
-      generated_dockerfile = File.read(default_dockerfile)
+    elsif (container_definition != nil || container_definition == "-" || container_definition == default_dockerfile) && File.exists?(container_definition)
+      #generated_dockerfile = File.read(default_dockerfile)
+      raise if version.empty?
+      Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, container_definition, options["stage"], options["no-cache"], options["push"])
+      exit
+    #elsif container_definition == nil && File.exists?(default_dockerfile)
+    #  generated_dockerfile = File.read(default_dockerfile)
     else
       generated_dockerfile = File.read(container_definition)
-      sub_version = container_definition.split(".").last
-      if sub_version != container_definition
-        app += "-" + sub_version
-      end
     end
 
     if options["in-cluster"]
       Polly::Generate.all_images.each { |build_image|
-      puts app.inspect
         Polly::Build.buildkit_internal(exe, app, build_image, version, generated_dockerfile, options["no-cache"])
       }
     else
-      #build_dockerfile = [
-      #  {"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
-      #  "docker", "build", "--progress=plain", "--ssh", "default",
-      #  options["no-cache"] ? "--no-cache" : nil, "-t",
-      #  app + ":" + version, ".", "-f", "-", generated_dockerfile.nil? ? {:in => File.open(container_definition) } : {:in => generated_dockerfile}
-      #].compact
-
-      #build_dockerfile = [
-      #  {"DOCKER_BUILDKIT" => "1", "SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
-      #  "docker", "build", "--progress=plain", "--ssh", "default",
-      #  options["no-cache"] ? "--no-cache" : nil, "-t",
-      #  app + ":" + version, ".", "-f", "-", generated_string_fd.nil? ? {:in => File.open(container_definition) } : {:in => generated_string_fd}
-      #].compact
-
-      #Polly::Generate.all_images.each { |build_image|
-      #  Polly::Build.buildkit_external(exe, app, build_image.stage, version, generated_dockerfile, options["no-cache"])
-      #}
-
       raise if version.empty?
-
-      Polly::Build.buildkit_external(exe, app, "wkndr", version, generated_dockerfile, options["no-cache"])
-
-      tag_dockerfile = ["docker", "tag", app + ":wkndr-" + version, app + ":latest"]
-      exe.systemx(*tag_dockerfile)
-
-      tag_dockerfile = ["docker", "tag", app + ":wkndr-" + version, app + ":git-latest"]
-      exe.systemx(*tag_dockerfile)
-
-      tag_dockerfile = ["docker", "tag", app + ":wkndr-" + version, "localhost/" + app + ":git-latest"]
-      exe.systemx(*tag_dockerfile)
+      Polly::Build.buildkit_external(exe, app, branch, version, generated_dockerfile, options["no-cache"])
     end
 
-    #if options["push"]
-    #  tag_dockerfile = ["docker", "tag", app + ":" + version, options["push"] + "/" + app + ":" + version]
-    #  puts tag_dockerfile
-    #  exe.systemx(*tag_dockerfile)
+    raise if version.empty?
 
-    #  push_dockerfile = ["docker", "push", options["push"] + "/" + app + ":" + version]
-    #  exe.systemx(*push_dockerfile)
+    Polly::Build.buildkit_workstation_to_controller(exe, app, "wkndr", version, generated_dockerfile, options["no-cache"])
+
+    exit
+
+    #if container_definition == "-" && File.exists?(default_pollyfile)
+    #  pollyfile_ruby = File.read(default_pollyfile)
+    #  #TODO: ??? Polly::Generate.options = options
+    #  Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, default_pollyfile)
+    #  generated_dockerfile = Polly::Generate.read_output
+    #elsif container_definition == "-" && File.exists?(default_dockerfile)
+    #  #generated_dockerfile = File.read(default_dockerfile)
+    #else
+    #  generated_dockerfile = File.read(container_definition)
+    #  sub_version = container_definition.split(".").last
+    #  if sub_version != container_definition
+    #    app += "-" + sub_version
+    #  end
     #end
+
+    ##if options["in-cluster"]
+    ##  Polly::Generate.all_images.each { |build_image|
+    ##    Polly::Build.buildkit_internal(exe, app, build_image, version, generated_dockerfile, options["no-cache"])
+    ##  }
+    ##else
+    ##  raise if version.empty?
+    ##  Polly::Build.buildkit_external(exe, app, "wkndr", version, generated_dockerfile, options["no-cache"])
+    ##end
   end
 
 #  desc "checkout [REPO] [VERSION] [DESTINATION]", ""
@@ -567,22 +539,40 @@ HEREDOC
 #    obv.flush($stdout, $stderr, true)
 #  end
 
-  desc "certificates [PRIVATE_KEY] [PUBLIC_KEY]", "installs some common ca certificate secret material into cluster"
+  desc "certificates [CNAME]", "installs some common ca certificate secret material into cluster"
   option "namespace", :type => :string, :default => "default"
   option "mode", :type => :string, :default => "directory"
-  def certificates(inbound_ssh_key, inbound_ssh_key_pub, cname = "polly-registry", cname_two = "0.0.0.0")
-    inbound_ssh_key = File.read(inbound_ssh_key)
-    inbound_ssh_key_pub = File.read(inbound_ssh_key_pub)
+#  def certificates(inbound_ssh_key="", inbound_ssh_key_pub="", cname = "polly-registry", cname_two = "0.0.0.0")
+#    # openssl pkcs12 -export -in server.crt -inkey server.key -out server.p12
+#    inbound_ssh_key = File.read(inbound_ssh_key) unless inbound_ssh_key.empty?
+#    inbound_ssh_key_pub = File.read(inbound_ssh_key_pub) unless inbound_ssh_key_pub.empty?
+  def certificates(cnames = "polly.local")
+    #inbound_ssh_key = File.read(inbound_ssh_key) unless inbound_ssh_key.empty?
+    #inbound_ssh_key_pub = File.read(inbound_ssh_key_pub) unless inbound_ssh_key_pub.empty?
+    #TODO: openssl pkcs12 -export -in server.crt -inkey server.key -out server.p12
+    #
+    key_client = OpenSSL::PKey::RSA.new 4096
 
-    key = OpenSSL::PKey::RSA.new 2048
-    key_dsa = OpenSSL::PKey::DSA.new 2048
+    key = OpenSSL::PKey::RSA.new 4096
+    key_dsa = OpenSSL::PKey::DSA.new 4096
+
+    #TODO
+    #ssh_key = StringIO.new
+    #ssh_key.write(key.ssh_type)
+    #ssh_key.write([key.to_blob.length].pack('N'))
+    #ssh_key.write(key.to_blob)
+    #ssh_priv_key = ssh_key.string
+
+    type = key_client.ssh_type
+    data2 = [ key_client.to_blob ].pack('m0')
+    openssh_format = "#{type} #{data2}"
 
     data = key.to_pem
     data_dsa = key_dsa.to_pem
 
     exe = ::Polly::Execute.new
 
-    root_key = OpenSSL::PKey::RSA.new 2048 # the CA's public/private key
+    root_key = OpenSSL::PKey::RSA.new 2048 # the CA's public/private key #!!!!!!
 
     root_ca = OpenSSL::X509::Certificate.new
     root_ca.version = 2 # cf. RFC 5280 - to make it a "v3" certificate
@@ -602,6 +592,9 @@ HEREDOC
     root_ca.add_extension(ef.create_extension("authorityKeyIdentifier","keyid:always",false))
     root_ca.sign(root_key, OpenSSL::Digest::SHA256.new)
 
+    cnames = cnames.split(":") + ["polly-registry"]
+    cname = cnames.first
+
     key = OpenSSL::PKey::RSA.new 2048
     cert = OpenSSL::X509::Certificate.new
     cert.version = 2
@@ -616,8 +609,40 @@ HEREDOC
     ef.issuer_certificate = root_ca
     cert.add_extension(ef.create_extension("keyUsage", "digitalSignature", true))
     cert.add_extension(ef.create_extension("subjectKeyIdentifier", "hash", false))
-    cert.add_extension(ef.create_extension("subjectAltName", "DNS:#{cname},IP:#{cname_two}", false))
+    cert.add_extension(ef.create_extension("subjectAltName", cnames.collect { |cn| "DNS:#{cn}" }.join(",") + ",IP:0.0.0.0", false))
     cert.sign(root_key, OpenSSL::Digest::SHA256.new)
+
+    key2 = OpenSSL::PKey::RSA.new 2048
+    cert2 = OpenSSL::X509::Certificate.new
+    cert2.version = 2
+    cert2.serial = 2
+    cert2.subject = OpenSSL::X509::Name.parse "/DC=org/DC=unhookd/CN=polly-buildkitd"
+    cert2.issuer = root_ca.subject # root CA is the issuer
+    cert2.public_key = key2.public_key
+    cert2.not_before = Time.now
+    cert2.not_after = cert2.not_before + 2 * 365 * 24 * 60 * 60 # 2 years validity
+    ef = OpenSSL::X509::ExtensionFactory.new
+    ef.subject_certificate = cert2
+    ef.issuer_certificate = root_ca
+    cert2.add_extension(ef.create_extension("keyUsage", "digitalSignature", true))
+    cert2.add_extension(ef.create_extension("subjectKeyIdentifier", "hash", false))
+    cert2.add_extension(ef.create_extension("subjectAltName", "DNS:polly-buildkitd,IP:127.0.0.1", false))
+    cert2.sign(root_key, OpenSSL::Digest::SHA256.new)
+
+    key3 = OpenSSL::PKey::RSA.new 2048
+    cert3 = OpenSSL::X509::Certificate.new
+    cert3.version = 2
+    cert3.serial = 2
+    cert3.subject = OpenSSL::X509::Name.parse "/DC=org/DC=unhookd/CN=polly-buildctl"
+    cert3.issuer = root_ca.subject # root CA is the issuer
+    cert3.public_key = key3.public_key
+    cert3.not_before = Time.now
+    cert3.not_after = cert3.not_before + 2 * 365 * 24 * 60 * 60 # 2 years validity
+    ef = OpenSSL::X509::ExtensionFactory.new
+    ef.subject_certificate = cert3
+    ef.issuer_certificate = root_ca
+    cert3.add_extension(ef.create_extension("keyUsage", "digitalSignature", true))
+    cert3.sign(root_key, OpenSSL::Digest::SHA256.new)
 
     #key = File.read("/usr/local/etc/openssl/misc/workstation-key.pem")
     #cert = File.read("/usr/local/etc/openssl/misc/workstation-cert.pem")
@@ -639,14 +664,13 @@ HEREDOC
     #kn.add("wkstation-service", key)
     #known_hosts = File.read("/var/tmp/cheese.known_hosts")
     #puts known_hosts.inspect
+    #TODO: !!!
+    #ssh_key: #{Base64.strict_encode64(inbound_ssh_key || "")}
+    #ssh_key_pub: #{Base64.strict_encode64(inbound_ssh_key_pub || "")}
 
-    #type = key.ssh_type
-    #data2 = [ key.to_blob ].pack('m0')
-    #openssh_format = "#{type} #{data2}"
-    ##puts openssh_format
 
     case options["mode"]
-      when "k8s-secret"
+      when "k8s-secrets"
         polly_certificates = <<-HEREDOC
 ---
 apiVersion: v1
@@ -659,30 +683,68 @@ data:
   dsa: #{Base64.strict_encode64(data_dsa)}
   dsa_pub: #{Base64.strict_encode64(key_dsa.public_key.to_s)}
   rsa_pub: #{Base64.strict_encode64(key.public_key.to_s)}
-  ssh_key: #{Base64.strict_encode64(inbound_ssh_key)}
-  ssh_key_pub: #{Base64.strict_encode64(inbound_ssh_key_pub)}
 ...
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: "registry-certificates"
-type: Opaque
-data:
-  registry.polly.pem: #{Base64.strict_encode64(cert.to_pem)}
-  registry.polly.key: #{Base64.strict_encode64(key.to_pem)}
-...
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: "ca-certificates"
-type: Opaque
-data:
-  ca.workstation.crt: #{Base64.strict_encode64(a)}
-  ca.polly.crt: #{Base64.strict_encode64(b)}
-  ca-certificates.crt: #{Base64.strict_encode64(c)}
-...
+#---
+#apiVersion: v1
+#kind: Secret
+#metadata:
+#  name: "registry-certificates"
+#type: Opaque
+#data:
+#  registry.polly.pem: #{Base64.strict_encode64(cert.to_pem)}
+#  registry.polly.key: #{Base64.strict_encode64(key.to_pem)}
+#  name: sshd
+#type: Opaque
+#data:
+#  rsa: #{Base64.strict_encode64(data)}
+#  dsa: #{Base64.strict_encode64(data_dsa)}
+#  dsa_pub: #{Base64.strict_encode64(key_dsa.public_key.to_s)}
+#  rsa_pub: #{Base64.strict_encode64(key.public_key.to_s)}
+#...
+##---
+##apiVersion: v1
+##kind: Secret
+##metadata:
+##  name: "registry-certificates"
+##type: Opaque
+##data:
+##  registry.polly.pem: #{Base64.strict_encode64(cert.to_pem)}
+##  registry.polly.key: #{Base64.strict_encode64(key.to_pem)}
+##...
+##---
+##apiVersion: v1
+##kind: Secret
+##metadata:
+##  name: "ca-certificates"
+##type: Opaque
+##data:
+##  ca.workstation.crt: #{Base64.strict_encode64(a)}
+##  ca.polly.crt: #{Base64.strict_encode64(b)}
+##  ca-certificates.crt: #{Base64.strict_encode64(c)}
+##...
+#---
+#apiVersion: v1
+#kind: Secret
+#metadata:
+#  name: "buildkit-daemon-certs"
+#type: Opaque
+#data:
+#  ca.pem: #{Base64.strict_encode64(b)}
+#  cert.pem: #{Base64.strict_encode64(cert2.to_pem)}
+#  key.pem: #{Base64.strict_encode64(key2.to_pem)}
+#...
+#---
+#apiVersion: v1
+#kind: Secret
+#metadata:
+<<<<<<< HEAD
+#  name: "ca-certificates"
+#type: Opaque
+#data:
+#  ca.workstation.crt: #{Base64.strict_encode64(a)}
+#  ca.polly.crt: #{Base64.strict_encode64(b)}
+#  ca-certificates.crt: #{Base64.strict_encode64(c)}
+#...
 HEREDOC
 
       obv = ::Polly::Observe.new
@@ -702,29 +764,70 @@ HEREDOC
 
       obv.flush($stdout, $stderr, true)
 
+#  name: "buildkit-client-certs"
+#type: Opaque
+#data:
+#  ca.pem: #{Base64.strict_encode64(b)}
+#  cert.pem: #{Base64.strict_encode64(cert3.to_pem)}
+#  key.pem: #{Base64.strict_encode64(key3.to_pem)}
+#...
+#HEREDOC
+#
+#      obv = ::Polly::Observe.new
+#      obv.register_channels(["certificates"])
+#
+#      delete_polly_certificates = ["kubectl", "delete", "--namespace=#{options['namespace']}", "-f", "-"]
+#      create_polly_certificates = ["kubectl", "create", "--namespace=#{options['namespace']}", "-f", "-"]
+#
+#      options = {:stdin_data => polly_certificates}
+#      o,e,s = exe.execute_simple(:output, delete_polly_certificates, options)
+#      obv.report_io("certificates", o, e)
+#      obv.flush($stdout, $stderr)
+#
+#      o,e,s = exe.execute_simple(:output, create_polly_certificates, options)
+#      obv.report_io("certificates", o, e)
+#      obv.flush($stdout, $stderr)
+#
+#      obv.flush($stdout, $stderr, true)
+#
+
     when "directory"
       dir = File.join("/var/tmp", SecureRandom.uuid)
       FileUtils.mkdir_p(dir)
 
-      #TODO: fill in ssh bits
-      #File.write("#{dir}/sshd_rsa", data)
+      File.umask(0077)
+
+      File.write("#{dir}/id_rsa.pub", openssh_format)
+      File.write("#{dir}/id_rsa", key_client.to_s)
 
       File.write("#{dir}/web-server-certificate.pem", cert)
       File.write("#{dir}/web-server-key.pem", key)
+
+      #TODO: sort out certificate-stack documentation
+      File.write("#{dir}/etc_slash_ssh_slash_ssh_host_rsa_key", key)
+      exe.ssh_private_key_from_rsa_private_key("#{dir}/etc_slash_ssh_slash_ssh_host_rsa_key")
+      File.write("#{dir}/etc_slash_ssh_slash_ssh_host_rsa_key.pub", exe.ssh_keygen_from_private_key("#{dir}/etc_slash_ssh_slash_ssh_host_rsa_key"))
 
       File.write("#{dir}/from-workstation-ca.crt", a)
       File.write("#{dir}/polly-root-ca.crt", b)
       File.write("#{dir}/multipass-mega.crt", c)
 
+      File.write("#{dir}/buildkit-server-cert.crt", cert2)
+      File.write("#{dir}/buildkit-server-cert.key", key2)
+
+      File.write("#{dir}/buildkit-client-cert.crt", cert3)
+      File.write("#{dir}/buildkit-client-cert.key", key3)
+
+      #TODO: link with vertical.yaml specification
       puts "certificates will be found in #{dir}"
     end
   end
 
-  desc "init", "bootstraps project polly controller pod"
+  desc "init [CERTS]", "bootstraps project polly controller pod"
   option "re-init", :type => :boolean, :default => false
   option "with-registry", :type => :boolean, :default => false
   option "with-bootstrap", :type => :string, :default => "ghcr.io/unhookd/polly:3.0-rc1" # "polly:3.0-rc1"
-  def init
+  def init(cert_package_dir)
     exe = ::Polly::Execute.new
 
     unless exe.in_polly?
@@ -745,7 +848,110 @@ HEREDOC
     git_image = options["with-bootstrap"] # "alpine/git:latest"
     git_command = ["sleep", "2147483647"].to_json
 
-    polly_resources << <<-HEREDOC
+    #etc_slash_ssh_slash_ssh_host_rsa_key
+    #etc_slash_ssh_slash_ssh_host_rsa_key.pub
+    #from-workstation-ca.crt
+    #id_rsa.pub
+    #multipass-mega.crt
+    #polly-root-ca.crt
+    #web-server-certificate.pem
+    #web-server-key.pem
+    #File.write("#{dir}/web-server-certificate.pem", cert)
+    #File.write("#{dir}/web-server-key.pem", key)
+    #File.write("#{dir}/from-workstation-ca.crt", a)
+    #File.write("#{dir}/polly-root-ca.crt", b)
+    #File.write("#{dir}/multipass-mega.crt", c)
+    #
+    a = File.open(File.join(cert_package_dir, "from-workstation-ca.crt")).read
+    b = File.open(File.join(cert_package_dir, "polly-root-ca.crt")).read
+    c = File.open(File.join(cert_package_dir, "multipass-mega.crt")).read
+
+    cert = File.open(File.join(cert_package_dir, "web-server-certificate.pem")).read
+    key = File.open(File.join(cert_package_dir, "web-server-key.pem")).read
+
+    key2 = File.open(File.join(cert_package_dir, "buildkit-server-cert.key")).read
+    cert2 = File.open(File.join(cert_package_dir, "buildkit-server-cert.crt")).read
+    key3 = File.open(File.join(cert_package_dir, "buildkit-client-cert.key")).read
+    cert3 = File.open(File.join(cert_package_dir, "buildkit-client-cert.crt")).read
+
+#---
+#apiVersion: v1
+#kind: Secret
+#metadata:
+#  name: sshd
+#type: Opaque
+#data:
+#  rsa: #{Base64.strict_encode64(data)}
+#  dsa: #{Base64.strict_encode64(data_dsa)}
+#  dsa_pub: #{Base64.strict_encode64(key_dsa.public_key.to_s)}
+#  rsa_pub: #{Base64.strict_encode64(key.public_key.to_s)}
+#...
+    polly_certificates = <<-HEREDOC
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "registry-certificates"
+type: Opaque
+data:
+  registry.polly.pem: #{Base64.strict_encode64(cert)}
+  registry.polly.key: #{Base64.strict_encode64(key)}
+...
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "ca-certificates"
+type: Opaque
+data:
+  ca.workstation.crt: #{Base64.strict_encode64(a)}
+  ca.polly.crt: #{Base64.strict_encode64(b)}
+...
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "buildkit-daemon-certs"
+type: Opaque
+data:
+  ca.pem: #{Base64.strict_encode64(b)}
+  cert.pem: #{Base64.strict_encode64(cert2)}
+  key.pem: #{Base64.strict_encode64(key2)}
+...
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "buildkit-client-certs"
+type: Opaque
+data:
+  ca.pem: #{Base64.strict_encode64(b)}
+  cert.pem: #{Base64.strict_encode64(cert3)}
+  key.pem: #{Base64.strict_encode64(key3)}
+...
+HEREDOC
+
+#puts polly_certificates
+#exit
+
+    #  obv = ::Polly::Observe.new
+    #  obv.register_channels(["certificates"])
+
+    #  delete_polly_certificates = ["kubectl", "delete", "--namespace=#{options['namespace']}", "-f", "-"]
+    #  create_polly_certificates = ["kubectl", "create", "--namespace=#{options['namespace']}", "-f", "-"]
+
+    #  options = {:stdin_data => polly_certificates}
+    #  o,e,s = exe.execute_simple(:output, delete_polly_certificates, options)
+    #  obv.report_io("certificates", o, e)
+    #  obv.flush($stdout, $stderr)
+
+    #  o,e,s = exe.execute_simple(:output, create_polly_certificates, options)
+    #  obv.report_io("certificates", o, e)
+    #  obv.flush($stdout, $stderr)
+
+    #  obv.flush($stdout, $stderr, true)
+
+    polly_resources << polly_certificates << <<-HEREDOC
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -795,8 +1001,8 @@ spec:
   - ReadWriteMany
   resources:
     requests:
-      storage: 10Gi
-  storageClassName: local-storage
+      storage: 5Gi
+  storageClassName: local-path
 ...
 ---
 apiVersion: v1
@@ -807,12 +1013,29 @@ metadata:
     stack: polly
 spec:
   capacity:
-    storage: 10Gi
+    storage: 5Gi
   accessModes:
     - ReadWriteMany
-  storageClassName: local-storage
+  storageClassName: local-path
   hostPath:
     path: /var/tmp/polly-safe
+...
+HEREDOC
+
+    polly_services << <<-HEREDOC
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: buildkitd
+  name: polly-buildkitd
+spec:
+  ports:
+    - port: 1234
+      protocol: TCP
+  selector:
+    app: buildkitd
 ...
 HEREDOC
 
@@ -867,8 +1090,9 @@ metadata:
   name: "polly-registry"
 spec:
   ports:
-  - port: 443
-    name: docker-registry
+  - port: 23443
+    targetPort: 23443
+    name: https
     protocol: TCP
   selector:
     name: "polly-registry"
@@ -896,28 +1120,45 @@ HEREDOC
 
     polly_deployments << <<-HEREDOC
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: polly-buildkitd-configuration
+data:
+  buildkitd.toml: |-
+    debug = true
+    [registry."polly-registry:23443"]
+    ca=["/certs/ca.polly.crt"]
+    insecure = true
+...
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   labels:
     app: buildkitd
+    stack: polly
   name: polly-buildkitd
 spec:
-  serviceName: buildkitd
-  podManagementPolicy: Parallel
+  serviceName: polly-buildkitd
   replicas: 1
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
       app: buildkitd
   template:
     metadata:
       labels:
+        name: polly-buildkitd
         app: buildkitd
+        stack: polly
       annotations:
         container.apparmor.security.beta.kubernetes.io/buildkitd: unconfined
-    # see buildkit/docs/rootless.md for caveats of rootless mode
+        container.seccomp.security.alpha.kubernetes.io/buildkitd: unconfined
     spec:
+      terminationGracePeriodSeconds: 180
       containers:
+#####<<<<<<< HEAD
         - name: buildkitd
           image: moby/buildkit:master-rootless
           args:
@@ -946,23 +1187,121 @@ spec:
             runAsUser: 1000
             runAsGroup: 1000
           volumeMounts:
-            # Dockerfile has `VOLUME /home/user/.local/share/buildkit` by default too,
-            # but the default VOLUME does not work with rootless on Google's Container-Optimized OS
-            # as it is mounted with `nosuid,nodev`.
-            # https://github.com/moby/buildkit/issues/879#issuecomment-1240347038
-            - mountPath: /home/user/.local/share/buildkit
-              name: buildkitd
+          # Dockerfile has `VOLUME /home/user/.local/share/buildkit` by default too,
+          # but the default VOLUME does not work with rootless on Google's Container-Optimized OS
+          # as it is mounted with `nosuid,nodev`.
+          # https://github.com/moby/buildkit/issues/879#issuecomment-1240347038
+          - mountPath: /home/user/.local/share/buildkit
+            name: buildkitd
+          - name: configurations
+            subPath: buildkitd.toml
+            mountPath: /home/user/.config/buildkit/buildkitd.toml
+          - name: ca-certificates
+            mountPath: /certs
       volumes:
-        - name: buildkitd
-          emptyDir: {}
+      - name: buildkitd
+        emptyDir: {}
+      - name: configurations
+        configMap:
+          name: polly-buildkitd-configuration
+      - name: ca-certificates
+        secret:
+          secretName: ca-certificates
+####=======
+#      - name: buildkitd
+#        image: moby/buildkit:master-rootless
+#        resources:
+#          requests:
+#            memory: 10Mi
+#            cpu: 10m
+#          limits:
+#            memory: 12000Mi
+#        args:
+#        - --addr
+#        - tcp://0.0.0.0:1234
+#        - --tlscacert
+#        - /certs/server/ca.pem
+#        - --tlscert
+#        - /certs/server/cert.pem
+#        - --tlskey
+#        - /certs/server/key.pem
+#        - --oci-worker=true
+#        - --oci-worker-rootless=true
+#        - --oci-worker-no-process-sandbox=true
+#        - --oci-worker-gc=true
+#        - --oci-worker-gc-keepstorage=20000
+#        - --oci-worker-snapshotter=overlayfs
+#        readinessProbe:
+#          exec:
+#            command:
+#            - buildctl
+#            - --addr
+#            - tcp://127.0.0.1:1234
+#            - --tlscacert
+#            - /certs/client/ca.pem
+#            - --tlscert
+#            - /certs/client/cert.pem
+#            - --tlskey
+#            - /certs/client/key.pem
+#            - debug
+#            - workers
+#          initialDelaySeconds: 30
+#          periodSeconds: 60
+#          successThreshold: 1
+#          failureThreshold: 16
+#          timeoutSeconds: 30
+#        livenessProbe:
+#          exec:
+#            command:
+#            - buildctl
+#            - --addr
+#            - tcp://127.0.0.1:1234
+#            - --tlscacert
+#            - /certs/client/ca.pem
+#            - --tlscert
+#            - /certs/client/cert.pem
+#            - --tlskey
+#            - /certs/client/key.pem
+#            - debug
+#            - workers
+#          initialDelaySeconds: 30
+#          periodSeconds: 60
+#          successThreshold: 1
+#          failureThreshold: 16
+#          timeoutSeconds: 30
+#        securityContext:
+#          runAsUser: 1000
+#          runAsGroup: 1000
+#        ports:
+#        - containerPort: 1234
+#        volumeMounts:
+#        - name: "share-dir"
+#          mountPath: /home/user/.local/share/buildkit
+#        - name: buildkit-daemon-certs
+#          readOnly: true
+#          mountPath: /certs/server
+#        - name: buildkit-client-certs
+#          readOnly: true
+#          mountPath: /certs/client
+#      securityContext:
+#        fsGroup: 1000
+#      volumes:
+#      - name: buildkit-daemon-certs
+#        secret:
+#          secretName: buildkit-daemon-certs
+#      - name: buildkit-client-certs
+#        secret:
+#          secretName: buildkit-client-certs
+#      - name: share-dir
+#        emptyDir: {}
 ...
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: polly-git
+  name: polly-controller
   labels:
-    app: polly-git
+    app: polly-controller
     stack: polly
 spec:
   revisionHistoryLimit: 1
@@ -971,36 +1310,42 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      name: polly-git
+      name: polly-controller
   template:
     metadata:
       labels:
-        name: polly-git
+        name: polly-controller
         stack: polly
     spec:
       serviceAccountName: polly
       volumes:
-        - name: polly-mount
-          persistentVolumeClaim:
-            claimName: polly-mount
-        - name: registry-certificates
-          secret:
-            secretName: registry-certificates
+      - name: buildkit-client-certs
+        secret:
+          secretName: buildkit-client-certs
+      - name: polly-mount
+        persistentVolumeClaim:
+          claimName: polly-mount
+      - name: registry-certificates
+        secret:
+          secretName: registry-certificates
       securityContext:
         runAsUser: 1000
         fsGroup: 1000
         #supplementalGroups: [121, 123, 134, 999, 1000, 1001]
       initContainers:
       containers:
-      - name: polly-git
+      - name: polly-controller
         securityContext:
           runAsUser: 1000
         volumeMounts:
-          - mountPath: /polly/safe
-            name: polly-mount
-          - mountPath: /etc/ssl/private
-            name: registry-certificates
-            readOnly: true
+        - mountPath: /polly/safe
+          name: polly-mount
+        - mountPath: /etc/ssl/private
+          name: registry-certificates
+          readOnly: true
+        - mountPath: /certs/client
+          name: buildkit-client-certs
+          readOnly: true
         image: #{git_image}
         imagePullPolicy: IfNotPresent
         env:
@@ -1051,6 +1396,7 @@ spec:
         name: polly-registry
         stack: polly
     spec:
+      hostNetwork: true
       volumes:
         - name: registry-config
           configMap:
@@ -1083,7 +1429,8 @@ spec:
             memory: 1000Mi
             cpu: 2000m
         ports:
-        - containerPort: 443
+        - containerPort: 23443
+          name: https
         command:
         - /bin/registry
         args:
@@ -1095,7 +1442,7 @@ spec:
         - name: REGISTRY_HTTP_TLS_KEY
           value: /etc/ssl/private/registry.polly.key
         - name: REGISTRY_HTTP_ADDR
-          value: 0.0.0.0:443
+          value: 0.0.0.0:23443
 ...
 HEREDOC
     end
@@ -1113,33 +1460,69 @@ HEREDOC
       puts [o, e, s]
     end
 
-    deploy_polly_app = ["kubectl", "apply", "-f", "-"]
+    deploy_polly_app = ["kubectl", "apply", "--server-side=true", "-f", "-"]
     options = {:stdin_data => polly_run}
 
     o,e,s = exe.execute_simple(:output, deploy_polly_app, options)
     puts [o, e, s]
 
-    wait_polly_app = ["kubectl", "wait", "--for=condition=available", "deployment/polly-git"]
+    wait_polly_app = ["kubectl", "wait", "--for=condition=available", "deployment/polly-controller"]
     o,e,s = exe.execute_simple(:output, wait_polly_app, {})
     puts [o, e, s]
 
-    wait_polly_app = ["kubectl", "rollout", "status", "deployment/polly-git"]
+    wait_polly_app = ["kubectl", "rollout", "status", "deployment/polly-controller"]
     o,e,s = exe.execute_simple(:output, wait_polly_app, {})
     puts [o, e, s]
   end
 
   desc "xxh", "debug shell into polly controller"
-  def xxh(sh_cmd = "bash")
+  def xxh(service = "git", sh_cmd = "sh")
     exe = ::Polly::Execute.new
 
-    exec(*["kubectl", "exec", exe.polly_pod, "-i", $stdin.tty? ? "-t" : nil, "--", sh_cmd].compact)
+    exec(*["kubectl", "exec", exe.polly_pod(service), "-i", $stdin.tty? ? "-t" : nil, "--", sh_cmd].compact)
   end
 
-  desc "shh", "debug instance of polly controller"
-  def shh(sh_cmd = "bash")
+  desc "shr", "run a polly shell"
+  def shr(shr_cmd = "bash")
     exe = ::Polly::Execute.new
 
-    exec(*["kubectl", "run", "-it", "--image=polly:latest", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", sh_cmd].compact)
+    exec(*["kubectl", "run", "shr", "-it", "--pod-running-timeout=3m0s", "--image=ghcr.io/unhookd/polly:master", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", shr_cmd].compact)
+  end
+
+  desc "rxn", "run app pod"
+  option "stage", :type => :string, :default => nil
+  def rxn(rxn_cmd = "bash")
+    exe = ::Polly::Execute.new
+
+    environment_overrides = nil
+    if File.exist?("vertical.yaml")
+      vertical_lookup = YAML.load(File.read("vertical.yaml"))
+      environment_overrides = vertical_lookup["environment-overrides"]
+    end
+
+    env_flags = (environment_overrides || []).collect { |env| "--env=#{env["name"]}=#{env["value"]}" }
+
+    version = exe.current_revision
+    branch = exe.current_branch.gsub("/", "-")
+    app = exe.current_app
+    image_repo = Polly::Config.image_repo
+
+    tag = Polly::Build.build_image_to_tag(app, options["stage"] || branch, version)
+    #tag = Polly::Build.build_image_to_tag(app, "wkndr", version)
+    puts tag.inspect
+
+    cmd = ["kubectl", "run", "rxn-#{app}", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--command", "--", rxn_cmd].compact
+    #      cmd = ["kubectl", "run", "rxn", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--command", "--", rxn_cmd].compact
+    puts cmd.inspect
+
+    exec(*cmd)
+  end
+
+  desc "wxh", "workstation instance"
+  def wxh(profile)
+    exe = ::Polly::Execute.new
+
+    exec("ssh", "-AX", "app@#{exe.multipass_ip(profile)}")
   end
 
   desc "waitx", "TBD: wait for pod availability, execute subsequent command"
@@ -1221,19 +1604,7 @@ HEREDOC
         $stdout.write(generated_circleci_config_yml)
 
       when "github"
-        #set -e
-        #id app || (export  DEBIAN_FRONTEND=noninteractive; export  LC_ALL=C.UTF-8; export  LANG=en_US; export  LANGUAGE=en_US; export  ACCEPT_EULA=y; apt-get update; apt-get install -y locales locales-all; apt-get clean; rm -rf /var/lib/apt/lists/*; locale-gen --purge en_US; /bin/echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale; locale-gen $LANGUAGE; dpkg-reconfigure locales; apt-get update; apt-get install -y git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby2* libruby2* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper; apt-get clean; rm -rf /var/lib/apt/lists/*; curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add; apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"; apt-get update; apt-get install -y kubectl; apt-get clean; rm -rf /var/lib/apt/lists/*; groupadd --gid 134 abc-otf; groupadd --gid 999 efg-nnn; useradd --uid 1001 --home-dir /home/app --create-home --shell /bin/bash app --groups docker,abc-otf,efg-nnn; ln -sfv /home/app/polly/bin/polly /usr/local/bin/polly; chown -R app /home/app)
-        ####export SSH_AUTH_SOCK=/tmp/ssh-auth.sock
-        ####ssh-agent -a $SSH_AUTH_SOCK > /dev/null
-        #chown -R app .
-        #### /home/app
-        ####su app -s /bin/test -- -w $SSH_AUTH_SOCK || (chmod g+w $SSH_AUTH_SOCK && chgrp 1001 $SSH_AUTH_SOCK && chgrp 1001 $(dirname $SSH_AUTH_SOCK) && chmod g+x $(dirname $SSH_AUTH_SOCK) && su app -s /bin/test -- -w $SSH_AUTH_SOCK)
-        ####test -z $DOCKER_CERT_PATH || (chown -R 1001 $(dirname $DOCKER_CERT_PATH))
-        ####chown root:docker /var/run/docker.sock
-        ####su app -w SSH_AUTH_SOCK,DOCKER_CERT_PATH,DOCKER_HOST,DOCKER_MACHINE_NAME,DOCKER_TLS_VERIFY,NO_PROXY -s /bin/bash -c 'bundle exec polly build'
-        #su app -s /bin/bash -c 'bundle config set --local path /home/app/vendor/bundle && bundle config set --local jobs 4 && bundle config set --local retry 3 && bundle config set --local deploment true && bundle config set --local without development && bundle install'
-        #su app -s /bin/bash -c 'bundle exec polly generate' > Dockerfile
-        ####docker run --rm=true polly:latest bundle exec rspec
+        #TODO: re-emit githubrc file
 
       when "dockerfile"
         $stdout.write(Polly::Generate.read_output)
@@ -1468,7 +1839,7 @@ HEREDOC
     if options["build"]
       buildctl_local_cmd = [
         "buildctl",
-        "--addr", "kube-pod://buildkitd-0?namespace=#{namespace}",
+        "--addr", "kube-pod://polly-buildkitd-0?namespace=#{namespace}",
         "build",
         "--ssh", "default=#{Dir.home}/.ssh/id_rsa",
         "--frontend", "dockerfile.v0",
@@ -1498,45 +1869,83 @@ HEREDOC
     end
   end
 
-  #TODO: detect other repo categories to login different mech
-  desc "login [REPO]", "utility to authenticate to docker repo"
-  def login(repo_registry_url = nil)
-    exe = ::Polly::Execute.new
-    vertical_lookup = YAML.load(File.read("vertical.yaml"))
-    repo_registry = vertical_lookup["repo-registry"]
+  ##TODO: re-impl without /usr/bin/docker
+  ##mkdir -p ~/.docker
+  ##kubectl create secret docker-registry --dry-run=client docker-regcred \
+  ##  --docker-server=XXX/repo \
+  ##  --docker-username=AWS \
+  ##  --docker-password=${PASSWORD} \
+  ##  --namespace=xxx \
+  ##  -o json | jq -r '.data.".dockerconfigjson"' | base64 -d > ~/.docker/config.json
+  #desc "login [REPO]", "utility to authenticate to docker repo"
+  #def login(repo_registry_url = nil)
+  #  exe = ::Polly::Execute.new
+  #  vertical_lookup = YAML.load(File.read("vertical.yaml"))
+  #  repo_registry = vertical_lookup["repo-registry"]
 
-    docker_login_password = IO.popen("aws ecr get-login-password").read
-    Process.wait
-    unless $?.success?
-      exit(1)
-    end
+  #  docker_login_password = IO.popen("aws ecr get-login-password").read
+  #  Process.wait
+  #  unless $?.success?
+  #    exit(1)
+  #  end
 
-    docker_login_cmd = ["docker", "login", "--username", "AWS", "--password-stdin", repo_registry]
-    options = {:stdin_data => docker_login_password}
-    o,e,s = exe.execute_simple(:output, docker_login_cmd, options)
-    puts [o, e, s]
-  end
+  #  docker_login_cmd = ["docker", "login", "--username", "AWS", "--password-stdin", repo_registry]
+  #  options = {:stdin_data => docker_login_password}
+  #  o,e,s = exe.execute_simple(:output, docker_login_cmd, options)
+  #  puts [o, e, s]
+  #end
 
   desc "launch [PROFILE]", "todo"
-  option "platform", :type => :string, :default => "multipass", :desc => "todo"
-  option "distro", :type => :string, :default => "focal"
-  option "public-ssh-key", :type => :string, :default => "~/.ssh/id_rsa.pub", :desc => "todo"
+  option "debug", :default => false, :type => :boolean
+  option "automatic-host-key", :default => false, :type => :boolean
   def launch(profile = "foo")
     exe = ::Polly::Execute.new
 
     vertical_lookup = YAML.load(File.read("vertical.yaml"))
-    public_key = File.read(File.expand_path(options["public-ssh-key"]))
+    station_profile = vertical_lookup["platforms"][profile]
 
-    cloud_init_yaml = ::Polly::Build.build_cloudinit_yaml(exe, vertical_lookup, public_key)
+    station_profile.each { |platform, params|
+      case platform
+        when "multipass"
+          #TODO: pattern-matching ruby3x jazz
+          raise unless (distro = params["distro"]) && (ssh = params["ssh"]) &&
+                         (client_key_pub = ssh["client_key_pub"]) &&
+                         (server_key = ssh["server_key"]) &&
+                         (server_key_pub = ssh["server_key_pub"]) &&
+                         (ca_cert = ssh["ca_cert"])
 
-    multipass_launch_cmd = ["multipass", "launch", "--name", profile, "--disk=60G", "--cpus=4", "--mem=10G", "--cloud-init=-", options["distro"]]
+          cloud_init_yaml = ::Polly::Build.build_cloudinit_yaml(exe, vertical_lookup, File.read(ca_cert), File.read(client_key_pub), File.read(server_key), File.read(server_key_pub))
 
-    options = {:out => $stdout, :err => $stderr, :in => ::Polly::Build.generated_string_fd(cloud_init_yaml)}
-    exe.system({}, *multipass_launch_cmd, options)
+          if options["debug"]
+            puts cloud_init_yaml
+            exit
+          end
+
+          known_hosts_file = File.expand_path("~/.ssh/known_hosts")
+          known_hosts = File.read(known_hosts_file) if File.exists?(known_hosts_file)
+
+          multipass_launch_cmd = ["multipass", "launch", "--name", profile, "--disk=100G", "--cpus=4", "--memory=10G", "--cloud-init=-", distro]
+          multipass_options = {:out => $stdout, :err => $stderr, :in => ::Polly::Build.generated_string_fd(cloud_init_yaml)}
+          exe.system({}, *multipass_launch_cmd, multipass_options)
+
+          server_key_pub_pem = File.read(server_key_pub)
+          known_hosts_line = "#{exe.multipass_ip(profile)} #{server_key_pub_pem}"
+
+          if known_hosts && known_hosts.index(known_hosts_line)
+          else
+            if options["automatic-host-key"] || yes?("append #{known_hosts_file}?")
+              # echo $(ruby devstack/wkip.rb threep) $(ssh-keygen -yf tmp/threep/sshd_rsa_key) > ~/.ssh/known_hosts
+              File.write(known_hosts_file, (known_hosts || "") + "\n" + known_hosts_line + "\n")
+            end
+          end
+
+      end
+    }
+
   end
 
   desc "stationkeep [PROFILE]", "todo"
-  def stationkeep(profile = "foo")
+  def stationkeep(profile = "foo", substation = nil)
     exe = ::Polly::Execute.new
 
     vertical_lookup = YAML.load(File.read("vertical.yaml"))
@@ -1544,45 +1953,55 @@ HEREDOC
 
     multipass_ip = exe.multipass_ip(profile)
 
+    if substation
+      stationkeeps = stationkeeps.select { |stationkeep| stationkeep["name"] == substation }
+    end
+
     stationkeeps.each { |stationkeep|
-      if bootstrap = stationkeep["bootstrap"]
-        bootstrap_script = File.read(bootstrap)
-        shebang = bootstrap_script.split("\n")[0].split("!", 2)[1].split(" ")
-
-        options = {:stdin_data => bootstrap_script}
-        ssh_pipe = ["ssh", "app@#{multipass_ip}", "sudo", *shebang]
-        stdin, stdout, stderr, wait_thr = Open3.popen3(*ssh_pipe)
-        stdin.write(options[:stdin_data])
-        stdin.close
-
-        resolution = :ok
-        begin
-          until wait_thr.join(1.0 / 24.0)
-            if bits = begin
-                        stdout.readpartial(8192)
-                      rescue EOFError
-                      end
-
-              $stdout.write(bits)
-            end
-          end
-        rescue Interrupt
-          Process.kill("INT", wait_thr.pid)
-          $stderr.write(stderr.read)
-          resolution = :interrupt
-        end
-
-        $stdout.write(stdout.read) unless stdout.eof?
-        #$stderr.write(stderr.read) unless stderr.eof?
-
-        unless wait_thr.value.success?
-          puts wait_thr.value.inspect
-          puts stderr.read
-          resolution = :errored
-        end
-
-        break unless resolution == :ok
+      sudo = false
+      if bootstrap = stationkeep["root"]
+        sudo = true
+      elsif bootstrap = stationkeep["app"]
+      else
+        raise
       end
+
+      bootstrap_script = File.read(bootstrap)
+      shebang = bootstrap_script.split("\n")[0].split("!", 2)[1].split(" ")
+
+      options = {:stdin_data => bootstrap_script}
+      ssh_pipe = ["ssh", "-AX", "app@#{multipass_ip}", sudo ? "sudo" : nil, *shebang].compact
+      stdin, stdout, stderr, wait_thr = Open3.popen3(*ssh_pipe)
+      stdin.write(options[:stdin_data])
+      stdin.close
+
+      resolution = :ok
+      begin
+        until wait_thr.join(1.0 / 24.0)
+          if bits = begin
+                      stdout.readpartial(8192)
+                    rescue EOFError
+                    end
+
+            $stdout.write(bits)
+          end
+        end
+      rescue Interrupt
+        Process.kill("INT", wait_thr.pid)
+        $stderr.write(stderr.read)
+        resolution = :interrupt
+      end
+
+      $stdout.write(stdout.read) unless stdout.eof?
+      #$stderr.write(stderr.read) unless stderr.eof?
+
+      unless wait_thr.value.success?
+        puts wait_thr.value.inspect
+        puts stderr.read
+        resolution = :errored
+      end
+
+      break unless resolution == :ok
     }
 
     puts
@@ -1590,7 +2009,7 @@ HEREDOC
   end
 
   desc "mkhooks [PROFILE]", "todo"
-  option "user", :type => :string, :default => "bip", :desc => "todo"
+  option "user", :type => :string, :default => "app", :desc => "todo"
   def mkhooks(profile = "foo")
     exe = ::Polly::Execute.new
 
@@ -1609,9 +2028,17 @@ HEREDOC
       system("ssh", remote_user, "--", "git", "clone", "/home/#{options['user']}/workspace/#{uuid}.git", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}", "--branch", `git rev-parse --abbrev-ref HEAD`) || fail
       system("ssh", remote_user, "--", "ln", "-sf", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}/devstack/git-hooks", "/home/#{options['user']}/workspace/#{uuid}.git/hooks")
       system("ssh", remote_user, "--", "git", "-C", "/home/#{options['user']}/workspace/#{uuid}.git config", "receive.advertisePushOptions", "true")
-      #git config core.sshCommand 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ForwardAgent=yes -X'
+
+      system("ssh", remote_user, "--", "git", "config", "--global", "user.name", IO.popen("git config user.name").read.strip)
+      system("ssh", remote_user, "--", "git", "config", "--global", "user.email", IO.popen("git config user.email").read.strip)
+
+      polly_ssh_config_d = "#{Dir.home}/.ssh/polly_config.d"
+      FileUtils.mkdir_p(polly_ssh_config_d)
+      File.write(File.join(polly_ssh_config_d, profile), "Host #{multipass_ip}\n  ForwardAgent yes")
+
+      #system("git", "config", "remote.#{profile}.sshCommand", 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ForwardAgent=yes -X')
     else
-      puts "re-init manually... git remote remove #{foo}"
+      puts "re-init manually... git remote remove #{profile}"
       #system("ssh", remote_user, "--", "git", "-C", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}", "pull")
       #system("ssh", remote_user, "--", "git", "-C", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}", "show")
       #system("ssh", remote_user, "--", "git", "--git-dir", "/home/#{options['user']}/workspace/#{File.basename(Dir.pwd)}/.git", "pull")
