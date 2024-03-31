@@ -482,6 +482,58 @@ class PollyTasks < Thor
     ##end
   end
 
+  desc "deploy", "deploys kubernetes resources"
+  def deploy(glob = "kubernetes/**/*yaml")
+    exe = ::Polly::Execute.new(options)
+
+    version = exe.current_revision
+    branch = exe.current_branch.gsub("/", "-")
+    app = exe.current_app
+    image_repo = Polly::Config.image_repo
+
+    resource_paths = Dir.glob(glob)
+
+    all_resources_yaml = ""
+
+    document_handler_switch = Proc.new do |document|
+      add_to_pending_documents = false
+
+      description = document.to_ruby
+
+      next unless description
+
+      kind = description["kind"]
+      name = description["metadata"]["name"]
+
+      case kind
+        when "Service"
+
+        when "Deployment", "ReplicationController"
+          description["spec"]["template"]["spec"]["initContainers"].each { |c|
+            if c["image"] == app + ":latest"
+              c["image"] = (image_repo + "/polly-registry/" + (app + ":" + branch + "-" + version))
+            end
+          }
+          description["spec"]["template"]["spec"]["containers"].each { |c|
+            if c["image"] == app + ":latest"
+              c["image"] = (image_repo + "/polly-registry/" + (app + ":" + branch + "-" + version))
+            end
+          }
+
+      else
+      end
+
+      all_resources_yaml << description.to_yaml + "\n...\n"
+    end
+
+    handler = Polly::DocumentStreamHandler.new(&document_handler_switch)
+    parser = Psych::Parser.new(handler)
+    resource_paths.each { |resource_path|
+      parser.parse(File.read(resource_path), resource_path)
+    }
+    puts all_resources_yaml
+  end
+
 #  desc "checkout [REPO] [VERSION] [DESTINATION]", ""
 #  def checkout(repo, version, destination)
 #    obv = ::Polly::Observe.new

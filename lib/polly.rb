@@ -32,4 +32,5 @@ module Polly
   autoload 'Job', 'polly/job'
   autoload 'Observe', 'polly/observe'
   autoload 'Plan', 'polly/plan'
+  autoload 'DocumentStreamHandler', 'polly/document_stream_handler'
 end
