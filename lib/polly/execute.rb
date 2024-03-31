@@ -88,6 +88,10 @@ module Polly
       end
     end
 
+    def polly_labels
+      {"polly-current-app" => current_app}
+    end
+
     def current_branch
       @current_branch ||= begin
         a = IO.popen("git rev-parse --abbrev-ref HEAD").read.strip
