@@ -231,7 +231,8 @@ module Polly
 
       #run_cmd_args = ["bash", "-e", "-x", "-o", "pipefail", run_shell_path]
       #if true #TODO: bits
-      run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
+      #run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
+      run_cmd_args = ["bash #{run_shell_path}"] # > /proc/1/fd/1 2> /proc/1/fd/2"]
       #end
 
       intend_to_run_cmd = nil
@@ -255,7 +256,8 @@ module Polly
         "metadata" => {
           "name" => clean_name,
           "labels" => {
-            "app" => clean_name
+            "app" => clean_name,
+            "polly" => "polly-ci"
           }
         },
         "spec" => {
@@ -267,15 +269,16 @@ module Polly
           "selector" => {
             "matchLabels" => {
               #TODO: abstract this!!!!
-              "name" => clean_name
+              "app" => clean_name,
+              "polly" => "polly-ci"
             }
           },
           "template" => {
             "metadata" => {
               "labels" => {
                 #TODO: abstract this
-                "name" => clean_name,
-                "app" => "polly-ci"
+                "app" => clean_name,
+                "polly" => "polly-ci"
               },
               "annotations" => {}
             }
@@ -502,7 +505,7 @@ module Polly
           polly_waitx = [
                          "polly",
                          "waitx",
-                         clean_name,
+                         "app=#{clean_name},polly=polly-ci",
                        ] + intend_to_run_cmd
 
           @runners << [job.run_name, clean_name, execute_simple(:async, polly_waitx, {})]

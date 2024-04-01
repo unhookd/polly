@@ -129,6 +129,7 @@ workflow_image = "polly:latest"
   job("primary",
     [{"image"=>workflow_image}],
     [
+      {"run"=>{"name"=>"demo","command"=>"false"}},
       {"run"=>{"name"=>"demo","command"=>"echo DEMO!!!!"}},
       {"run"=>{"name"=>"demo","command"=>"polly generate > Dockerfile"}},
       #{"run"=>{"name"=>"config","command"=>"bundle config set --local path vendor/bundle"}},
