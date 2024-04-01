@@ -217,7 +217,8 @@ module Polly
 
       build_run_dir = Dir.mktmpdir #"/polly/safe/run"
       build_manifest_dir = File.join(build_run_dir, clean_name, current_revision)
-      run_shell_path = File.join(build_manifest_dir, "run.sh")
+
+      #run_shell_path = File.join(build_manifest_dir, "run.sh")
 
       sleep_cmd_args = ["sleep", "infinity"]
 
@@ -226,13 +227,13 @@ module Polly
       #####TODO: better input for cmd: [] support
       ######run_cmd_args = ["bash", "-e", run_shell_path]
 
-      FileUtils.mkdir_p(build_manifest_dir)
-      File.write(run_shell_path, job.parameters[:command])
+      #FileUtils.mkdir_p(build_manifest_dir)
+      #File.write(run_shell_path, job.parameters[:command])
 
       #run_cmd_args = ["bash", "-e", "-x", "-o", "pipefail", run_shell_path]
       #if true #TODO: bits
       #run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
-      run_cmd_args = ["/bin/bash #{run_shell_path}"] # > /proc/1/fd/1 2> /proc/1/fd/2"]
+      run_cmd_args = ["/bin/bash /home/app/workflows/run.sh"] # > /proc/1/fd/1 2> /proc/1/fd/2"]
       #puts run_shell_path
 
       #run_cmd_args = ["sleep infinity"] # > /proc/1/fd/1 2> /proc/1/fd/2"]
@@ -392,7 +393,7 @@ module Polly
               "privileged" => true, #TODO: figure out un-privd case, use kaniko???
               #"runAsUser" => 0
               "runAsUser" => username_to_uid(first_docker_executor_hint["user"]),
-              "runAsGroup" => 999
+              "runAsGroup" => 999 #T!!!!!
               #"fsGroup" => 999
             },
             "name" => clean_name,
@@ -407,7 +408,7 @@ module Polly
                 "readOnly" => true
               },
               {
-                "mountPath" => build_manifest_dir,
+                "mountPath" => "/home/app/workflows",
                 "name" => "fd-config-volume"
               },
               {
@@ -441,7 +442,7 @@ module Polly
           {
             "name" => "fd-config-volume",
             "configMap" => {
-              "name" => "fd-#{clean_name}-#{current_revision}"
+              "name" => "fd-#{clean_name}-#{Digest::SHA2.new(256).hexdigest(job.parameters[:command])}"
             }
           },
           {
@@ -503,7 +504,7 @@ module Polly
         "apiVersion" => "v1",
         "kind" => "ConfigMap",
         "metadata" => {
-          "name" => "fd-#{clean_name}-#{current_revision}"
+          "name" => "fd-#{clean_name}-#{Digest::SHA2.new(256).hexdigest(job.parameters[:command])}"
         },
         "data" => {
           "run.sh" => job.parameters[:command]
