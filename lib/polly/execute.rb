@@ -305,7 +305,7 @@ module Polly
               #"clone", "-b", current_branch, "/polly/safe/git/#{current_app}", ".",
               "config", "--global", "--add", "safe.directory", "/home/app/polly",
             ],
-            "env" => { "GIT_CONFIG_GLOBAL" => "/home/app/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
+            "env" => { "GIT_CONFIG_GLOBAL" => "/tmp/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
             "securityContext" => {
               "runAsUser" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
               "runAsGroup" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
@@ -335,7 +335,7 @@ module Polly
               #"http://polly-app:8080/#{current_app}"
               "clone", "-b", current_branch, "/polly/safe/git/#{current_app}", "."
             ],
-            "env" => { "GIT_CONFIG_GLOBAL" => "/home/app/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
+            "env" => { "GIT_CONFIG_GLOBAL" => "/tmp/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
             "securityContext" => {
               "runAsUser" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
               "runAsGroup" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
