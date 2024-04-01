@@ -2,9 +2,8 @@
 
 @base = image {
   stage "base", "ghcr.io/unhookd/polly:4.0-rc-3@sha256:1169fa172ec82abfaa368396aaad8be59d1879e76fcd115495567598d7500586"
-  #stage "base", "ghcr.io/unhookd/polly:3.0-rc1"
-  #stage "base", "ubuntu:jammy-20220421"
   #stage "base", "public.ecr.aws/debian/debian:bookworm-20240311-slim"
+  #stage "base", "ghcr.io/unhookd/polly:3.0-rc1"
 
   root
 
