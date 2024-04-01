@@ -500,9 +500,9 @@ class PollyTasks < Thor
       Polly::Build.buildkit_external(exe, app, branch, version, generated_dockerfile, options["no-cache"])
     end
 
+    #TODO: ?
     raise if version.empty?
-
-    Polly::Build.buildkit_workstation_to_controller(exe, app, "wkndr", version, generated_dockerfile, options["no-cache"])
+    Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, "wkndr-todo", generated_dockerfile, options["no-cache"])
 
     exit
 
@@ -1619,7 +1619,7 @@ HEREDOC
     app = exe.current_app
     image_repo = Polly::Config.image_repo
 
-    tag = Polly::Build.build_image_to_tag(app, options["stage"] || branch, version)
+    tag = Polly::Build.build_image_to_tag(app, version, options["stage"])
     #tag = Polly::Build.build_image_to_tag(app, "wkndr", version)
     puts tag.inspect
 

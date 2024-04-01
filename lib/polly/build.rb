@@ -2,8 +2,12 @@
 
 module Polly
   class Build
-    def self.build_image_to_tag(app, build_image_stage, version)
-      app + ":" + build_image_stage + "-" + version
+    def self.build_image_to_tag(app, version, build_image_stage=nil)
+      if build_image_stage
+        app + ":" + build_image_stage + "-" + version
+      else
+        app + ":" + version
+      end
     end
 
     def self.generated_string_fd(generated_dockerfile)
@@ -14,7 +18,7 @@ module Polly
     end
 
     def self.buildkit_workstation_to_controller(exe, app, version, branch, dockerfile_path, build_image_stage, force_no_cache = nil, push_stage = nil)
-      tag = build_image_to_tag(app, build_image_stage || branch, version)
+      tag = build_image_to_tag(app, version, build_image_stage)
       buildctl_local_cmd = [
         {"SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
         "buildctl",
@@ -77,7 +81,7 @@ module Polly
     end
 
     def self.buildkit_internal(exe, app, build_image_stage, version, generated_dockerfile, force_no_cache)
-      tag = build_image_to_tag(app, build_image_stage.stage, version)
+      tag = build_image_to_tag(app, version, build_image_stage.stage)
       stage = app + "-" + build_image_stage.stage
 
       polly_dockerfile_config = []
