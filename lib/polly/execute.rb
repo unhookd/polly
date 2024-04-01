@@ -290,6 +290,7 @@ module Polly
       }
 
       container_spec = {
+        "serviceAccount" => "polly",
         ##TODO: converge this with workstion git context
         "initContainers" => [
           {
