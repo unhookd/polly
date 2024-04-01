@@ -356,10 +356,6 @@ module Polly
                 "name" => "config-dir"
               },
               {
-                "mountPath" => "/home/app/.config",
-                "name" => "config-dir"
-              },
-              {
                 "mountPath" => "/polly/safe/git/#{current_app}",
                 "name" => "git-repo"
               },
