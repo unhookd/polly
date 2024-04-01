@@ -1242,7 +1242,8 @@ spec:
       containers:
 #####<<<<<<< HEAD
         - name: buildkitd
-          image: moby/buildkit:master-rootless
+          image: moby/buildkit:v0.13.1-rootless
+          #image: moby/buildkit:master-rootless
           args:
             - --oci-worker-no-process-sandbox
           readinessProbe:
