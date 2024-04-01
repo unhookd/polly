@@ -179,7 +179,7 @@ module Polly
 
       extra_runtime_envs = begin
         if executor_hints[:setup_remote_docker] || clean_name.include?("bootstrap")
-          {"SSH_AUTH_SOCK" => "/home/app/.ssh-auth-sock"}
+          {} #{"SSH_AUTH_SOCK" => "/home/app/.ssh-auth-sock"}
         else
           {}
         end
@@ -294,18 +294,20 @@ module Polly
         "initContainers" => [
           {
             #"terminationGracePeriodSeconds" => 5,
-            "name" => "git-clone",
+            "name" => "git-config",
             "image" => "alpine/git:latest", #TODO: more bits rebootstrap
             "workingDir" => "/home/app/#{current_app}", #TODO: local executor support
             "imagePullPolicy" => "IfNotPresent",
             "args" => [
               #origin = "/polly-safe/git/#{app}"
               #"http://polly-app:8080/#{current_app}"
-              "clone", "-b", current_branch, "/polly/safe/git/#{current_app}", "."
+              #"clone", "-b", current_branch, "/polly/safe/git/#{current_app}", ".",
+              "config", "--global", "--add", "safe.directory", "/home/app/polly",
             ],
-            "env" => { "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
+            "env" => { "GIT_CONFIG_GLOBAL" => "/home/app/polly/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
             "securityContext" => {
-              "runAsUser" => username_to_uid("root"), #TODO: bootstrap module
+              "runAsUser" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
+              "runAsGroup" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
               "allowPrivilegeEscalation" => false,
               "readOnlyRootFilesystem" => true
             },
@@ -319,6 +321,35 @@ module Polly
                 "name" => "git-repo"
               },
 
+            ]
+          },
+          {
+            #"terminationGracePeriodSeconds" => 5,
+            "name" => "git-clone",
+            "image" => "alpine/git:latest", #TODO: more bits rebootstrap
+            "workingDir" => "/home/app/#{current_app}", #TODO: local executor support
+            "imagePullPolicy" => "IfNotPresent",
+            "args" => [
+              #origin = "/polly-safe/git/#{app}"
+              #"http://polly-app:8080/#{current_app}"
+              "clone", "-b", current_branch, "/polly/safe/git/#{current_app}", "tmp"
+            ],
+            "env" => { "GIT_CONFIG_GLOBAL" => "/home/app/polly/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
+            "securityContext" => {
+              "runAsUser" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
+              "runAsGroup" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
+              "allowPrivilegeEscalation" => false,
+              "readOnlyRootFilesystem" => true
+            },
+            "volumeMounts" => [
+              {
+                "mountPath" => "/home/app/#{current_app}",
+                "name" => "scratch-dir"
+              },
+              {
+                "mountPath" => "/polly/safe/git/#{current_app}",
+                "name" => "git-repo"
+              },
             ]
           }
         ],
@@ -358,7 +389,7 @@ module Polly
             "name" => clean_name,
             "image" => run_image,
             "imagePullPolicy" => "IfNotPresent",
-            "workingDir" => job.parameters[:working_directory] || "/home/app/#{current_app}", #TODO: local executor support
+            "workingDir" => job.parameters[:working_directory] || "/home/app/#{current_app}/tmp", #TODO: local executor support
             "command" => sleep_cmd_args,
             "volumeMounts" => [
               {
@@ -384,7 +415,7 @@ module Polly
               #  "name" => "ssh-key"
               #},
             ],
-            "env" => extra_runtime_envs.merge(job.parameters[:environment]).collect { |k,v| {"name" => k, "value" => v } }
+            "env" => extra_runtime_envs.merge(job.parameters[:environment]).merge({"GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true"}).collect { |k,v| {"name" => k, "value" => v } }
           }
         ],
         "volumes" => [
@@ -429,6 +460,7 @@ module Polly
         ]
       }
 
+      #TODO: document ssh-key bootstrap
       if executor_hints[:setup_remote_docker] && (ENV["POLLY_SSH_AUTH_SOCK"] || ENV["SSH_AUTH_SOCK"])
         container_spec["volumes"] << {
           "name" => "ssh-auth-sock",
