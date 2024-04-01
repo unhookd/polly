@@ -298,7 +298,8 @@ class PollyTasks < Thor
     # File.join($polly_dir, "config/git-repo/templates")
 
     #TODO: specify the remote follow branch with a toggle possibly???
-    exe.systemx("git", "push", "-f", "polly", branch, "HEAD:#{branch}-#{Time.now.to_i}", "--exec=polly receive-pack#{options['local'] ? " --local" : ""}")
+    #exe.systemx("git", "push", "-f", "polly", branch, "HEAD:#{branch}-#{Time.now.to_i}", "--exec=polly receive-pack#{options['local'] ? " --local" : ""}")
+    exe.systemx("git", "push", "-f", "polly", branch, "HEAD:#{branch}", "--exec=polly receive-pack#{options['local'] ? " --local" : ""}")
 
     #TODO:
     #####cat /var/tmp/polly-safe/buildkit/example-510b1e33549a9f97b9fce43f1a30d13afe208390.tar | docker import - example:latest
