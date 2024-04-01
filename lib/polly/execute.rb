@@ -339,7 +339,7 @@ module Polly
               #"http://polly-app:8080/#{current_app}"
               "clone", "-b", current_branch, "/polly/safe/git/#{current_app}", "."
             ],
-            "env" => { "GIT_CONFIG_GLOBAL" => "/home/app/config/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
+            "env" => { "GIT_CONFIG_GLOBAL" => "/home/app/.config/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
             "securityContext" => {
               "runAsUser" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
               "runAsGroup" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
@@ -428,7 +428,7 @@ module Polly
               #  "name" => "ssh-key"
               #},
             ],
-            "env" => extra_runtime_envs.merge(job.parameters[:environment]).merge({"GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true"}).collect { |k,v| {"name" => k, "value" => v } }
+            "env" => extra_runtime_envs.merge(job.parameters[:environment]).merge({"GIT_CONFIG_GLOBAL" => "/home/app/.config/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true"}).collect { |k,v| {"name" => k, "value" => v } }
           }
         ],
         "volumes" => [
