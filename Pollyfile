@@ -32,7 +32,7 @@
 
   #run %q{curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add}
   #run %q{apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"}
-  run %q{curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg}
+  run %q{curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | gpg --no-tty --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg}
   run %q{echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list}
 
   apt %w{kubectl}
