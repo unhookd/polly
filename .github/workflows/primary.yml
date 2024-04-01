@@ -16,8 +16,8 @@ jobs:
 
     container:
       options: "--user 0"
-      image: public.ecr.aws/debian/debian:bookworm-20240311-slim
-      #image: ghcr.io/unhookd/polly:3.0-rc1@sha256:7cc65086b101fe352a8ff83180888f0f7079b2f80139b0f39ba7b2a4cb34b168
+      #image: public.ecr.aws/debian/debian:bookworm-20240311-slim
+      image: ghcr.io/unhookd/polly:4.0-rc-3@sha256:1169fa172ec82abfaa368396aaad8be59d1879e76fcd115495567598d7500586
 
     steps:
     - uses: actions/checkout@v3

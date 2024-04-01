@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile-upstream:master-experimental
-FROM public.ecr.aws/debian/debian:bookworm-20240311-slim AS base
+FROM ghcr.io/unhookd/polly:4.0-rc-3@sha256:1169fa172ec82abfaa368396aaad8be59d1879e76fcd115495567598d7500586 AS base
 USER root
 ENV DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8 LANG=en_US LANGUAGE=en_US ACCEPT_EULA=y
 RUN set -ex; \
