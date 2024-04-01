@@ -1,3 +1,9 @@
+# [4.28.0] - 2024-04-01 - Jon Bardin
+
+Upgrade base images and to ruby3
+
+#######
+
 # [4.27.0] - 2024-02-07 - Jon Bardin
 
 Merge build features
