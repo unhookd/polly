@@ -351,8 +351,8 @@ class PollyTasks < Thor
     #exit
 
     o,e,s = exe.execute_simple(:output, git_config_cmd, {})
-    puts o
     unless s
+      puts o
       puts e
       exit(1)
     end
@@ -376,8 +376,8 @@ class PollyTasks < Thor
     #exit
 
     o,e,s = exe.execute_simple(:output, git_init_cmd, {})
-    puts o
     unless s
+      puts o
       puts e
       exit(1)
     end
