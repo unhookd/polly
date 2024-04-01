@@ -38,8 +38,8 @@ module Polly
         "type=inline",
         "--export-cache",
         "type=registry,ref=polly-registry:23443/#{app}",
-        "--export-cache",
-        "type=local,dest=/var/tmp/polly-safe/buildkit,mode=max" # this is client-side
+        #"--export-cache",
+        #"type=local,dest=/var/tmp/polly-safe/buildkit,mode=max" # this is client-side
       ]
 
       if build_image_stage
