@@ -305,7 +305,7 @@ module Polly
               #"clone", "-b", current_branch, "/polly/safe/git/#{current_app}", ".",
               "config", "--global", "--add", "safe.directory", "/home/app/polly",
             ],
-            "env" => { "GIT_CONFIG_GLOBAL" => "/home/app/polly/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
+            "env" => { "GIT_CONFIG_GLOBAL" => "/home/app/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
             "securityContext" => {
               "runAsUser" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
               "runAsGroup" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
@@ -333,9 +333,9 @@ module Polly
             "args" => [
               #origin = "/polly-safe/git/#{app}"
               #"http://polly-app:8080/#{current_app}"
-              "clone", "-b", current_branch, "/polly/safe/git/#{current_app}", "tmp"
+              "clone", "-b", current_branch, "/polly/safe/git/#{current_app}", "."
             ],
-            "env" => { "GIT_CONFIG_GLOBAL" => "/home/app/polly/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
+            "env" => { "GIT_CONFIG_GLOBAL" => "/home/app/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
             "securityContext" => {
               "runAsUser" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
               "runAsGroup" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
@@ -390,7 +390,7 @@ module Polly
             "name" => clean_name,
             "image" => run_image,
             "imagePullPolicy" => "IfNotPresent",
-            "workingDir" => job.parameters[:working_directory] || "/home/app/#{current_app}/tmp", #TODO: local executor support
+            "workingDir" => job.parameters[:working_directory] || "/home/app/#{current_app}", #TODO: local executor support
             "command" => sleep_cmd_args,
             "volumeMounts" => [
               {

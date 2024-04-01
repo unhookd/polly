@@ -138,7 +138,7 @@ workflow_image = "polly:latest"
       #{"run"=>{"name"=>"bundler","command"=>"bundle install"}},
       #{"run"=>{"name"=>"rspec","command"=>"bundle exec rspec"}},
       #{"run"=>{"name"=>"build","command"=>"pwd && ls -l && buildctl --timeout 120 --addr tcp://polly-buildkitd:1234 --tlsservername polly-buildkitd --tlscacert /certs/client/ca.pem --tlscert /certs/client/cert.pem --tlskey /certs/client/key.pem build --frontend dockerfile.v0 --local context=. --local dockerfile=."}}
-    ],{},"/home/app/polly/tmp"
+    ],{},"/home/app/polly"
   )
 }
 
