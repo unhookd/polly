@@ -106,6 +106,12 @@
     "--chown=app Pollyfile /home/app/Pollyfile"
   }
 
+  command("COPY") {
+    "--chown=app config/git-repo/templates /home/app/config/git-repo/templates"
+  }
+
+  run %q{mkdir -p /polly/safe/git/polly/hooks && chown -R app.app /polly/safe}
+
   app
 
   command("ENTRYPOINT") {

@@ -336,7 +336,7 @@ class PollyTasks < Thor
 
     git_init_cmd = [
                      "git", "init", "--bare", "/polly/safe/git/#{exe.current_app}",
-                     "--template=/polly/app/config/git-repo/templates"
+                     "--template=/home/app/config/git-repo/templates"
                    ]
 
     unless options["local"]
@@ -347,6 +347,9 @@ class PollyTasks < Thor
                        *git_init_cmd
                      ]
     end
+
+    #puts git_init_cmd
+    #exit
 
     o,e,s = exe.execute_simple(:output, git_init_cmd, {})
     puts o
@@ -908,7 +911,7 @@ HEREDOC
   desc "init [CERTS]", "bootstraps project polly controller pod"
   option "re-init", :type => :boolean, :default => false
   option "with-registry", :type => :boolean, :default => false
-  option "with-bootstrap", :type => :string, :default => "ghcr.io/unhookd/polly:3.0-rc1" # "polly:3.0-rc1"
+  option "with-bootstrap", :type => :string, :default => "ghcr.io/unhookd/polly:4.0-rc-3"
   def init(cert_package_dir)
     exe = ::Polly::Execute.new
 
@@ -928,7 +931,7 @@ HEREDOC
     #nginx-apt-proxy: /usr/sbin/nginx -g 'daemon off;'
 
     git_image = options["with-bootstrap"] # "alpine/git:latest"
-    git_command = ["sleep", "2147483647"].to_json
+    git_command = ["sleep", "infinity"].to_json
 
     #etc_slash_ssh_slash_ssh_host_rsa_key
     #etc_slash_ssh_slash_ssh_host_rsa_key.pub
@@ -1420,6 +1423,7 @@ spec:
       - name: polly-controller
         securityContext:
           runAsUser: 1000
+          runAsGroup: 1000
         volumeMounts:
         - mountPath: /polly/safe
           name: polly-mount
@@ -1559,7 +1563,7 @@ HEREDOC
   end
 
   desc "xxh", "debug shell into polly controller"
-  def xxh(service = "git", sh_cmd = "sh")
+  def xxh(service = "controller", sh_cmd = "sh")
     exe = ::Polly::Execute.new
 
     exec(*["kubectl", "exec", exe.polly_pod(service), "-i", $stdin.tty? ? "-t" : nil, "--", sh_cmd].compact)

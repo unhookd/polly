@@ -198,11 +198,22 @@ module Polly
             Kernel.exit(1)
           end
 
-          docker_image_url = URI.parse("http://local/#{first_docker_executor_hint["image"]}")
-          repo = docker_image_url.host
+          #docker_image_url = URI.parse("http://local/#{first_docker_executor_hint["image"]}")
+          #repo = docker_image_url.host
+          ##TODO: ???? File.basename(docker_image_url.path)
+          #Pathname.new(docker_image_url.path).relative_path_from(Pathname.new("/")).to_s
+          #add_circleci_job
+        
+          #buildctl_local_cmd += ["--output", "type=image,name=polly-registry:23443/polly-registry/#{tag},push=true"]
 
-          #TODO: ???? File.basename(docker_image_url.path)
-          Pathname.new(docker_image_url.path).relative_path_from(Pathname.new("/")).to_s
+          version = current_revision
+          branch = current_branch.gsub("/", "-")
+          app = current_app
+          #image_repo = Polly::Config.image_repo
+
+          raise "polly-registry:23443/polly-registry/#{app}:#{branch}-#{version}"
+
+
         end
       end
 
@@ -966,6 +977,7 @@ module Polly
 
     def polly_pod(service = "controller")
       label = "name=#{POLLY}-#{service}"
+      #puts label.inspect
       @polly_pods ||= {}
       @polly_pods[label] ||= begin
         cmd = "kubectl get pods --field-selector=status.phase=Running -l #{label} -o name | cut -d/ -f2"
