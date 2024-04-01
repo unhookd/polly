@@ -51,7 +51,7 @@ module Polly
         cmd.unshift("echo") if @explain
       end
 
-      status = Kernel.system(*cmd)
+      status = Kernel.system(*cmd, {:err => $stderr})
       unless status
         Kernel.exit(1)
       end
