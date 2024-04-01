@@ -211,9 +211,7 @@ module Polly
           app = current_app
           #image_repo = Polly::Config.image_repo
 
-          raise "polly-registry:23443/polly-registry/#{app}:#{branch}-#{version}"
-
-
+          "polly-registry:23443/polly-registry/#{app}:#{branch}-#{version}"
         end
       end
 
