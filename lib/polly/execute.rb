@@ -232,7 +232,10 @@ module Polly
       #run_cmd_args = ["bash", "-e", "-x", "-o", "pipefail", run_shell_path]
       #if true #TODO: bits
       #run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
-      run_cmd_args = ["bash #{run_shell_path}"] # > /proc/1/fd/1 2> /proc/1/fd/2"]
+      run_cmd_args = ["/bin/bash #{run_shell_path}"] # > /proc/1/fd/1 2> /proc/1/fd/2"]
+      #puts run_shell_path
+
+      #run_cmd_args = ["sleep infinity"] # > /proc/1/fd/1 2> /proc/1/fd/2"]
       #end
 
       intend_to_run_cmd = nil
