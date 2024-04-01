@@ -1637,7 +1637,7 @@ HEREDOC
     exec("ssh", "-AX", "app@#{exe.multipass_ip(profile)}")
   end
 
-  desc "waitx", "[CLEAN_NAME] wait for pod availability, execute subsequent command"
+  desc "waitx [CLEAN_NAME]", "wait for pod availability, execute subsequent command"
   def waitx(clean_name = nil, *cmd)
     puts "waiting for #{clean_name}"
 
