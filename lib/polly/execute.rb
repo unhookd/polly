@@ -305,7 +305,7 @@ module Polly
               #"clone", "-b", current_branch, "/polly/safe/git/#{current_app}", ".",
               "config", "--global", "--add", "safe.directory", "/home/app/polly",
             ],
-            "env" => { "GIT_CONFIG_GLOBAL" => "/tmp/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
+            "env" => { "GIT_CONFIG_GLOBAL" => "/home/app/.config/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
             "securityContext" => {
               "runAsUser" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
               "runAsGroup" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
@@ -316,6 +316,10 @@ module Polly
               {
                 "mountPath" => "/home/app/#{current_app}",
                 "name" => "scratch-dir"
+              },
+              {
+                "mountPath" => "/home/app/.config",
+                "name" => "config-dir"
               },
               {
                 "mountPath" => "/polly/safe/git/#{current_app}",
@@ -335,7 +339,7 @@ module Polly
               #"http://polly-app:8080/#{current_app}"
               "clone", "-b", current_branch, "/polly/safe/git/#{current_app}", "."
             ],
-            "env" => { "GIT_CONFIG_GLOBAL" => "/tmp/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
+            "env" => { "GIT_CONFIG_GLOBAL" => "/home/app/config/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
             "securityContext" => {
               "runAsUser" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
               "runAsGroup" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
@@ -346,6 +350,14 @@ module Polly
               {
                 "mountPath" => "/home/app/#{current_app}",
                 "name" => "scratch-dir"
+              },
+              {
+                "mountPath" => "/home/app/.config",
+                "name" => "config-dir"
+              },
+              {
+                "mountPath" => "/home/app/.config",
+                "name" => "config-dir"
               },
               {
                 "mountPath" => "/polly/safe/git/#{current_app}",
@@ -407,6 +419,10 @@ module Polly
                 "name" => "scratch-dir"
               },
               {
+                "mountPath" => "/home/app/.config",
+                "name" => "config-dir"
+              },
+              {
                 "mountPath" => "/var/tmp/artifacts",
                 "name" => "build-artifacts"
               },
@@ -438,6 +454,13 @@ module Polly
             "hostPath" => {
               "path" => "/var/tmp/polly-safe/git/#{current_app}"
             }
+          },
+          {
+            "name" => "config-dir",
+            "emptyDir" => {},
+            #"hostPath" => {
+            #  "path" => "/var/tmp/polly-safe/scratch/#{current_app}"
+            #}
           },
           {
             "name" => "scratch-dir",
