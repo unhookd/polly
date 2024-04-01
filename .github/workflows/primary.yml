@@ -26,6 +26,12 @@ jobs:
       run: |
         set -ex
 
+        export DEBIAN_FRONTEND="noninteractive"
+        export LC_ALL="C.UTF-8"
+        export LANG="en_US"
+        export LANGUAGE="en_US"
+        export ACCEPT_EULA="y"
+
         (getent group alpha || groupadd --gid 121 alpha);
         (getent group tau || groupadd --gid 123 tau);
         (getent group beta || groupadd --gid 134 beta);
