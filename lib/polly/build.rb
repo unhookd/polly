@@ -26,7 +26,7 @@ module Polly
         "build",
         ####"debug", "dump-llb",
         "--progress=plain",
-        "--ssh", "default", #"default=#{Dir.home}/.ssh/id_rsa",
+        *(ENV["SSH_AUTH_SOCK"] ? ["--ssh", "default"] : []), #"default=#{Dir.home}/.ssh/id_rsa",
         "--frontend", "dockerfile.v0",
         "--local", "context=.", "--local", "dockerfile=.",
         "--opt", "filename=#{dockerfile_path}",
