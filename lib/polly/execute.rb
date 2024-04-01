@@ -353,7 +353,7 @@ module Polly
             "image" => run_image,
             "imagePullPolicy" => "IfNotPresent",
             "workingDir" => job.parameters[:working_directory] || "/home/app/#{current_app}", #TODO: local executor support
-            "args" => sleep_cmd_args,
+            "command" => sleep_cmd_args,
             "volumeMounts" => [
               {
                 "mountPath" => "/certs/client",
