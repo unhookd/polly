@@ -334,6 +334,30 @@ class PollyTasks < Thor
   def receive_pack(origin = nil)
     exe = ::Polly::Execute.new
 
+    git_config_cmd = [
+                     "git", "config", "--global", "--add", "safe.directory", "/home/app/polly"
+                   ]
+
+    unless options["local"]
+      git_config_cmd = [
+                       "kubectl", "exec", exe.polly_pod,
+                       "-i",
+                       "--",
+                       *git_config_cmd
+                     ]
+    end
+
+    #puts git_init_cmd
+    #exit
+
+    o,e,s = exe.execute_simple(:output, git_config_cmd, {})
+    puts o
+    unless s
+      puts e
+      exit(1)
+    end
+    exe.wait_child
+
     git_init_cmd = [
                      "git", "init", "--bare", "/polly/safe/git/#{exe.current_app}",
                      "--template=/home/app/config/git-repo/templates"
