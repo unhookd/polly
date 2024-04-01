@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile-upstream:master-experimental
-FROM ghcr.io/unhookd/polly:3.0-rc1@sha256:7cc65086b101fe352a8ff83180888f0f7079b2f80139b0f39ba7b2a4cb34b168 AS base
+FROM public.ecr.aws/debian/debian:bookworm-20240311-slim AS base
 USER root
 ENV DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8 LANG=en_US LANGUAGE=en_US ACCEPT_EULA=y
 RUN set -ex; \
@@ -14,12 +14,12 @@ RUN set -ex; \
     apt-get update; apt-get install -y locales locales-all; apt-get clean; \
     test -e /usr/lib/locale/locale-archive || ((locale-gen --purge en_US); (echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale); (locale-gen $LANGUAGE); (dpkg-reconfigure locales)); \
     apt-get update; apt-get install -y vim git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby3* libruby3* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper; apt-get clean; \
-    curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add; \
-    apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"; \
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg; \
+    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list; \
     apt-get update; apt-get install -y kubectl; apt-get clean; \
     usermod -a -G $(grep docker /etc/group | cut -d: -f3) app; \
     usermod -a -G $(grep docker /etc/group | cut -d: -f3) runner; \
-    mkdir /tmp/buildkit && cd /tmp/buildkit && curl -sL -o buildkit.tar.gz "https://github.com/moby/buildkit/releases/download/v0.11.1/buildkit-v0.11.1.linux-amd64.tar.gz" && tar zxf buildkit.tar.gz && mv bin/buildctl /usr/local/bin && cd && rm -Rf /tmp/buildkit; \
+    mkdir /tmp/buildkit && cd /tmp/buildkit && curl -sL -o buildkit.tar.gz "https://github.com/moby/buildkit/releases/download/v0.13.1/buildkit-v0.13.1.linux-amd64.tar.gz" && tar zxf buildkit.tar.gz && mv bin/buildctl /usr/local/bin && cd && rm -Rf /tmp/buildkit; \
     true;
 # syntax=docker/dockerfile-upstream:master-experimental
 FROM base AS gem
@@ -44,5 +44,8 @@ WORKDIR /home/app
 COPY --chown=app --from=gem /home/app/polly-latest.gem /home/app/polly-latest.gem
 RUN set -ex; \
     gem install --no-document --minimal-deps /home/app/polly-latest.gem && grep -Rn '\.gem\.' /var/lib 2>/dev/null | cut -d: -f1 | sort | uniq | xargs -I{} rm {} && rm /home/app/polly-latest.gem; \
+    ln -sf /usr/local/bin/polly /bin/dockerfile-frontend; \
     true;
+COPY --chown=app Pollyfile /home/app/Pollyfile
 USER app
+ENTRYPOINT ["/bin/dockerfile-frontend"]

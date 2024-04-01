@@ -425,17 +425,38 @@ class PollyTasks < Thor
 
     generated_dockerfile = nil
 
-
     if (container_definition == nil || container_definition == "-" || container_definition == default_pollyfile) && File.exists?(default_pollyfile)
       pollyfile_ruby = File.read(default_pollyfile)
       #TODO: ??? Polly::Generate.options = options
       Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, default_pollyfile)
       generated_dockerfile = Polly::Generate.read_output
+
+      file = Tempfile.new('Dockerfile-pollygen-', Dir.pwd)
+      file_path = file.path
+      file.unlink
+
+      File.write(file_path, generated_dockerfile)
+      puts file_path
+      #tag = build_image_to_tag(app, build_image_stage, version)
+      #buildctl_local_cmd = [
+      #  {"SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
+      #  "buildctl",
+      #  "--addr", "kube-pod://polly-buildkitd-0",
+      #  "build",
+      #  "--ssh", "default", #"default=#{Dir.home}/.ssh/id_rsa",
+      #  "--frontend", "dockerfile.v0",
+      #  "--local", "context=.", "--local", "dockerfile=.", #"--opt", "filename=#{File.basename(file.path)}",
+
+      raise if version.empty?
+      Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, File.basename(file_path), options["stage"], options["no-cache"], options["push"])
+      exit
+
     elsif (container_definition != nil || container_definition == "-" || container_definition == default_dockerfile) && File.exists?(container_definition)
       #generated_dockerfile = File.read(default_dockerfile)
       raise if version.empty?
       Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, container_definition, options["stage"], options["no-cache"], options["push"])
       exit
+
     #elsif container_definition == nil && File.exists?(default_dockerfile)
     #  generated_dockerfile = File.read(default_dockerfile)
     else
