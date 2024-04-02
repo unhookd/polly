@@ -27,7 +27,7 @@
 
   run %q{test -e /usr/lib/locale/locale-archive || ((locale-gen --purge en_US); (echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale); (locale-gen $LANGUAGE); (dpkg-reconfigure locales))}
 
-  apt %w{vim git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby3* libruby3* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper}
+  apt %w{vim git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby3* libruby3* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper procps}
 
   #run %q{curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add}
   #run %q{apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"}
