@@ -836,6 +836,48 @@ module Polly
           o, e, s = Open3.capture3(*cmd, options)
           return exit_proc.call(o, e, s, false)
 
+        when :async_wait_status
+          #o, e, s = Open3.capture3(*cmd, options)
+          #puts options.inspect
+          $stdout.sync = true
+          $stderr.sync = true
+
+          i, o, e, s = Open3.popen3(*cmd, options)
+
+          read_io = Proc.new {
+            chunk = 65432
+            begin
+              stdout = o.read_nonblock(chunk)
+              $stdout.write(stdout)
+            rescue IO::EAGAINWaitReadable, Errno::EIO, Errno::EAGAIN, Errno::EINTR => err
+              #_r, _w, _e = IO.select(process_fds, nil, process_fds, 0.5)
+              sleep 0.1
+            rescue EOFError => err
+            end
+
+            begin
+              stderr = e.read_nonblock(chunk)
+              $stderr.write(stderr)
+            rescue IO::EAGAINWaitReadable, Errno::EIO, Errno::EAGAIN, Errno::EINTR => err
+              #_r, _w, _e = IO.select(process_fds, nil, process_fds, 0.5)
+              sleep 0.1
+            rescue EOFError => err
+            end
+          }
+
+          while s.alive?
+            #$stdout.write(".")
+
+            read_io.call
+
+            s.join(0.1)
+          end
+
+          read_io.call
+
+          return s.value.success?
+          #return exit_proc.call(o, e, s, false)
+
         when :async
           stdin, stdout, stderr, wait_thr = Open3.popen3(*cmd, options)
           return [stdin, stdout, stderr, wait_thr, exit_proc]

@@ -1681,13 +1681,16 @@ HEREDOC
 
       #puts kube_exec_cmd.inspect #join(" ")
 
-      o,e,s = exe.execute_simple(:output, kube_exec_cmd, {})
+      s = exe.execute_simple(:async_wait_status, kube_exec_cmd, {}) #{:out => $stdout, :err => $stderr})
 
       if s
-        puts o
+        #puts o
+        puts "OKOK"
       else
-        puts e
+        #puts e
         #fail
+        puts "fail"
+        fail
       end
     end
   end
