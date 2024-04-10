@@ -8,10 +8,10 @@ describe Polly::Execute do
 
   context "performing locally" do
     it "has a simple method that exits on failure" do
-      expect(Kernel).to receive(:system).with('true').and_return(true)
+      expect(Kernel).to receive(:system).with('true', {:err => $stderr}).and_return(true)
       exe.systemx('true')
 
-      expect(Kernel).to receive(:system).with('false').and_return(false)
+      expect(Kernel).to receive(:system).with('false', {:err => $stderr}).and_return(false)
       expect(Kernel).to receive(:exit).with(1).and_return(true)
       exe.systemx('false')
     end
