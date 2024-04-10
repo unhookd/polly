@@ -198,20 +198,20 @@ module Polly
             Kernel.exit(1)
           end
 
+          first_docker_executor_hint["image"]
+
           #docker_image_url = URI.parse("http://local/#{first_docker_executor_hint["image"]}")
           #repo = docker_image_url.host
-          ##TODO: ???? File.basename(docker_image_url.path)
+          ###TODO: ???? File.basename(docker_image_url.path)
           #Pathname.new(docker_image_url.path).relative_path_from(Pathname.new("/")).to_s
-          #add_circleci_job
-        
-          #buildctl_local_cmd += ["--output", "type=image,name=polly-registry:23443/polly-registry/#{tag},push=true"]
 
-          version = current_revision
-          branch = current_branch.gsub("/", "-")
-          app = current_app
-          #image_repo = Polly::Config.image_repo
-
-          "polly-registry:23443/polly-registry/#{app}:#{version}"
+          ##add_circleci_job
+          ##buildctl_local_cmd += ["--output", "type=image,name=polly-registry:23443/polly-registry/#{tag},push=true"]
+          #version = current_revision
+          #branch = current_branch.gsub("/", "-")
+          #app = current_app
+          ##image_repo = Polly::Config.image_repo
+          #"polly-registry:23443/polly-registry/#{app}:#{version}"
         end
       end
 
