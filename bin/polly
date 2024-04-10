@@ -201,7 +201,7 @@ class PollyTasks < Thor
 
       plan.jobs_ready_to_start.each do |job_proc|
         job_to_start = job_proc.call
-        
+
         obv.report_stdout("plan", "started #{job_to_start.run_name}")
         obv.flush($stdout, $stderr)
         exe.start_job!(job_to_start)
