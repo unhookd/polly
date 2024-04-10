@@ -312,6 +312,10 @@ module Polly
         @this_plan.add_circleci_job(*args)
       end
 
+      def container_image(filename)
+        emit(File.read(filename))
+      end
+
       def plan
         @workflows_by_ident ||= {}
 
@@ -332,6 +336,14 @@ module Polly
 
       def test(plan)
         @shell_commands << ["polly", "test", "--ident", plan.ident]
+      end
+
+      def publish(container_image)
+        @shell_commands << ["polly", "build"]
+      end
+
+      def deploy(instance)
+        @shell_commands << ["polly", "deploy"]
       end
 
       def read_shell_commands

@@ -141,7 +141,7 @@ class PollyTasks < Thor
       puts cmd_list
 
       if options["exec"]
-        exec(*cmd_list)
+        exec("bash", "-ex", "-c", cmd_list)
       end
     end
   end
@@ -454,7 +454,7 @@ class PollyTasks < Thor
 
     generated_dockerfile = nil
 
-    if (container_definition == nil || container_definition == "-" || container_definition == default_pollyfile) && File.exists?(default_pollyfile)
+    if (container_definition == nil && File.exists?(default_pollyfile)) || (container_definition && container_definition.includes?(default_pollyfile) && File.exists?(container_defintion))
       pollyfile_ruby = File.read(default_pollyfile)
       #TODO: ??? Polly::Generate.options = options
       Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, default_pollyfile)
@@ -466,6 +466,7 @@ class PollyTasks < Thor
 
       File.write(file_path, generated_dockerfile)
       puts file_path
+
       #tag = build_image_to_tag(app, build_image_stage, version)
       #buildctl_local_cmd = [
       #  {"SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
@@ -479,31 +480,38 @@ class PollyTasks < Thor
       raise if version.empty?
       Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, File.basename(file_path), options["stage"], options["no-cache"], options["push"])
       exit
-
-    elsif (container_definition != nil || container_definition == "-" || container_definition == default_dockerfile) && File.exists?(container_definition)
-      #generated_dockerfile = File.read(default_dockerfile)
-      raise if version.empty?
-      Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, container_definition, options["stage"], options["no-cache"], options["push"])
-      exit
-
-    #elsif container_definition == nil && File.exists?(default_dockerfile)
-    #  generated_dockerfile = File.read(default_dockerfile)
-    else
-      generated_dockerfile = File.read(container_definition)
     end
 
-    if options["in-cluster"]
-      Polly::Generate.all_images.each { |build_image|
-        Polly::Build.buildkit_internal(exe, app, build_image, version, generated_dockerfile, options["no-cache"])
-      }
-    else
-      raise if version.empty?
-      Polly::Build.buildkit_external(exe, app, branch, version, generated_dockerfile, options["no-cache"])
-    end
+    #elsif ((container_definition == nil && File.exists?(default_dockerfile)) 
+    #  raise if version.empty?
+    #  Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, default_dockerfile, options["stage"], options["no-cache"], options["push"])
+    #  exit
 
-    #TODO: ?
-    raise if version.empty?
-    Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, "wkndr-todo", generated_dockerfile, options["no-cache"])
+    #elsif File.exists?(container_definition)
+    #container_definition == default_dockerfile) && 
+    #  #generated_dockerfile = File.read(default_dockerfile)
+    #  raise if version.empty?
+    #  Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, container_definition, options["stage"], options["no-cache"], options["push"])
+    #  exit
+
+    ##elsif container_definition == nil && File.exists?(default_dockerfile)
+    ##  generated_dockerfile = File.read(default_dockerfile)
+    #else
+    #  generated_dockerfile = File.read(container_definition)
+    #end
+
+    #if options["in-cluster"]
+    #  Polly::Generate.all_images.each { |build_image|
+    #    Polly::Build.buildkit_internal(exe, app, build_image, version, generated_dockerfile, options["no-cache"])
+    #  }
+    #else
+    #  raise if version.empty?
+    #  Polly::Build.buildkit_external(exe, app, branch, version, generated_dockerfile, options["no-cache"])
+    #end
+
+    ##TODO: ?
+    #raise if version.empty?
+    #Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, "wkndr-todo", generated_dockerfile, options["no-cache"])
 
     exit
 
@@ -533,6 +541,7 @@ class PollyTasks < Thor
   end
 
   desc "deploy", "deploys kubernetes resources"
+  option "debug", :type => :boolean, :default => false
   def deploy(glob = "kubernetes/**/*yaml")
     exe = ::Polly::Execute.new(options)
 
@@ -561,11 +570,13 @@ class PollyTasks < Thor
         when "Deployment", "ReplicationController"
           description["metadata"]["labels"].merge!(exe.polly_labels)
           description["spec"]["template"]["metadata"]["labels"].merge!(exe.polly_labels)
-          description["spec"]["template"]["spec"]["initContainers"].each { |c|
-            if c["image"] == app + ":latest"
-              c["image"] = (image_repo + "/polly-registry/" + (app + ":" + branch + "-" + version))
-            end
-          }
+          if description["spec"]["template"]["spec"]["initContainers"]
+            description["spec"]["template"]["spec"]["initContainers"].each { |c|
+              if c["image"] == app + ":latest"
+                c["image"] = (image_repo + "/polly-registry/" + (app + ":" + branch + "-" + version))
+              end
+            }
+          end
           description["spec"]["template"]["spec"]["containers"].each { |c|
             if c["image"] == app + ":latest"
               c["image"] = (image_repo + "/polly-registry/" + (app + ":" + branch + "-" + version))
@@ -583,7 +594,11 @@ class PollyTasks < Thor
     resource_paths.each { |resource_path|
       parser.parse(File.read(resource_path), resource_path)
     }
-    #puts all_resources_yaml
+
+    if options["debug"]
+      puts all_resources_yaml
+      exit
+    end
 
     apply_yaml = ["kubectl", "apply", "-f", "-"]
     create_options = {:stdin_data => all_resources_yaml}

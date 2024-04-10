@@ -145,7 +145,7 @@
 }
 
 @gitch_pipeline = continuous {
-  #TODO: !!!!
-  #publish @bootstrap_artifact
+  publish @bootstrap_artifact
   test @plain_workflow
+  #TODO: !!! deploy @example_instance
 }
