@@ -1460,7 +1460,7 @@ spec:
           name: buildkit-client-certs
           readOnly: true
         image: #{git_image}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         env:
         resources:
           requests:
@@ -1589,7 +1589,7 @@ HEREDOC
   end
 
   desc "xxh", "debug shell into polly controller"
-  def xxh(service = "controller", sh_cmd = "sh")
+  def xxh(service = "controller", sh_cmd = "bash")
     exe = ::Polly::Execute.new
 
     exec(*["kubectl", "exec", exe.polly_pod(service), "-i", $stdin.tty? ? "-t" : nil, "--", sh_cmd].compact)
