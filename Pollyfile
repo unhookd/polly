@@ -130,10 +130,10 @@ workflow_image = "polly:latest"
     [{"image"=>workflow_image}],
     [
       {"run"=>{"name"=>"demo","command"=>"echo DEMO!!!!"}},
-      {"run"=>{"name"=>"demo","command"=>"polly generate > Dockerfile"}},
-      {"run"=>{"name"=>"demo","command"=>"polly help"}},
+      #{"run"=>{"name"=>"demo","command"=>"polly generate > Dockerfile"}},
+      #{"run"=>{"name"=>"demo","command"=>"polly help"}},
       #{"run"=>{"name"=>"demo","command"=>"sleep infinity"}},
-      {"run"=>{"name"=>"demo","command"=>"polly build"}},
+      #{"run"=>{"name"=>"demo","command"=>"polly build"}},
       #{"run"=>{"name"=>"config","command"=>"bundle config set --local path vendor/bundle"}},
       #{"run"=>{"name"=>"bundler","command"=>"bundle install"}},
       #{"run"=>{"name"=>"rspec","command"=>"bundle exec rspec"}},
