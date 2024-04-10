@@ -123,14 +123,13 @@
 
 #workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
 #TODO: !!!! make this make sense to configure
-workflow_image = "polly-registry:23443/polly-registry/polly:latest"
+#workflow_image = "polly-registry:23443/polly-registry/polly:latest"
 
 @plain_workflow = plan {
   job("primary",
-    [{"image"=>workflow_image}],
     [
-      {"run"=>{"name"=>"demo","command"=>"echo DEMO??"}},
-      {"run"=>{"name"=>"demo","command"=>"sleep 10"}},
+      {"run"=>{"name"=>"demo","command"=>"echo DEMO?????"}},
+      {"run"=>{"name"=>"demo","command"=>"sleep 15"}},
       {"run"=>{"name"=>"demo","command"=>"echo DEMO!!!!"}},
       #{"run"=>{"name"=>"demo","command"=>"polly generate > Dockerfile"}},
       #{"run"=>{"name"=>"demo","command"=>"polly help"}},
