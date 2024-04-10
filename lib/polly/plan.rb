@@ -206,7 +206,7 @@ module Polly
       raise "empty config" if raw_yaml.nil? || raw_yaml.empty?
 
       yaml_template_rendered = raw_yaml.gsub("$CIRCLE_SHA1", @revision)
-      circle_yaml = YAML.load(yaml_template_rendered)
+      circle_yaml = YAML.load(yaml_template_rendered, :aliases => true)
 
       return unless circle_yaml && circle_yaml["workflows"] && circle_yaml["jobs"]
 
