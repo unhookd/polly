@@ -1730,6 +1730,8 @@ HEREDOC
 
   desc "generate", "emits CI structure yaml"
   option "mirror", :type => :string, :default => "dockerfile"
+  option "registry", :type => :string, :default => "polly-registry:23443/polly-registry"
+                                                   #ghcr.io/unhookd
   #TODO: cleanup these bits
   #option "pipeline-fu", :type => :string, :default => "circleci"
   #option "image-fu", :type => :string, :default => "buildkit"
@@ -1742,7 +1744,9 @@ HEREDOC
 
     Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, pollyfile)
 
-    exe_image = "polly-registry:23443/polly-registry/#{exe.current_app}:latest"
+    #ghcr.io/unhookd/polly:3.0-rc1
+
+    exe_image = "#{options['registry']}/#{exe.current_app}:#{exe.current_branch}"
 
     case options["mirror"]
       when "circleci"
@@ -1756,6 +1760,7 @@ HEREDOC
 
       when "dockerfile"
         $stdout.write(Polly::Generate.read_output)
+
     else
       $stderr.puts "unknown option #{options.inspect}"
     end
