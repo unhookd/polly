@@ -17,7 +17,7 @@ module Polly
       fd
     end
 
-    def self.buildkit_workstation_to_controller(exe, app, version, branch, dockerfile_path, build_image_stage, force_no_cache = nil, push_stage = nil)
+    def self.buildkit_workstation_to_controller(exe, app, version, branch, dockerfile_path, build_image_stage, force_no_cache = nil, push_stage = nil, extra_tag = nil)
       tag = build_image_to_tag(app, version, build_image_stage)
       buildctl_local_cmd = [
         {"SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]}.compact,
@@ -50,6 +50,10 @@ module Polly
         buildctl_local_cmd += ["--output", "type=image,name=#{push_stage}/#{tag.split(":").last},push=true"]
       else
         buildctl_local_cmd += ["--output", "type=image,name=polly-registry:23443/polly-registry/#{tag},push=true"]
+      end
+
+      if extra_tag
+        buildctl_local_cmd += ["--output", "type=image,name=#{extra_tag}"]
       end
 
       puts buildctl_local_cmd.inspect
