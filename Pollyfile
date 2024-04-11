@@ -123,20 +123,22 @@
 
 #workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
 #TODO: !!!! make this make sense to configure
-workflow_image = "polly:latest"
+#workflow_image = "polly-registry:23443/polly-registry/polly:latest"
 
 @plain_workflow = plan {
   job("primary",
-    [{"image"=>workflow_image}],
     [
-      {"run"=>{"name"=>"demo","command"=>"echo DEMO!!!!"}},
-      {"run"=>{"name"=>"demo","command"=>"polly generate > Dockerfile"}},
-      {"run"=>{"name"=>"demo","command"=>"polly help"}},
+      #{"run"=>{"name"=>"demo","command"=>"echo DEMO?????"}},
+      #{"run"=>{"name"=>"demo","command"=>"sleep 300"}},
+      #{"run"=>{"name"=>"demo","command"=>"echo DEMO!!!!"}},
+      #{"run"=>{"name"=>"demo","command"=>"polly generate > Dockerfile"}},
+      #{"run"=>{"name"=>"demo","command"=>"polly help"}},
       #{"run"=>{"name"=>"demo","command"=>"sleep infinity"}},
-      {"run"=>{"name"=>"demo","command"=>"polly build"}},
-      #{"run"=>{"name"=>"config","command"=>"bundle config set --local path vendor/bundle"}},
-      #{"run"=>{"name"=>"bundler","command"=>"bundle install"}},
-      #{"run"=>{"name"=>"rspec","command"=>"bundle exec rspec"}},
+      #{"run"=>{"name"=>"demo","command"=>"polly build"}},
+      {"run"=>{"name"=>"config","command"=>"bundle config set --local path vendor/bundle"}},
+      {"run"=>{"name"=>"bundler","command"=>"bundle install"}},
+      {"run"=>{"name"=>"rspec","command"=>"bundle exec rspec"}},
+      {"run"=>{"name"=>"demo","command"=>"polly help"}},
       #{"run"=>{"name"=>"build","command"=>"pwd && ls -l && buildctl --timeout 120 --addr tcp://polly-buildkitd:1234 --tlsservername polly-buildkitd --tlscacert /certs/client/ca.pem --tlscert /certs/client/cert.pem --tlskey /certs/client/key.pem build --frontend dockerfile.v0 --local context=. --local dockerfile=."}}
     ],{},"/home/app/polly"
   )

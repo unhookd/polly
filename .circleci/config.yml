@@ -1,3 +1,4 @@
+#generated via: polly generate --mirror=circleci --registry=ghcr.io/unhookd > .circleci/config.yml
 ---
 workflows:
   version: 2
@@ -14,9 +15,9 @@ jobs:
     - run:
         name: primary
         command: |-
-          echo DEMO!!!!
           bundle config set --local path vendor/bundle
           bundle install
           bundle exec rspec
+          polly help
     docker:
-    - image: ghcr.io/unhookd/polly:3.0-rc1
+    - image: ghcr.io/unhookd/polly:4.0-rc-3
