@@ -542,6 +542,9 @@ class PollyTasks < Thor
 
   desc "deploy", "deploys kubernetes resources"
   option "debug", :type => :boolean, :default => false
+  option "re-init", :type => :boolean, :default => false
+  option "with-registry", :type => :boolean, :default => false
+  option "with-bootstrap", :type => :string, :default => "ghcr.io/unhookd/polly:4.0-rc-3"
   def deploy(glob = "kubernetes/**/*yaml")
     exe = ::Polly::Execute.new(options)
 
@@ -949,10 +952,7 @@ HEREDOC
     end
   end
 
-  desc "init [CERTS]", "bootstraps project polly controller pod"
-  option "re-init", :type => :boolean, :default => false
-  option "with-registry", :type => :boolean, :default => false
-  option "with-bootstrap", :type => :string, :default => "ghcr.io/unhookd/polly:4.0-rc-3"
+  desc "init [CERTS]", "bootstraps certificates into cluster"
   def init(cert_package_dir)
     exe = ::Polly::Execute.new
 
@@ -965,14 +965,6 @@ HEREDOC
     polly_services = []
     polly_deployments = []
     polly_pvcs = []
-
-    #polly_image = "#{exe.current_app}:#{exe.current_revision}"
-    #polly_command = ["polly", "dev", "/var/lib/polly/Procfile.init", "--rename=polly-init"].to_json
-    #apache2: /usr/sbin/apache2 -D FOREGROUND
-    #nginx-apt-proxy: /usr/sbin/nginx -g 'daemon off;'
-
-    git_image = options["with-bootstrap"] # "alpine/git:latest"
-    git_command = ["sleep", "infinity"].to_json
 
     #etc_slash_ssh_slash_ssh_host_rsa_key
     #etc_slash_ssh_slash_ssh_host_rsa_key.pub
@@ -987,7 +979,7 @@ HEREDOC
     #File.write("#{dir}/from-workstation-ca.crt", a)
     #File.write("#{dir}/polly-root-ca.crt", b)
     #File.write("#{dir}/multipass-mega.crt", c)
-    #
+
     a = File.open(File.join(cert_package_dir, "from-workstation-ca.crt")).read
     b = File.open(File.join(cert_package_dir, "polly-root-ca.crt")).read
     c = File.open(File.join(cert_package_dir, "multipass-mega.crt")).read
@@ -1000,18 +992,6 @@ HEREDOC
     key3 = File.open(File.join(cert_package_dir, "buildkit-client-cert.key")).read
     cert3 = File.open(File.join(cert_package_dir, "buildkit-client-cert.crt")).read
 
-#---
-#apiVersion: v1
-#kind: Secret
-#metadata:
-#  name: sshd
-#type: Opaque
-#data:
-#  rsa: #{Base64.strict_encode64(data)}
-#  dsa: #{Base64.strict_encode64(data_dsa)}
-#  dsa_pub: #{Base64.strict_encode64(key_dsa.public_key.to_s)}
-#  rsa_pub: #{Base64.strict_encode64(key.public_key.to_s)}
-#...
     polly_certificates = <<-HEREDOC
 ---
 apiVersion: v1
@@ -1077,515 +1057,17 @@ HEREDOC
 
     #  obv.flush($stdout, $stderr, true)
 
-    polly_resources << polly_certificates << <<-HEREDOC
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: polly
-  namespace: default
-...
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: polly
-  namespace: default
-rules:
-- apiGroups: ["*"]
-  resources: ["*"]
-  verbs: ["*"]
-...
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: polly-bindings
-  namespace: default
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: polly
-subjects:
-- kind: ServiceAccount
-  name: polly
-  namespace: default
-...
-HEREDOC
-
-    polly_pvcs << <<-HEREDOC
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  annotations:
-  labels:
-    stack: polly
-  name: polly-mount
-spec:
-  accessModes:
-  - ReadWriteMany
-  resources:
-    requests:
-      storage: 5Gi
-  storageClassName: local-path
-...
----
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: polly-mount
-  labels:
-    stack: polly
-spec:
-  capacity:
-    storage: 5Gi
-  accessModes:
-    - ReadWriteMany
-  storageClassName: local-path
-  hostPath:
-    path: /var/tmp/polly-safe
-...
-HEREDOC
-
-    polly_services << <<-HEREDOC
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: buildkitd
-  name: polly-buildkitd
-spec:
-  ports:
-    - port: 1234
-      protocol: TCP
-  selector:
-    app: buildkitd
-...
-HEREDOC
-
-#    polly_services << <<-HEREDOC
-#---
-#apiVersion: v1
-#kind: Service
-#metadata:
-#  name: "polly-headless"
-#spec:
-#  clusterIP: "None"
-#  ports:
-#  - port: 8111
-#    name: nginx-apt-proxy
-#    protocol: TCP
-#  - port: 8080
-#    name: apache2
-#    protocol: TCP
-#  - port: 5000
-#    name: docker-registry
-#    protocol: TCP
-#  selector:
-#    name: "polly-app"
-#...
-#HEREDOC
-
-#    polly_services << <<-HEREDOC
-#---
-#apiVersion: v1
-#kind: Service
-#metadata:
-#  name: "polly-app"
-#spec:
-#  ports:
-#  - port: 8111
-#    name: nginx-apt-proxy
-#    protocol: TCP
-#  - port: 8080
-#    name: apache2
-#    protocol: TCP
-#  selector:
-#    name: "polly-app"
-#...
-#HEREDOC
-
-    if options["with-registry"]
-      polly_services << <<-HEREDOC
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: "polly-registry"
-spec:
-  ports:
-  - port: 23443
-    targetPort: 23443
-    name: https
-    protocol: TCP
-  selector:
-    name: "polly-registry"
-...
-HEREDOC
-    end
-
-#    polly_services << <<-HEREDOC
-#---
-#apiVersion: v1
-#kind: Service
-#metadata:
-#  name: "polly-app-node"
-#spec:
-#  type: NodePort
-#  ports:
-#  - port: 5000
-#    nodePort: 31500
-#    name: docker-registry-node
-#    protocol: TCP
-#  selector:
-#    name: "polly-app"
-#...
-#HEREDOC
-
-    polly_deployments << <<-HEREDOC
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: polly-buildkitd-configuration
-data:
-  buildkitd.toml: |-
-    debug = true
-    [registry."polly-registry:23443"]
-    ca=["/certs/ca.polly.crt"]
-    insecure = true
-...
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  labels:
-    app: buildkitd
-    stack: polly
-  name: polly-buildkitd
-spec:
-  serviceName: polly-buildkitd
-  replicas: 1
-  podManagementPolicy: Parallel
-  selector:
-    matchLabels:
-      app: buildkitd
-  template:
-    metadata:
-      labels:
-        name: polly-buildkitd
-        app: buildkitd
-        stack: polly
-      annotations:
-        container.apparmor.security.beta.kubernetes.io/buildkitd: unconfined
-        container.seccomp.security.alpha.kubernetes.io/buildkitd: unconfined
-    spec:
-      terminationGracePeriodSeconds: 180
-      containers:
-#####<<<<<<< HEAD
-        - name: buildkitd
-          image: moby/buildkit:v0.13.1-rootless
-          #image: moby/buildkit:master-rootless
-          args:
-            - --oci-worker-no-process-sandbox
-          readinessProbe:
-            exec:
-              command:
-                - buildctl
-                - debug
-                - workers
-            initialDelaySeconds: 5
-            periodSeconds: 30
-          livenessProbe:
-            exec:
-              command:
-                - buildctl
-                - debug
-                - workers
-            initialDelaySeconds: 5
-            periodSeconds: 30
-          securityContext:
-            # Needs Kubernetes >= 1.19
-            seccompProfile:
-              type: Unconfined
-            # To change UID/GID, you need to rebuild the image
-            runAsUser: 1000
-            runAsGroup: 1000
-          volumeMounts:
-          # Dockerfile has `VOLUME /home/user/.local/share/buildkit` by default too,
-          # but the default VOLUME does not work with rootless on Google's Container-Optimized OS
-          # as it is mounted with `nosuid,nodev`.
-          # https://github.com/moby/buildkit/issues/879#issuecomment-1240347038
-          - mountPath: /home/user/.local/share/buildkit
-            name: buildkitd
-          - name: configurations
-            subPath: buildkitd.toml
-            mountPath: /home/user/.config/buildkit/buildkitd.toml
-          - name: ca-certificates
-            mountPath: /certs
-      volumes:
-      - name: buildkitd
-        emptyDir: {}
-      - name: configurations
-        configMap:
-          name: polly-buildkitd-configuration
-      - name: ca-certificates
-        secret:
-          secretName: ca-certificates
-####=======
-#      - name: buildkitd
-#        image: moby/buildkit:master-rootless
-#        resources:
-#          requests:
-#            memory: 10Mi
-#            cpu: 10m
-#          limits:
-#            memory: 12000Mi
-#        args:
-#        - --addr
-#        - tcp://0.0.0.0:1234
-#        - --tlscacert
-#        - /certs/server/ca.pem
-#        - --tlscert
-#        - /certs/server/cert.pem
-#        - --tlskey
-#        - /certs/server/key.pem
-#        - --oci-worker=true
-#        - --oci-worker-rootless=true
-#        - --oci-worker-no-process-sandbox=true
-#        - --oci-worker-gc=true
-#        - --oci-worker-gc-keepstorage=20000
-#        - --oci-worker-snapshotter=overlayfs
-#        readinessProbe:
-#          exec:
-#            command:
-#            - buildctl
-#            - --addr
-#            - tcp://127.0.0.1:1234
-#            - --tlscacert
-#            - /certs/client/ca.pem
-#            - --tlscert
-#            - /certs/client/cert.pem
-#            - --tlskey
-#            - /certs/client/key.pem
-#            - debug
-#            - workers
-#          initialDelaySeconds: 30
-#          periodSeconds: 60
-#          successThreshold: 1
-#          failureThreshold: 16
-#          timeoutSeconds: 30
-#        livenessProbe:
-#          exec:
-#            command:
-#            - buildctl
-#            - --addr
-#            - tcp://127.0.0.1:1234
-#            - --tlscacert
-#            - /certs/client/ca.pem
-#            - --tlscert
-#            - /certs/client/cert.pem
-#            - --tlskey
-#            - /certs/client/key.pem
-#            - debug
-#            - workers
-#          initialDelaySeconds: 30
-#          periodSeconds: 60
-#          successThreshold: 1
-#          failureThreshold: 16
-#          timeoutSeconds: 30
-#        securityContext:
-#          runAsUser: 1000
-#          runAsGroup: 1000
-#        ports:
-#        - containerPort: 1234
-#        volumeMounts:
-#        - name: "share-dir"
-#          mountPath: /home/user/.local/share/buildkit
-#        - name: buildkit-daemon-certs
-#          readOnly: true
-#          mountPath: /certs/server
-#        - name: buildkit-client-certs
-#          readOnly: true
-#          mountPath: /certs/client
-#      securityContext:
-#        fsGroup: 1000
-#      volumes:
-#      - name: buildkit-daemon-certs
-#        secret:
-#          secretName: buildkit-daemon-certs
-#      - name: buildkit-client-certs
-#        secret:
-#          secretName: buildkit-client-certs
-#      - name: share-dir
-#        emptyDir: {}
-...
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: polly-controller
-  labels:
-    app: polly-controller
-    stack: polly
-spec:
-  revisionHistoryLimit: 1
-  strategy:
-    type: Recreate
-  replicas: 1
-  selector:
-    matchLabels:
-      name: polly-controller
-  template:
-    metadata:
-      labels:
-        name: polly-controller
-        stack: polly
-    spec:
-      serviceAccountName: polly
-      volumes:
-      - name: buildkit-client-certs
-        secret:
-          secretName: buildkit-client-certs
-      - name: polly-mount
-        persistentVolumeClaim:
-          claimName: polly-mount
-      - name: registry-certificates
-        secret:
-          secretName: registry-certificates
-      securityContext:
-        runAsUser: 1000
-        fsGroup: 1000
-        #supplementalGroups: [121, 123, 134, 999, 1000, 1001]
-      initContainers:
-      containers:
-      - name: polly-controller
-        securityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
-        volumeMounts:
-        - mountPath: /polly/safe
-          name: polly-mount
-        - mountPath: /etc/ssl/private
-          name: registry-certificates
-          readOnly: true
-        - mountPath: /certs/client
-          name: buildkit-client-certs
-          readOnly: true
-        image: #{git_image}
-        imagePullPolicy: Always
-        env:
-        resources:
-          requests:
-            memory: 500Mi
-            cpu: 10m
-          limits:
-            memory: 8000Mi
-            cpu: 5000m
-        command: #{git_command}
-...
-HEREDOC
-
-    if options["with-registry"]
-      polly_deployments << <<-HEREDOC
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: registry-config
-data:
-  registry.conf: |
-    version: 0.1
-    storage:
-      filesystem:
-        rootdirectory: /polly/safe/registry
-...
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: polly-registry
-  labels:
-    app: polly-registry
-    stack: polly
-spec:
-  revisionHistoryLimit: 1
-  strategy:
-    type: Recreate
-  replicas: 1
-  selector:
-    matchLabels:
-      name: polly-registry
-  template:
-    metadata:
-      labels:
-        name: polly-registry
-        stack: polly
-    spec:
-      hostNetwork: true
-      volumes:
-        - name: registry-config
-          configMap:
-            name: registry-config
-        - name: polly-mount
-          persistentVolumeClaim:
-            claimName: polly-mount
-        - name: registry-certificates
-          secret:
-            secretName: registry-certificates
-      initContainers:
-      containers:
-      - name: polly-registry
-        volumeMounts:
-          - mountPath: /polly/safe
-            name: polly-mount
-          - mountPath: /etc/ssl/private
-            name: registry-certificates
-            readOnly: true
-          - mountPath: /registry.conf
-            subPath: registry.conf
-            name: registry-config
-        image: registry:2
-        imagePullPolicy: IfNotPresent
-        resources:
-          requests:
-            memory: 500Mi
-            cpu: 500m
-          limits:
-            memory: 1000Mi
-            cpu: 2000m
-        ports:
-        - containerPort: 23443
-          name: https
-        command:
-        - /bin/registry
-        args:
-        - serve
-        - /registry.conf
-        env:
-        - name: REGISTRY_HTTP_TLS_CERTIFICATE
-          value: /etc/ssl/private/registry.polly.pem
-        - name: REGISTRY_HTTP_TLS_KEY
-          value: /etc/ssl/private/registry.polly.key
-        - name: REGISTRY_HTTP_ADDR
-          value: 0.0.0.0:23443
-...
-HEREDOC
-    end
-
-    polly_run = polly_resources.join + polly_pvcs.join + polly_services.join + polly_deployments.join
+    polly_run = polly_certificates
 
     if options["re-init"]
-      deploy_polly_app = ["kubectl", "delete", "-f", "-"]
+      delete_polly_init = ["kubectl", "delete", "-f", "-"]
       options = {:stdin_data => polly_run}
-      o,e,s = exe.execute_simple(:output, deploy_polly_app, options)
+      o,e,s = exe.execute_simple(:output, deploy_polly_init, options)
       puts [o, e, s]
 
-      wait_polly_app_deleted = ["kubectl", "wait", "--for=delete", "pod", "-l", "stack=polly"]
-      o,e,s = exe.execute_simple(:output, wait_polly_app_deleted, {})
-      puts [o, e, s]
+      #wait_polly_app_deleted = ["kubectl", "wait", "--for=delete", "pod", "-l", "stack=polly"]
+      #o,e,s = exe.execute_simple(:output, wait_polly_app_deleted, {})
+      #puts [o, e, s]
     end
 
     deploy_polly_app = ["kubectl", "apply", "--server-side=true", "-f", "-"]
@@ -1594,13 +1076,13 @@ HEREDOC
     o,e,s = exe.execute_simple(:output, deploy_polly_app, options)
     puts [o, e, s]
 
-    wait_polly_app = ["kubectl", "wait", "--for=condition=available", "deployment/polly-controller"]
-    o,e,s = exe.execute_simple(:output, wait_polly_app, {})
-    puts [o, e, s]
+    #wait_polly_app = ["kubectl", "wait", "--for=condition=available", "deployment/polly-controller"]
+    #o,e,s = exe.execute_simple(:output, wait_polly_app, {})
+    #puts [o, e, s]
 
-    wait_polly_app = ["kubectl", "rollout", "status", "deployment/polly-controller"]
-    o,e,s = exe.execute_simple(:output, wait_polly_app, {})
-    puts [o, e, s]
+    #wait_polly_app = ["kubectl", "rollout", "status", "deployment/polly-controller"]
+    #o,e,s = exe.execute_simple(:output, wait_polly_app, {})
+    #puts [o, e, s]
   end
 
   desc "xxh", "debug shell into polly controller"
