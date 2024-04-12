@@ -42,6 +42,8 @@ rules:
   resources:
   - nodes
   - persistentvolumes
+  - clusterroles
+  - clusterrolebindings
   verbs:
   - get
   - list
