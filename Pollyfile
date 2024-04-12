@@ -146,6 +146,6 @@
 
 @gitch_pipeline = continuous {
   publish @bootstrap_artifact
-  test @plain_workflow
-  deploy @example_instance
+  #test @plain_workflow
+  #deploy @example_instance
 }
