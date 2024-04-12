@@ -1086,6 +1086,18 @@ module Polly
       end
     end
 
+    def polly_service(service)
+      label = "name=#{POLLY}-#{service}"
+      @polly_services ||= {}
+      @polly_services[label] ||= begin
+        cmd = "kubectl get services -l #{label} -o json"
+        a = IO.popen(cmd)
+        wait_child
+        parsed_services = JSON.parse(a.read)
+        parsed_services["items"][0]["spec"]["clusterIP"]
+      end
+    end
+
     def in_polly?
       current_app == POLLY
     end

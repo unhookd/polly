@@ -19,6 +19,7 @@ require 'uri'
 require 'pathname'
 require 'fileutils'
 require 'net/ssh'
+require 'net/http'
 
 module Polly
   POLLY = "polly"

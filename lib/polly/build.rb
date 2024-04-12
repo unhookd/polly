@@ -59,8 +59,8 @@ module Polly
       end
 
       puts buildctl_local_cmd.inspect
-      exe.systemx(*buildctl_local_cmd, "--output", "type=image,name=polly-registry:23443/polly-registry/#{tag},push=true") || fail("unable to build")
-      exe.systemx(*buildctl_local_cmd, "--output", "type=image,name=polly-registry:23443/polly-registry/#{app}:latest,push=true") || fail("unable to build")
+      exe.systemx(*buildctl_local_cmd, "--output", "type=image,\"name=polly-registry:23443/polly-registry/#{tag},polly-registry:23443/polly-registry/#{app}:latest\",push=true") || fail("unable to build")
+      #exe.systemx(*buildctl_local_cmd, "--output", "type=image,name=polly-registry:23443/polly-registry/#{app}:latest,push=true") || fail("unable to build")
       puts "Built and tagged: #{tag} OK"
     end
 

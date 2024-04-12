@@ -1132,7 +1132,7 @@ HEREDOC
     tag = Polly::Build.build_image_to_tag(app, version, options["stage"])
     #tag = Polly::Build.build_image_to_tag(app, "wkndr", version)
     puts tag.inspect
-    tag = "#{app}:latest"
+    #tag = "#{app}:latest"
 
     cmd = ["kubectl", "run", "rxn-#{app}", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--command", "--", rxn_cmd].compact
     #      cmd = ["kubectl", "run", "rxn", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--command", "--", rxn_cmd].compact
@@ -1708,9 +1708,26 @@ HEREDOC
     end
   end
 
+  desc "tags", "todo"
+  def tags
+    exe = ::Polly::Execute.new
+    polly_registry_ip = exe.polly_service("registry")
+    uri = URI("https://polly.local:23443/v2/polly-registry/polly/tags/list")
+    Net::HTTP.start(uri.host, uri.port, use_ssl: true, ipaddr: polly_registry_ip) do |http|
+      request = Net::HTTP::Get.new(uri)
+      response = http.request(request)
+      if response.code == "200"
+        parsed_response = JSON.parse(response.body)
+        puts parsed_response["tags"].sort
+      else
+        puts response.body
+      end
+    end
+  end
+
   private
 
-  def fetch_from_registry(path)
+  def fetch_from_registry(path) #TODO: delete this?
     exe = ::Polly::Execute.new
 
     #registry_label = "name=polly-registry"
