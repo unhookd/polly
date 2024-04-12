@@ -338,7 +338,7 @@ module Polly
         @shell_commands << ["polly", "test", "--ident", plan.ident]
       end
 
-      def publish(container_image)
+      def build(container_image)
         @shell_commands << ["polly", "build"]
       end
 
