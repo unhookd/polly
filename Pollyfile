@@ -79,7 +79,7 @@
     "--chown=app doc /__w/polly/polly/doc"
   }
 
-  run %q{mkdir -p /polly/app /app /__w/polly/polly}
+  run %q{mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app /__w/polly/polly}
   run %q{chown -R app:alpha /home/app /polly /app /__w/polly/polly}
   run %q{chown -R app /home/app /polly /app /__w/polly/polly}
   run %q{chown -R app /home/app}

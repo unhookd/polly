@@ -32,7 +32,7 @@ COPY --chown=app lib /__w/polly/polly/lib
 COPY --chown=app bin /__w/polly/polly/bin
 COPY --chown=app doc /__w/polly/polly/doc
 RUN set -ex; \
-    mkdir -p /polly/app /app /__w/polly/polly; \
+    mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app /__w/polly/polly; \
     chown -R app:alpha /home/app /polly /app /__w/polly/polly; \
     chown -R app /home/app /polly /app /__w/polly/polly; \
     chown -R app /home/app; \
