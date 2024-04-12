@@ -565,7 +565,7 @@ class PollyTasks < Thor
 
     resource_paths = Dir.glob(glob)
 
-    all_resources_yaml = ""
+    all_resources = []
 
     document_handler_switch = Proc.new do |document|
       add_to_pending_documents = false
@@ -599,7 +599,7 @@ class PollyTasks < Thor
       else
       end
 
-      all_resources_yaml << description.to_yaml + "\n...\n"
+      all_resources << description.to_yaml
     end
 
     handler = Polly::DocumentStreamHandler.new(&document_handler_switch)
@@ -607,6 +607,8 @@ class PollyTasks < Thor
     resource_paths.each { |resource_path|
       parser.parse(File.read(resource_path), resource_path)
     }
+
+    all_resources_yaml = all_resources.join("...\n")
 
     if options["debug"]
       puts all_resources_yaml
