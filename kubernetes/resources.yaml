@@ -312,40 +312,6 @@ spec:
           value: 0.0.0.0:23443
 ...
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: polly-registry-vhost
-  annotations:
-    #traefik.ingress.kubernetes.io/service.serversscheme: https
-    #traefik.ingress.kubernetes.io/router.tls: "true"
-    #traefik.ingress.kubernetes.io/router.insecureSkipVerify: "true"
-    #ingress.kubernetes.io/protocol: https
-    #traefik.ingress.kubernetes.io/router.tls: "false"
-    #traefik.ingress.kubernetes.io/router.entrypoints: websecure
-spec:
-  rules:
-  - host: polly-registry
-    http:
-      paths:
-        - pathType: Prefix
-          path: /
-          backend:
-            service:
-              name: polly-registry
-              port:
-                name: https
-                #number: 23443
-...
----
-apiVersion: traefik.containo.us/v1alpha1
-kind: ServersTransport
-metadata:
-  name: polly-registry-transport
-spec:
-  insecureSkipVerify: true # Skip SSL verification
-...
----
 apiVersion: v1
 kind: Service
 metadata:
@@ -353,18 +319,7 @@ metadata:
   labels:
     name: "polly-registry"
   annotations:
-    #traefik.ingress.kubernetes.io/service.serversscheme: "https"
-    #traefik.ingress.kubernetes.io/service.passhostheader: "true"
-    #traefik.ingress.kubernetes.io/service.serverstransport: nginx-skipverify@kubernetescrd
-    #traefik.ingress.kubernetes.io/service.serversscheme: https
-    #traefik.ingress.kubernetes.io/router.tls: "false"
-    #traefik.ingress.kubernetes.io/service.serverstransport: polly-registry-transport@default
-    #traefik.ingress.kubernetes.io/service.nativelb: "true"
-    #traefik.ingress.kubernetes.io/service.nativelb: "true"
-    #traefik.ingress.kubernetes.io/service.serverstransport: polly-registry-transport@kubernetescrd
-    #traefik.ingress.kubernetes.io/service.serversscheme: "https"
-    #traefik.ingress.kubernetes.io/service.serverstransport: "polly-registry-transport"
-    traefik.ingress.kubernetes.io/service.serverstransport: default-polly-registry-transport@kubernetescrd
+    #traefik.ingress.kubernetes.io/service.serverstransport: default-polly-registry-transport@kubernetescrd
 spec:
   ports:
   - port: 23443
@@ -374,3 +329,30 @@ spec:
   selector:
     name: "polly-registry"
 ...
+#TODO: should polly-registry be an Ingress???? security issues exposing polly-registry to wide internet?
+#---
+#apiVersion: networking.k8s.io/v1
+#kind: Ingress
+#metadata:
+#  name: polly-registry-vhost
+#spec:
+#  rules:
+#  - host: polly-registry
+#    http:
+#      paths:
+#        - pathType: Prefix
+#          path: /
+#          backend:
+#            service:
+#              name: polly-registry
+#              port:
+#                name: https
+#...
+#---
+#apiVersion: traefik.containo.us/v1alpha1
+#kind: ServersTransport
+#metadata:
+#  name: polly-registry-transport
+#spec:
+#  insecureSkipVerify: true # Skip SSL verification
+#...
