@@ -17,7 +17,7 @@ module Polly
       fd
     end
 
-    def self.buildkit_workstation_to_controller(exe, app, version, branch, dockerfile_path, build_image_stage, force_no_cache = nil, push_stage = nil)
+    def self.buildkit_workstation_to_controller(exe, app, version, branch, dockerfile_path, build_image_stage, force_no_cache = nil, push_stage = nil, extra_tag = nil)
       tag = build_image_to_tag(app, version, build_image_stage)
 
       buildctl_local_cmd = [
@@ -53,6 +53,10 @@ module Polly
       #  buildctl_local_cmd += ["--output", "type=image,name=polly-registry:23443/polly-registry/#{tag},name=polly-registry:23443/polly-registry/#{app}:latest,push=true"]
       #  #buildctl_local_cmd += ["--output", "type=image,name=polly-registry:23443/polly-registry/#{app}:latest,push=true"]
       #end
+
+      if extra_tag
+        buildctl_local_cmd += ["--output", "type=image,name=#{extra_tag}"]
+      end
 
       puts buildctl_local_cmd.inspect
       exe.systemx(*buildctl_local_cmd, "--output", "type=image,name=polly-registry:23443/polly-registry/#{tag},push=true") || fail("unable to build")
