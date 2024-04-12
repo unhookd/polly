@@ -80,7 +80,7 @@
   }
 
   run %q{mkdir -p /polly/app /app /__w/polly/polly}
-  run %q{chown -R app.alpha /home/app /polly /app /__w/polly/polly}
+  run %q{chown -R app:alpha /home/app /polly /app /__w/polly/polly}
   run %q{chown -R app /home/app /polly /app /__w/polly/polly}
   run %q{chown -R app /home/app}
   run %q{su app -s /bin/bash -c 'cd /__w/polly/polly && gem build polly.gemspec -o /home/app/polly-latest.gem'}
@@ -110,7 +110,7 @@
     "--chown=app config/git-repo/templates /home/app/config/git-repo/templates"
   }
 
-  run %q{mkdir -p /polly/safe/git/polly/hooks && chown -R app.app /polly/safe}
+  run %q{mkdir -p /polly/safe/git/polly/hooks && chown -R app:app /polly/safe}
 
   app
 
