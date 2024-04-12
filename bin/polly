@@ -1624,6 +1624,7 @@ HEREDOC
     tag = Polly::Build.build_image_to_tag(app, version, options["stage"])
     #tag = Polly::Build.build_image_to_tag(app, "wkndr", version)
     puts tag.inspect
+    tag = "#{app}:latest"
 
     cmd = ["kubectl", "run", "rxn-#{app}", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--command", "--", rxn_cmd].compact
     #      cmd = ["kubectl", "run", "rxn", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--command", "--", rxn_cmd].compact
