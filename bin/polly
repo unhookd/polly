@@ -555,6 +555,7 @@ class PollyTasks < Thor
   option "re-init", :type => :boolean, :default => false
   option "with-registry", :type => :boolean, :default => false
   option "with-bootstrap", :type => :string, :default => "ghcr.io/unhookd/polly:4.0-rc-3"
+  option "stage", :type => :string, :default => nil
   def deploy(glob = "kubernetes/**/*yaml")
     exe = ::Polly::Execute.new(options)
 
@@ -562,6 +563,8 @@ class PollyTasks < Thor
     branch = exe.current_branch.gsub("/", "-")
     app = exe.current_app
     image_repo = Polly::Config.image_repo
+
+    tag = Polly::Build.build_image_to_tag(app, version, options["stage"])
 
     resource_paths = Dir.glob(glob)
 
@@ -586,13 +589,13 @@ class PollyTasks < Thor
           if description["spec"]["template"]["spec"]["initContainers"]
             description["spec"]["template"]["spec"]["initContainers"].each { |c|
               if c["image"] == app + ":latest"
-                c["image"] = (image_repo + "/polly-registry/" + (app + ":" + branch + "-" + version))
+                c["image"] = (image_repo + "/polly-registry/" + tag) #(app + ":" + branch + "-" + version))
               end
             }
           end
           description["spec"]["template"]["spec"]["containers"].each { |c|
             if c["image"] == app + ":latest"
-              c["image"] = (image_repo + "/polly-registry/" + (app + ":" + branch + "-" + version))
+              c["image"] = (image_repo + "/polly-registry/" + tag) #(app + ":" + branch + "-" + version))
             end
           }
 
