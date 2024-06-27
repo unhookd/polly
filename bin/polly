@@ -1603,9 +1603,9 @@ HEREDOC
     exec(*["kubectl", "run", "shr", "-it", "--pod-running-timeout=3m0s", "--image=ghcr.io/unhookd/polly:master", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", shr_cmd].compact)
   end
 
-  desc "rxn", "run app pod"
+  desc "rxn [CMD]", "rxn app pod"
   option "stage", :type => :string, :default => nil
-  def rxn(rxn_cmd = "bash")
+  def rxn(rxn_cmd = "/bin/bash")
     exe = ::Polly::Execute.new
 
     environment_overrides = nil
@@ -1627,6 +1627,36 @@ HEREDOC
     tag = "#{app}:latest"
 
     cmd = ["kubectl", "run", "rxn-#{app}", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--command", "--", rxn_cmd].compact
+    #      cmd = ["kubectl", "run", "rxn", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--command", "--", rxn_cmd].compact
+    puts cmd.inspect
+
+    exec(*cmd)
+  end
+
+  desc "exe", "exe app pod"
+  option "stage", :type => :string, :default => nil
+  def exe
+    exe = ::Polly::Execute.new
+
+    environment_overrides = nil
+    if File.exist?("vertical.yaml")
+      vertical_lookup = YAML.load(File.read("vertical.yaml"))
+      environment_overrides = vertical_lookup["environment-overrides"]
+    end
+
+    env_flags = (environment_overrides || []).collect { |env| "--env=#{env["name"]}=#{env["value"]}" }
+
+    version = exe.current_revision
+    branch = exe.current_branch.gsub("/", "-")
+    app = exe.current_app
+    image_repo = Polly::Config.image_repo
+
+    tag = Polly::Build.build_image_to_tag(app, version, options["stage"])
+    #tag = Polly::Build.build_image_to_tag(app, "wkndr", version)
+    puts tag.inspect
+    tag = "#{app}:latest"
+
+    cmd = ["kubectl", "run", "exe-#{app}", "--attach=true", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true"].compact
     #      cmd = ["kubectl", "run", "rxn", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--command", "--", rxn_cmd].compact
     puts cmd.inspect
 
