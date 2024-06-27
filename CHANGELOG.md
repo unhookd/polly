@@ -1,3 +1,15 @@
+# [4.31.0] - 2024-04-12 - Jon Bardin
+
+Add `polly tags` and initial prototype of build,test,deploy gitch ci
+
+#######
+
+# [4.30.0] - 2024-04-10 - Jon Bardin
+
+better async output
+
+#######
+
 # [4.29.0] - 2024-04-10 - Jon Bardin
 
 new version bits

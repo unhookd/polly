@@ -42,7 +42,7 @@ jobs:
         (getent passwd runner || useradd --uid 1001 --home-dir /home/runner --create-home --shell /bin/bash runner --groups alpha,beta,docker,theta,zeta,tau);
         apt-get update; apt-get install -y locales locales-all; apt-get clean;
         test -e /usr/lib/locale/locale-archive || ((locale-gen --purge en_US); (echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale); (locale-gen $LANGUAGE); (dpkg-reconfigure locales));
-        apt-get update; apt-get install -y vim git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby3* libruby3* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper; apt-get clean;
+        apt-get update; apt-get install -y vim git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby3* libruby3* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper procps; apt-get clean;
         test -e /etc/apt/keyrings/kubernetes-apt-keyring.gpg || (curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | gpg --batch --no-tty --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg);
         echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list;
         apt-get update; apt-get install -y kubectl; apt-get clean;
@@ -51,7 +51,7 @@ jobs:
         mkdir /tmp/buildkit && cd /tmp/buildkit && curl -sL -o buildkit.tar.gz "https://github.com/moby/buildkit/releases/download/v0.13.1/buildkit-v0.13.1.linux-amd64.tar.gz" && tar zxf buildkit.tar.gz && mv bin/buildctl /usr/local/bin && cd && rm -Rf /tmp/buildkit;
 
         mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app /__w/polly/polly;
-        chown -R app.alpha /home/app /polly /app /__w/polly/polly;
+        chown -R app:alpha /home/app /polly /app /__w/polly/polly;
         chown -R app /home/app /polly /app /__w/polly/polly;
         chown -R app /home/app;
         su app -s /bin/bash -c 'cd /__w/polly/polly && gem build polly.gemspec -o /home/app/polly-latest.gem';

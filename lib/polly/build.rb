@@ -47,19 +47,20 @@ module Polly
         buildctl_local_cmd += ["--opt", "target=#{build_image_stage}"]
       end
 
-      if push_stage
-        buildctl_local_cmd += ["--output", "type=image,name=#{push_stage}/#{tag.split(':').last},push=true"]
-      else
-        buildctl_local_cmd += ["--output", "type=image,name=polly-registry:23443/polly-registry/#{tag},name=polly-registry:23443/polly-registry/#{app}:latest,push=true"]
-        #buildctl_local_cmd += ["--output", "type=image,name=polly-registry:23443/polly-registry/#{app}:latest,push=true"]
-      end
+      #if push_stage
+      #  buildctl_local_cmd += ["--output", "type=image,name=#{push_stage}/#{tag.split(':').last},push=true"]
+      #else
+      #  buildctl_local_cmd += ["--output", "type=image,name=polly-registry:23443/polly-registry/#{tag},name=polly-registry:23443/polly-registry/#{app}:latest,push=true"]
+      #  #buildctl_local_cmd += ["--output", "type=image,name=polly-registry:23443/polly-registry/#{app}:latest,push=true"]
+      #end
 
       if extra_tag
         buildctl_local_cmd += ["--output", "type=image,name=#{extra_tag}"]
       end
 
       puts buildctl_local_cmd.inspect
-      exe.systemx(*buildctl_local_cmd) || fail("unable to build")
+      exe.systemx(*buildctl_local_cmd, "--output", "type=image,\"name=polly-registry:23443/polly-registry/#{tag},polly-registry:23443/polly-registry/#{app}:latest\",push=true") || fail("unable to build")
+      #exe.systemx(*buildctl_local_cmd, "--output", "type=image,name=polly-registry:23443/polly-registry/#{app}:latest,push=true") || fail("unable to build")
       puts "Built and tagged: #{tag} OK"
     end
 
