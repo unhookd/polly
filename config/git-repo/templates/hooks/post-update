@@ -22,10 +22,12 @@ then
     cd ${TMPCHECKOUT}
     unset GIT_DIR
 
-    GENERATED_CI=$(polly continuous)
-    if [ $? -eq 0 ]; then
-      ${GENERATED_CI}
-    fi
+    polly continuous --exec
+
+    #GENERATED_CI=$(polly continuous)
+    #if [ $? -eq 0 ]; then
+    #  ${GENERATED_CI}
+    #fi
 
     #  bash -x -e -c "${GENERATED_CI}" &
     #  wait

@@ -51,7 +51,7 @@ module Polly
         cmd.unshift("echo") if @explain
       end
 
-      status = Kernel.system(*cmd)
+      status = Kernel.system(*cmd, {:err => $stderr})
       unless status
         Kernel.exit(1)
       end
@@ -86,6 +86,10 @@ module Polly
       @current_app ||= begin
         File.basename(Dir.pwd).gsub(/[^a-z0-9\-\.]/, "") #TODO: better dirname support??
       end
+    end
+
+    def polly_labels
+      {"polly-current-app" => current_app}
     end
 
     def current_branch
@@ -175,7 +179,7 @@ module Polly
 
       extra_runtime_envs = begin
         if executor_hints[:setup_remote_docker] || clean_name.include?("bootstrap")
-          {"SSH_AUTH_SOCK" => "/home/app/.ssh-auth-sock"}
+          {} #{"SSH_AUTH_SOCK" => "/home/app/.ssh-auth-sock"}
         else
           {}
         end
@@ -194,17 +198,27 @@ module Polly
             Kernel.exit(1)
           end
 
-          docker_image_url = URI.parse("http://local/#{first_docker_executor_hint["image"]}")
-          repo = docker_image_url.host
+          first_docker_executor_hint["image"]
 
-          #TODO: ???? File.basename(docker_image_url.path)
-          Pathname.new(docker_image_url.path).relative_path_from(Pathname.new("/")).to_s
+          #docker_image_url = URI.parse("http://local/#{first_docker_executor_hint["image"]}")
+          #repo = docker_image_url.host
+          ###TODO: ???? File.basename(docker_image_url.path)
+          #Pathname.new(docker_image_url.path).relative_path_from(Pathname.new("/")).to_s
+
+          ##add_circleci_job
+          ##buildctl_local_cmd += ["--output", "type=image,name=polly-registry:23443/polly-registry/#{tag},push=true"]
+          #version = current_revision
+          #branch = current_branch.gsub("/", "-")
+          #app = current_app
+          ##image_repo = Polly::Config.image_repo
+          #"polly-registry:23443/polly-registry/#{app}:#{version}"
         end
       end
 
       build_run_dir = Dir.mktmpdir #"/polly/safe/run"
       build_manifest_dir = File.join(build_run_dir, clean_name, current_revision)
-      run_shell_path = File.join(build_manifest_dir, "run.sh")
+
+      #run_shell_path = File.join(build_manifest_dir, "run.sh")
 
       sleep_cmd_args = ["sleep", "infinity"]
 
@@ -213,12 +227,16 @@ module Polly
       #####TODO: better input for cmd: [] support
       ######run_cmd_args = ["bash", "-e", run_shell_path]
 
-      FileUtils.mkdir_p(build_manifest_dir)
-      File.write(run_shell_path, job.parameters[:command])
+      #FileUtils.mkdir_p(build_manifest_dir)
+      #File.write(run_shell_path, job.parameters[:command])
 
       #run_cmd_args = ["bash", "-e", "-x", "-o", "pipefail", run_shell_path]
       #if true #TODO: bits
-      run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
+      #run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", "bash #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
+      run_cmd_args = ["/bin/bash /home/app/workflows/run.sh"] # > /proc/1/fd/1 2> /proc/1/fd/2"]
+      #puts run_shell_path
+
+      #run_cmd_args = ["sleep infinity"] # > /proc/1/fd/1 2> /proc/1/fd/2"]
       #end
 
       intend_to_run_cmd = nil
@@ -242,7 +260,8 @@ module Polly
         "metadata" => {
           "name" => clean_name,
           "labels" => {
-            "app" => clean_name
+            "app" => clean_name,
+            "polly" => "polly-ci"
           }
         },
         "spec" => {
@@ -254,15 +273,16 @@ module Polly
           "selector" => {
             "matchLabels" => {
               #TODO: abstract this!!!!
-              "name" => clean_name
+              "app" => clean_name,
+              "polly" => "polly-ci"
             }
           },
           "template" => {
             "metadata" => {
               "labels" => {
                 #TODO: abstract this
-                "name" => clean_name,
-                "app" => "polly-ci"
+                "app" => clean_name,
+                "polly" => "polly-ci"
               },
               "annotations" => {}
             }
@@ -271,8 +291,44 @@ module Polly
       }
 
       container_spec = {
+        "serviceAccount" => "polly",
         ##TODO: converge this with workstion git context
         "initContainers" => [
+          {
+            #"terminationGracePeriodSeconds" => 5,
+            "name" => "git-config",
+            "image" => "alpine/git:latest", #TODO: more bits rebootstrap
+            "workingDir" => "/home/app/#{current_app}", #TODO: local executor support
+            "imagePullPolicy" => "IfNotPresent",
+            "args" => [
+              #origin = "/polly-safe/git/#{app}"
+              #"http://polly-app:8080/#{current_app}"
+              #"clone", "-b", current_branch, "/polly/safe/git/#{current_app}", ".",
+              "config", "--global", "--add", "safe.directory", "/home/app/polly",
+            ],
+            "env" => { "GIT_CONFIG_GLOBAL" => "/home/app/.config/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
+            "securityContext" => {
+              "runAsUser" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
+              "runAsGroup" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
+              "allowPrivilegeEscalation" => false,
+              "readOnlyRootFilesystem" => true
+            },
+            "volumeMounts" => [
+              {
+                "mountPath" => "/home/app/#{current_app}",
+                "name" => "scratch-dir"
+              },
+              {
+                "mountPath" => "/home/app/.config",
+                "name" => "config-dir"
+              },
+              {
+                "mountPath" => "/polly/safe/git/#{current_app}",
+                "name" => "git-repo"
+              },
+
+            ]
+          },
           {
             #"terminationGracePeriodSeconds" => 5,
             "name" => "git-clone",
@@ -284,9 +340,10 @@ module Polly
               #"http://polly-app:8080/#{current_app}"
               "clone", "-b", current_branch, "/polly/safe/git/#{current_app}", "."
             ],
-            "env" => { "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
+            "env" => { "GIT_CONFIG_GLOBAL" => "/home/app/.config/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true" }.collect { |k,v| {"name" => k, "value" => v } },
             "securityContext" => {
-              "runAsUser" => username_to_uid("root"), #TODO: bootstrap module
+              "runAsUser" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
+              "runAsGroup" => 1000, #TODO: ??username_to_uid("app"), #TODO: bootstrap module
               "allowPrivilegeEscalation" => false,
               "readOnlyRootFilesystem" => true
             },
@@ -296,10 +353,13 @@ module Polly
                 "name" => "scratch-dir"
               },
               {
+                "mountPath" => "/home/app/.config",
+                "name" => "config-dir"
+              },
+              {
                 "mountPath" => "/polly/safe/git/#{current_app}",
                 "name" => "git-repo"
               },
-
             ]
           }
         ],
@@ -333,14 +393,14 @@ module Polly
               "privileged" => true, #TODO: figure out un-privd case, use kaniko???
               #"runAsUser" => 0
               "runAsUser" => username_to_uid(first_docker_executor_hint["user"]),
-              "runAsGroup" => 999
+              "runAsGroup" => 999 #T!!!!!
               #"fsGroup" => 999
             },
             "name" => clean_name,
             "image" => run_image,
             "imagePullPolicy" => "IfNotPresent",
             "workingDir" => job.parameters[:working_directory] || "/home/app/#{current_app}", #TODO: local executor support
-            "args" => sleep_cmd_args,
+            "command" => sleep_cmd_args,
             "volumeMounts" => [
               {
                 "mountPath" => "/certs/client",
@@ -348,12 +408,16 @@ module Polly
                 "readOnly" => true
               },
               {
-                "mountPath" => build_manifest_dir,
+                "mountPath" => "/home/app/workflows",
                 "name" => "fd-config-volume"
               },
               {
                 "mountPath" => "/home/app/#{current_app}",
                 "name" => "scratch-dir"
+              },
+              {
+                "mountPath" => "/home/app/.config",
+                "name" => "config-dir"
               },
               {
                 "mountPath" => "/var/tmp/artifacts",
@@ -365,7 +429,7 @@ module Polly
               #  "name" => "ssh-key"
               #},
             ],
-            "env" => extra_runtime_envs.merge(job.parameters[:environment]).collect { |k,v| {"name" => k, "value" => v } }
+            "env" => extra_runtime_envs.merge(job.parameters[:environment]).merge({"GIT_CONFIG_GLOBAL" => "/home/app/.config/.gitconfig", "GIT_DISCOVERY_ACROSS_FILESYSTEM" => "true"}).collect { |k,v| {"name" => k, "value" => v } }
           }
         ],
         "volumes" => [
@@ -378,7 +442,7 @@ module Polly
           {
             "name" => "fd-config-volume",
             "configMap" => {
-              "name" => "fd-#{clean_name}-#{current_revision}"
+              "name" => "fd-#{clean_name}-#{Digest::SHA2.new(256).hexdigest(job.parameters[:command])}"
             }
           },
           {
@@ -387,6 +451,13 @@ module Polly
             "hostPath" => {
               "path" => "/var/tmp/polly-safe/git/#{current_app}"
             }
+          },
+          {
+            "name" => "config-dir",
+            "emptyDir" => {},
+            #"hostPath" => {
+            #  "path" => "/var/tmp/polly-safe/scratch/#{current_app}"
+            #}
           },
           {
             "name" => "scratch-dir",
@@ -410,6 +481,7 @@ module Polly
         ]
       }
 
+      #TODO: document ssh-key bootstrap
       if executor_hints[:setup_remote_docker] && (ENV["POLLY_SSH_AUTH_SOCK"] || ENV["SSH_AUTH_SOCK"])
         container_spec["volumes"] << {
           "name" => "ssh-auth-sock",
@@ -432,7 +504,7 @@ module Polly
         "apiVersion" => "v1",
         "kind" => "ConfigMap",
         "metadata" => {
-          "name" => "fd-#{clean_name}-#{current_revision}"
+          "name" => "fd-#{clean_name}-#{Digest::SHA2.new(256).hexdigest(job.parameters[:command])}"
         },
         "data" => {
           "run.sh" => job.parameters[:command]
@@ -489,7 +561,7 @@ module Polly
           polly_waitx = [
                          "polly",
                          "waitx",
-                         clean_name,
+                         "app=#{clean_name},polly=polly-ci",
                        ] + intend_to_run_cmd
 
           @runners << [job.run_name, clean_name, execute_simple(:async, polly_waitx, {})]
@@ -764,6 +836,48 @@ module Polly
           o, e, s = Open3.capture3(*cmd, options)
           return exit_proc.call(o, e, s, false)
 
+        when :async_wait_status
+          #o, e, s = Open3.capture3(*cmd, options)
+          #puts options.inspect
+          $stdout.sync = true
+          $stderr.sync = true
+
+          i, o, e, s = Open3.popen3(*cmd, options)
+
+          read_io = Proc.new {
+            chunk = 65432
+            begin
+              stdout = o.read_nonblock(chunk)
+              $stdout.write(stdout)
+            rescue IO::EAGAINWaitReadable, Errno::EIO, Errno::EAGAIN, Errno::EINTR => err
+              #_r, _w, _e = IO.select(process_fds, nil, process_fds, 0.5)
+              sleep 0.1
+            rescue EOFError => err
+            end
+
+            begin
+              stderr = e.read_nonblock(chunk)
+              $stderr.write(stderr)
+            rescue IO::EAGAINWaitReadable, Errno::EIO, Errno::EAGAIN, Errno::EINTR => err
+              #_r, _w, _e = IO.select(process_fds, nil, process_fds, 0.5)
+              sleep 0.1
+            rescue EOFError => err
+            end
+          }
+
+          while s.alive?
+            #$stdout.write(".")
+
+            read_io.call
+
+            s.join(0.1)
+          end
+
+          read_io.call
+
+          return s.value.success?
+          #return exit_proc.call(o, e, s, false)
+
         when :async
           stdin, stdout, stderr, wait_thr = Open3.popen3(*cmd, options)
           return [stdin, stdout, stderr, wait_thr, exit_proc]
@@ -962,12 +1076,25 @@ module Polly
 
     def polly_pod(service = "controller")
       label = "name=#{POLLY}-#{service}"
+      #puts label.inspect
       @polly_pods ||= {}
       @polly_pods[label] ||= begin
         cmd = "kubectl get pods --field-selector=status.phase=Running -l #{label} -o name | cut -d/ -f2"
         a = IO.popen(cmd).read.strip.split("\n")[0]
         #wait_child
         a
+      end
+    end
+
+    def polly_service(service)
+      label = "name=#{POLLY}-#{service}"
+      @polly_services ||= {}
+      @polly_services[label] ||= begin
+        cmd = "kubectl get services -l #{label} -o json"
+        a = IO.popen(cmd)
+        wait_child
+        parsed_services = JSON.parse(a.read)
+        parsed_services["items"][0]["spec"]["clusterIP"]
       end
     end
 

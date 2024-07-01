@@ -18,9 +18,9 @@ Gem::Specification.new do |spec|
   spec.executables   = ["polly"]
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "thor", "= 1.2.2"
-  spec.add_dependency "net-ssh", "~> 6.0"
-  spec.add_dependency "yajl-ruby", "= 1.4.1"
+  spec.add_dependency "thor", "~> 1.3"
+  spec.add_dependency "net-ssh", "~> 7.0"
+  spec.add_dependency "yajl-ruby", "~> 1.4.3"
   spec.add_dependency "guard", "~> 2.18"
   spec.add_dependency "rack", "~> 3.0"
   spec.add_dependency "rackup", "~> 2.1"

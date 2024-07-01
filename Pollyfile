@@ -1,9 +1,9 @@
 #!/usr/bin/env ruby
 
 @base = image {
-  stage "base", "ghcr.io/unhookd/polly:3.0-rc1@sha256:7cc65086b101fe352a8ff83180888f0f7079b2f80139b0f39ba7b2a4cb34b168"
-  #stage "base", "ghcr.io/unhookd/polly:3.0-rc1"
-  #stage "base", "ubuntu:jammy-20220421"
+  #stage "base", "ghcr.io/unhookd/polly:4.0-rc-3@sha256:1169fa172ec82abfaa368396aaad8be59d1879e76fcd115495567598d7500586"
+  stage "base", "public.ecr.aws/debian/debian:bookworm-20240311-slim"
+  #stage "base", "ghcr.io/unhookd/polly:4.0-rc-3"
 
   root
 
@@ -27,16 +27,20 @@
 
   run %q{test -e /usr/lib/locale/locale-archive || ((locale-gen --purge en_US); (echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale); (locale-gen $LANGUAGE); (dpkg-reconfigure locales))}
 
-  apt %w{vim git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby3* libruby3* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper}
+  apt %w{vim git curl apt-transport-https aptitude ca-certificates apt-utils software-properties-common docker.io build-essential libyaml-dev ruby3* libruby3* ruby-bundler rubygems-integration rake amazon-ecr-credential-helper procps}
 
-  run %q{curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add}
-  run %q{apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"}
+  #run %q{curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add}
+  #run %q{apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"}
+  run %q{test -e /etc/apt/keyrings/kubernetes-apt-keyring.gpg || (curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | gpg --batch --no-tty --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg)}
+  run %q{echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list}
+
   apt %w{kubectl}
 
   run %q{usermod -a -G $(grep docker /etc/group | cut -d: -f3) app}
   run %q{usermod -a -G $(grep docker /etc/group | cut -d: -f3) runner}
 
-  run %q{mkdir /tmp/buildkit && cd /tmp/buildkit && curl -sL -o buildkit.tar.gz "https://github.com/moby/buildkit/releases/download/v0.11.1/buildkit-v0.11.1.linux-amd64.tar.gz" && tar zxf buildkit.tar.gz && mv bin/buildctl /usr/local/bin && cd && rm -Rf /tmp/buildkit}
+  buildkit_version = "v0.13.1"
+  run %Q{mkdir /tmp/buildkit && cd /tmp/buildkit && curl -sL -o buildkit.tar.gz "https://github.com/moby/buildkit/releases/download/#{buildkit_version}/buildkit-#{buildkit_version}.linux-amd64.tar.gz" && tar zxf buildkit.tar.gz && mv bin/buildctl /usr/local/bin && cd && rm -Rf /tmp/buildkit}
 }
 
 # image declares container artifacts
@@ -75,8 +79,8 @@
     "--chown=app doc /__w/polly/polly/doc"
   }
 
-  run %q{mkdir -p /polly/app /app /__w/polly/polly}
-  run %q{chown -R app.alpha /home/app /polly /app /__w/polly/polly}
+  run %q{mkdir -p /polly/safe/git /polly/safe/run /polly/safe/tmp /polly/app /app /__w/polly/polly}
+  run %q{chown -R app:alpha /home/app /polly /app /__w/polly/polly}
   run %q{chown -R app /home/app /polly /app /__w/polly/polly}
   run %q{chown -R app /home/app}
   run %q{su app -s /bin/bash -c 'cd /__w/polly/polly && gem build polly.gemspec -o /home/app/polly-latest.gem'}
@@ -102,6 +106,12 @@
     "--chown=app Pollyfile /home/app/Pollyfile"
   }
 
+  command("COPY") {
+    "--chown=app config/git-repo/templates /home/app/config/git-repo/templates"
+  }
+
+  run %q{mkdir -p /polly/safe/git/polly/hooks && chown -R app:app /polly/safe}
+
   app
 
   command("ENTRYPOINT") {
@@ -113,24 +123,29 @@
 
 #workflow_image = "ghcr.io/unhookd/polly:3.0-rc1"
 #TODO: !!!! make this make sense to configure
-workflow_image = "polly:latest"
+#workflow_image = "polly-registry:23443/polly-registry/polly:latest"
 
 @plain_workflow = plan {
   job("primary",
-    [{"image"=>workflow_image}],
     [
-      {"run"=>{"name"=>"demo","command"=>"echo DEMO!!!!"}},
-      {"run"=>{"name"=>"demo","command"=>"polly generate > Dockerfile"}},
-      #{"run"=>{"name"=>"config","command"=>"bundle config set --local path vendor/bundle"}},
-      #{"run"=>{"name"=>"bundler","command"=>"bundle install"}},
-      #{"run"=>{"name"=>"rspec","command"=>"bundle exec rspec"}},
-      {"run"=>{"name"=>"build","command"=>"pwd && ls -l && buildctl --timeout 120 --addr tcp://polly-buildkitd:1234 --tlsservername polly-buildkitd --tlscacert /certs/client/ca.pem --tlscert /certs/client/cert.pem --tlskey /certs/client/key.pem build --frontend dockerfile.v0 --local context=. --local dockerfile=."}}
+      #{"run"=>{"name"=>"demo","command"=>"echo DEMO?????"}},
+      #{"run"=>{"name"=>"demo","command"=>"sleep 300"}},
+      #{"run"=>{"name"=>"demo","command"=>"echo DEMO!!!!"}},
+      #{"run"=>{"name"=>"demo","command"=>"polly generate > Dockerfile"}},
+      #{"run"=>{"name"=>"demo","command"=>"polly help"}},
+      #{"run"=>{"name"=>"demo","command"=>"sleep infinity"}},
+      #{"run"=>{"name"=>"demo","command"=>"polly build"}},
+      {"run"=>{"name"=>"config","command"=>"bundle config set --local path vendor/bundle"}},
+      {"run"=>{"name"=>"bundler","command"=>"bundle install"}},
+      {"run"=>{"name"=>"rspec","command"=>"bundle exec rspec"}},
+      {"run"=>{"name"=>"demo","command"=>"polly help"}},
+      #{"run"=>{"name"=>"build","command"=>"pwd && ls -l && buildctl --timeout 120 --addr tcp://polly-buildkitd:1234 --tlsservername polly-buildkitd --tlscacert /certs/client/ca.pem --tlscert /certs/client/cert.pem --tlskey /certs/client/key.pem build --frontend dockerfile.v0 --local context=. --local dockerfile=."}}
     ],{},"/home/app/polly"
   )
 }
 
 @gitch_pipeline = continuous {
-  #TODO: !!!!
-  #publish @bootstrap_artifact
+  build @bootstrap_artifact
   test @plain_workflow
+  deploy @example_instance
 }

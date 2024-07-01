@@ -22,7 +22,7 @@ module Polly
         @all_images
       end
 
-      def read_circleci_output(ident = nil)
+      def read_circleci_output(image, ident = nil)
         jobs_repacked = {}
 
         @pl_wk = ident.nil? ? @workflows_by_ident[@workflows_by_ident.keys.first] : @workflows_by_ident[ident]
@@ -42,8 +42,10 @@ module Polly
               }
             ].compact
           }.merge({
-            "docker" => job_spec.parameters[:executor_hints][:docker]
+            "docker" => [{"image" => image}]
           })
+          #job_spec.parameters[:executor_hints][:docker]
+          #[{"image"=>workflow_image}],
           jobs_repacked[job_name].delete("environment") unless jobs_repacked[job_name]["environment"] && !jobs_repacked[job_name]["environment"].empty?
           jobs_repacked[job_name].delete("working_directory") unless jobs_repacked[job_name]["working_directory"]
         }
@@ -310,6 +312,10 @@ module Polly
         @this_plan.add_circleci_job(*args)
       end
 
+      def container_image(filename)
+        emit(File.read(filename))
+      end
+
       def plan
         @workflows_by_ident ||= {}
 
@@ -330,6 +336,14 @@ module Polly
 
       def test(plan)
         @shell_commands << ["polly", "test", "--ident", plan.ident]
+      end
+
+      def build(container_image)
+        @shell_commands << ["polly", "build"]
+      end
+
+      def deploy(instance)
+        @shell_commands << ["polly", "deploy"]
       end
 
       def read_shell_commands

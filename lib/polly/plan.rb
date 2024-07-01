@@ -206,28 +206,34 @@ module Polly
       raise "empty config" if raw_yaml.nil? || raw_yaml.empty?
 
       yaml_template_rendered = raw_yaml.gsub("$CIRCLE_SHA1", @revision)
-      circle_yaml = YAML.load(yaml_template_rendered)
+      circle_yaml = YAML.load(yaml_template_rendered, :aliases => true)
 
       return unless circle_yaml && circle_yaml["workflows"] && circle_yaml["jobs"]
 
       add_job_to_stack = lambda { |job_run_name|
+
         circleci_like_parameters = circle_yaml["jobs"][job_run_name]
         image = nil
 
-        if exe_found = circleci_like_parameters["executor"]
-          exe_name = exe_found["name"]
-          if exe_name
-            image = circle_yaml["executors"][exe_name]["docker"]
-          else
-            image = circle_yaml["executors"][exe_found]["docker"]
-          end
-        else
-          image = circleci_like_parameters["docker"]
-        end
+
+        #if exe_found = circleci_like_parameters["executor"]
+        #raise exe_found.inspect
+        #  exe_name = exe_found["name"]
+        #  if exe_name
+        #    image = circle_yaml["executors"][exe_name]["docker"]
+        #  else
+        #    image = circle_yaml["executors"][exe_found]["docker"]
+        #  end
+        #else
+          #image = circleci_like_parameters["docker"]
+        #end
+
+          #raise image.inspect
 
         #TODO: Regen module
         #puts "add_circleci_job(#{job_run_name.inspect}, #{image.inspect}, #{circleci_like_parameters["steps"].inspect}, #{circleci_like_parameters["environment"].inspect}, #{circleci_like_parameters["working_directory"].inspect}"
-        add_circleci_job(job_run_name, image, circleci_like_parameters["steps"], circleci_like_parameters["environment"], circleci_like_parameters["working_directory"])
+        ##### !!!!
+        add_circleci_job(job_run_name, circleci_like_parameters["steps"], circleci_like_parameters["environment"], circleci_like_parameters["working_directory"], circleci_like_parameters["docker"])
       }
 
       circle_yaml["workflows"].each do |workflow_key, workflow|
@@ -254,12 +260,15 @@ module Polly
       end
     end
 
-    def add_circleci_job(job_run_name, docker_params, steps, job_env, working_directory) #, pre_calc_dep = nil)
+    def add_circleci_job(job_run_name, steps, job_env, working_directory, image = nil)
       executor_hints = {
-        :docker => docker_params #TODO: || "polly:latest"
       }
 
-      #steps = circleci_like_parameters["steps"]
+      if image
+        executor_hints.merge!({
+          :docker => image
+        })
+      end
 
       pro_fd = StringIO.new
 
@@ -324,6 +333,8 @@ module Polly
         :command => pro_fd.read,
         :working_directory => working_directory,
         :executor_hints => executor_hints
+        #.merge({
+        #  :docker => docker_params #TODO: || "polly:latest"
       }
 
       if count_of_steps > 0

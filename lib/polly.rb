@@ -21,6 +21,7 @@ require 'fileutils'
 require 'net/ssh'
 require 'rack'
 require 'rackup'
+require 'net/http'
 
 module Polly
   POLLY = "polly"
@@ -34,4 +35,5 @@ module Polly
   autoload 'Job', 'polly/job'
   autoload 'Observe', 'polly/observe'
   autoload 'Plan', 'polly/plan'
+  autoload 'DocumentStreamHandler', 'polly/document_stream_handler'
 end

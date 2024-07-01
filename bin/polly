@@ -128,7 +128,7 @@ class PollyTasks < Thor
 
     if msg = options["m"]
       if exe.systemx("git", "add", ".")
-        if exe.systemx("git", "commit", "-m", (msg.length > 1) ? msg : "wip")
+        if exe.systemx(*["git", "commit", "-m", (msg.length > 1) ? msg : "wip", (msg.length > 1) ? nil : "--allow-empty"].compact)
           exit(0)
         end
       end
@@ -153,14 +153,14 @@ class PollyTasks < Thor
       puts cmd_list
 
       if options["exec"]
-        exec(*cmd_list)
+        exec("bash", "-ex", "-c", cmd_list)
       end
     end
   end
 
   desc "test [PIPELINE]", "Run the CI pipeline"
   option "concurrency", :type => :numeric, :default => Polly::Plan::DEFAULT_CONCURRENCY, :desc => "Number of divergent paths to process simultaneously"
-  option "config", :type => :string, :default => "Pollyfile", :desc => "Declaration of config"
+  #option "config", :type => :string, :default => "Pollyfile", :desc => "Declaration of config"
   option "with-bootstrap", :type => :string, :default => nil, :desc => "Docker image to use as the build context"
   option "dry-run", :type => :boolean, :default => false, :desc => "Emit the plan but do not run the pipeline"
   option "keep-completed", :type => :boolean, :default => false, :desc => "Retain completed pods in kubectl get pods list"
@@ -171,7 +171,9 @@ class PollyTasks < Thor
   option "only", :type => :string, :default => nil, :desc => "Only run specified jobs (comma-separated list)"
   option "no-init", :type => :boolean, :default => false, :desc => "Do not run pod initialization (eg git-checkout container) before each job (this can speed up debug looping)"
   option "ident", :type => :string, :default => nil, :desc => "todo"
-  def test(run_pipeline_upto_these_jobs = nil)
+  def test(config = nil)
+    default_config = "Pollyfile"
+    run_pipeline_upto_these_jobs = nil
     start_time = Time.now
 
     exe = ::Polly::Execute.new(options)
@@ -183,23 +185,22 @@ class PollyTasks < Thor
 
     obv.register_channels(["debug", "plan", "exe"])
 
-    config = options["config"]
+    #config = options["config"]
 
-    #TODO: switch plan based on detected hueristics here
-    if File.exists?(config)
-      #obv.report_stdout("debug", "using #{config} for config")
-      if config.include?("Pollyfile")
-        pollyfile_ruby = File.read(config)
-        Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, config)
-        generated_circleci_config_yml = YAML.dump(Polly::Generate.read_circleci_output(options["ident"]))
+    ##TODO: switch plan based on detected hueristics here
+    detected_config = config || default_config
+    if File.exists?(detected_config)
+      if detected_config == default_config
+        pollyfile_ruby = File.read(detected_config)
+        Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, detected_config)
+        exe_image = "polly-registry:23443/polly-registry/#{exe.current_app}:latest"
+        generated_circleci_config_yml = YAML.dump(Polly::Generate.read_circleci_output(exe_image, options["ident"]))
         plan.load_circleci(generated_circleci_config_yml)
       else
-        plan.load_circleci(File.read(config))
+        plan.load_circleci(File.read(detected_config))
       end
-    elsif File.exists?(".circleci/config.yml")
-      plan.load_circleci(File.read(".circleci/config.yml"))
     else
-      raise "must create #{config} first ..."
+      raise "must create #{detected_config} first ..."
     end
 
     obv.register_channels(plan.all_jobs.collect { |key, _| key })
@@ -213,7 +214,7 @@ class PollyTasks < Thor
 
       plan.jobs_ready_to_start.each do |job_proc|
         job_to_start = job_proc.call
-        
+
         obv.report_stdout("plan", "started #{job_to_start.run_name}")
         obv.flush($stdout, $stderr)
         exe.start_job!(job_to_start)
@@ -311,6 +312,7 @@ class PollyTasks < Thor
 
     #TODO: specify the remote follow branch with a toggle possibly???
     exe.systemx("git", "push", "-f", "polly", branch, "HEAD:#{branch}-#{Time.now.to_i}", "--exec=polly receive-pack#{options['local'] ? " --local" : ""}")
+    #exe.systemx("git", "push", "-f", "polly", branch, "HEAD:#{branch}", "--exec=polly receive-pack#{options['local'] ? " --local" : ""}")
 
     #TODO:
     #####cat /var/tmp/polly-safe/buildkit/example-510b1e33549a9f97b9fce43f1a30d13afe208390.tar | docker import - example:latest
@@ -346,9 +348,33 @@ class PollyTasks < Thor
   def receive_pack(origin = nil)
     exe = ::Polly::Execute.new
 
+    git_config_cmd = [
+                     "git", "config", "--global", "--add", "safe.directory", "/home/app/polly"
+                   ]
+
+    unless options["local"]
+      git_config_cmd = [
+                       "kubectl", "exec", exe.polly_pod,
+                       "-i",
+                       "--",
+                       *git_config_cmd
+                     ]
+    end
+
+    #puts git_init_cmd
+    #exit
+
+    o,e,s = exe.execute_simple(:output, git_config_cmd, {})
+    unless s
+      puts o
+      puts e
+      exit(1)
+    end
+    exe.wait_child
+
     git_init_cmd = [
                      "git", "init", "--bare", "/polly/safe/git/#{exe.current_app}",
-                     "--template=/polly/app/config/git-repo/templates"
+                     "--template=/home/app/config/git-repo/templates"
                    ]
 
     unless options["local"]
@@ -360,9 +386,12 @@ class PollyTasks < Thor
                      ]
     end
 
+    #puts git_init_cmd
+    #exit
+
     o,e,s = exe.execute_simple(:output, git_init_cmd, {})
-    puts o
     unless s
+      puts o
       puts e
       exit(1)
     end
@@ -422,6 +451,9 @@ class PollyTasks < Thor
   option "cache", :type => :boolean, :default => true
   option "explain", :type => :boolean, :default => false
   option "in-cluster", :type => :boolean, :default => false
+  option "stage", :type => :string, :default => nil
+  option "push", :type => :string, :default => nil
+  option "extra-tag", :type => :string, :default => nil
   def build(container_definition=nil)
     default_pollyfile = "Pollyfile"
     default_dockerfile = "Dockerfile"
@@ -435,36 +467,75 @@ class PollyTasks < Thor
 
     generated_dockerfile = nil
 
-    if (container_definition == nil || container_definition == "-" || container_definition == default_pollyfile) && File.exists?(default_pollyfile)
+    if (container_definition == nil && File.exists?(default_pollyfile)) || (container_definition && container_definition.include?(default_pollyfile) && File.exists?(container_defintion))
       pollyfile_ruby = File.read(default_pollyfile)
       #TODO: ??? Polly::Generate.options = options
       Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, default_pollyfile)
       generated_dockerfile = Polly::Generate.read_output
-    elsif (container_definition == "-" || container_definition == default_dockerfile) && File.exists?(default_dockerfile)
-      #generated_dockerfile = File.read(default_dockerfile)
+
+      file = Tempfile.new('Dockerfile-pollygen-', Dir.pwd)
+      file_path = file.path
+      file.unlink
+
+      File.write(file_path, generated_dockerfile)
+      puts file_path
+
+      #tag = build_image_to_tag(app, build_image_stage, version)
+      #buildctl_local_cmd = [
+      #  {"SSH_AUTH_SOCK" => ENV["SSH_AUTH_SOCK"]},
+      #  "buildctl",
+      #  "--addr", "kube-pod://polly-buildkitd-0",
+      #  "build",
+      #  "--ssh", "default", #"default=#{Dir.home}/.ssh/id_rsa",
+      #  "--frontend", "dockerfile.v0",
+      #  "--local", "context=.", "--local", "dockerfile=.", #"--opt", "filename=#{File.basename(file.path)}",
+
       raise if version.empty?
-      Polly::Build.buildkit_workstation_to_controller(exe, app, branch, version, options["no-cache"])
+      Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, File.basename(file_path), options["stage"], options["no-cache"], options["push"], options["extra-tag"])
       exit
-    #elsif container_definition == nil && File.exists?(default_dockerfile)
-    #  generated_dockerfile = File.read(default_dockerfile)
-    else
-      generated_dockerfile = File.read(container_definition)
-    end
-
-    if options["in-cluster"]
-      Polly::Generate.all_images.each { |build_image|
-        Polly::Build.buildkit_internal(exe, app, build_image, version, generated_dockerfile, options["no-cache"])
-      }
-    else
+    elsif (container_definition == nil && File.exist?(default_dockerfile)) || (container_definition && container_definition.include?(default_dockerfile) && File.exist?(container_definition))
       raise if version.empty?
-      Polly::Build.buildkit_external(exe, app, branch, version, generated_dockerfile, options["no-cache"])
+      Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, container_definition, options["stage"], options["no-cache"], options["push"], options["extra-tag"])
+      exit
+
+    ##elsif container_definition == nil && File.exists?(default_dockerfile)
+    ##  generated_dockerfile = File.read(default_dockerfile)
+    #else
+    #  generated_dockerfile = File.read(container_definition)
     end
 
-    raise if version.empty?
+    #elsif ((container_definition == nil && File.exists?(default_dockerfile)) 
+    #  raise if version.empty?
+    #  Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, default_dockerfile, options["stage"], options["no-cache"], options["push"])
+    #  exit
 
-    Polly::Build.buildkit_workstation_to_controller(exe, app, "wkndr", version, generated_dockerfile, options["no-cache"])
+    #elsif File.exists?(container_definition)
+    #container_definition == default_dockerfile) && 
+    #  #generated_dockerfile = File.read(default_dockerfile)
+    #  raise if version.empty?
+    #  Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, container_definition, options["stage"], options["no-cache"], options["push"])
+    #  exit
 
-    exit
+    ##elsif container_definition == nil && File.exists?(default_dockerfile)
+    ##  generated_dockerfile = File.read(default_dockerfile)
+    #else
+    #  generated_dockerfile = File.read(container_definition)
+    #end
+
+    #if options["in-cluster"]
+    #  Polly::Generate.all_images.each { |build_image|
+    #    Polly::Build.buildkit_internal(exe, app, build_image, version, generated_dockerfile, options["no-cache"])
+    #  }
+    #else
+    #  raise if version.empty?
+    #  Polly::Build.buildkit_external(exe, app, branch, version, generated_dockerfile, options["no-cache"])
+    #end
+
+    ##TODO: ?
+    #raise if version.empty?
+    #Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, "wkndr-todo", generated_dockerfile, options["no-cache"])
+
+    #exit
 
     #if container_definition == "-" && File.exists?(default_pollyfile)
     #  pollyfile_ruby = File.read(default_pollyfile)
@@ -489,6 +560,82 @@ class PollyTasks < Thor
     ##  raise if version.empty?
     ##  Polly::Build.buildkit_external(exe, app, "wkndr", version, generated_dockerfile, options["no-cache"])
     ##end
+  end
+
+  desc "deploy", "deploys kubernetes resources"
+  option "debug", :type => :boolean, :default => false
+  option "re-init", :type => :boolean, :default => false
+  option "with-registry", :type => :boolean, :default => false
+  option "with-bootstrap", :type => :string, :default => "ghcr.io/unhookd/polly:4.0-rc-3"
+  option "stage", :type => :string, :default => nil
+  def deploy(glob = "kubernetes/**/*yaml")
+    exe = ::Polly::Execute.new(options)
+
+    version = exe.current_revision
+    branch = exe.current_branch.gsub("/", "-")
+    app = exe.current_app
+    image_repo = Polly::Config.image_repo
+
+    tag = Polly::Build.build_image_to_tag(app, version, options["stage"])
+
+    resource_paths = Dir.glob(glob)
+
+    all_resources = []
+
+    document_handler_switch = Proc.new do |document|
+      add_to_pending_documents = false
+
+      description = document.to_ruby
+
+      next unless description
+
+      kind = description["kind"]
+      name = description["metadata"]["name"]
+
+      case kind
+        when "Service"
+
+        when "Deployment", "ReplicationController"
+          description["metadata"]["labels"].merge!(exe.polly_labels)
+          description["spec"]["template"]["metadata"]["labels"].merge!(exe.polly_labels)
+          if description["spec"]["template"]["spec"]["initContainers"]
+            description["spec"]["template"]["spec"]["initContainers"].each { |c|
+              if c["image"] == app + ":latest"
+                c["image"] = (image_repo + "/polly-registry/" + tag) #(app + ":" + branch + "-" + version))
+              end
+            }
+          end
+          description["spec"]["template"]["spec"]["containers"].each { |c|
+            if c["image"] == app + ":latest"
+              c["image"] = (image_repo + "/polly-registry/" + tag) #(app + ":" + branch + "-" + version))
+            end
+          }
+
+      else
+      end
+
+      all_resources << description.to_yaml
+    end
+
+    handler = Polly::DocumentStreamHandler.new(&document_handler_switch)
+    parser = Psych::Parser.new(handler)
+    resource_paths.each { |resource_path|
+      parser.parse(File.read(resource_path), resource_path)
+    }
+
+    all_resources_yaml = all_resources.join("...\n")
+
+    if options["debug"]
+      puts all_resources_yaml
+      exit
+    end
+
+    apply_yaml = ["kubectl", "apply", "-f", "-"]
+    create_options = {:stdin_data => all_resources_yaml}
+    o,e,s = exe.execute_simple(:output, apply_yaml, create_options)
+    puts o
+    puts e
+    fail unless s
   end
 
 #  desc "checkout [REPO] [VERSION] [DESTINATION]", ""
@@ -832,10 +979,7 @@ HEREDOC
     end
   end
 
-  desc "init [CERTS]", "bootstraps project polly controller pod"
-  option "re-init", :type => :boolean, :default => false
-  option "with-registry", :type => :boolean, :default => false
-  option "with-bootstrap", :type => :string, :default => "ghcr.io/unhookd/polly:3.0-rc1" # "polly:3.0-rc1"
+  desc "init [CERTS]", "bootstraps certificates into cluster"
   def init(cert_package_dir)
     exe = ::Polly::Execute.new
 
@@ -848,14 +992,6 @@ HEREDOC
     polly_services = []
     polly_deployments = []
     polly_pvcs = []
-
-    #polly_image = "#{exe.current_app}:#{exe.current_revision}"
-    #polly_command = ["polly", "dev", "/var/lib/polly/Procfile.init", "--rename=polly-init"].to_json
-    #apache2: /usr/sbin/apache2 -D FOREGROUND
-    #nginx-apt-proxy: /usr/sbin/nginx -g 'daemon off;'
-
-    git_image = options["with-bootstrap"] # "alpine/git:latest"
-    git_command = ["sleep", "2147483647"].to_json
 
     #etc_slash_ssh_slash_ssh_host_rsa_key
     #etc_slash_ssh_slash_ssh_host_rsa_key.pub
@@ -870,7 +1006,7 @@ HEREDOC
     #File.write("#{dir}/from-workstation-ca.crt", a)
     #File.write("#{dir}/polly-root-ca.crt", b)
     #File.write("#{dir}/multipass-mega.crt", c)
-    #
+
     a = File.open(File.join(cert_package_dir, "from-workstation-ca.crt")).read
     b = File.open(File.join(cert_package_dir, "polly-root-ca.crt")).read
     c = File.open(File.join(cert_package_dir, "multipass-mega.crt")).read
@@ -883,18 +1019,6 @@ HEREDOC
     key3 = File.open(File.join(cert_package_dir, "buildkit-client-cert.key")).read
     cert3 = File.open(File.join(cert_package_dir, "buildkit-client-cert.crt")).read
 
-#---
-#apiVersion: v1
-#kind: Secret
-#metadata:
-#  name: sshd
-#type: Opaque
-#data:
-#  rsa: #{Base64.strict_encode64(data)}
-#  dsa: #{Base64.strict_encode64(data_dsa)}
-#  dsa_pub: #{Base64.strict_encode64(key_dsa.public_key.to_s)}
-#  rsa_pub: #{Base64.strict_encode64(key.public_key.to_s)}
-#...
     polly_certificates = <<-HEREDOC
 ---
 apiVersion: v1
@@ -960,513 +1084,17 @@ HEREDOC
 
     #  obv.flush($stdout, $stderr, true)
 
-    polly_resources << polly_certificates << <<-HEREDOC
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: polly
-  namespace: default
-...
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: polly
-  namespace: default
-rules:
-- apiGroups: ["*"]
-  resources: ["*"]
-  verbs: ["*"]
-...
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: polly-bindings
-  namespace: default
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: polly
-subjects:
-- kind: ServiceAccount
-  name: polly
-  namespace: default
-...
-HEREDOC
-
-    polly_pvcs << <<-HEREDOC
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  annotations:
-  labels:
-    stack: polly
-  name: polly-mount
-spec:
-  accessModes:
-  - ReadWriteMany
-  resources:
-    requests:
-      storage: 5Gi
-  storageClassName: local-path
-...
----
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: polly-mount
-  labels:
-    stack: polly
-spec:
-  capacity:
-    storage: 5Gi
-  accessModes:
-    - ReadWriteMany
-  storageClassName: local-path
-  hostPath:
-    path: /var/tmp/polly-safe
-...
-HEREDOC
-
-    polly_services << <<-HEREDOC
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: buildkitd
-  name: polly-buildkitd
-spec:
-  ports:
-    - port: 1234
-      protocol: TCP
-  selector:
-    app: buildkitd
-...
-HEREDOC
-
-#    polly_services << <<-HEREDOC
-#---
-#apiVersion: v1
-#kind: Service
-#metadata:
-#  name: "polly-headless"
-#spec:
-#  clusterIP: "None"
-#  ports:
-#  - port: 8111
-#    name: nginx-apt-proxy
-#    protocol: TCP
-#  - port: 8080
-#    name: apache2
-#    protocol: TCP
-#  - port: 5000
-#    name: docker-registry
-#    protocol: TCP
-#  selector:
-#    name: "polly-app"
-#...
-#HEREDOC
-
-#    polly_services << <<-HEREDOC
-#---
-#apiVersion: v1
-#kind: Service
-#metadata:
-#  name: "polly-app"
-#spec:
-#  ports:
-#  - port: 8111
-#    name: nginx-apt-proxy
-#    protocol: TCP
-#  - port: 8080
-#    name: apache2
-#    protocol: TCP
-#  selector:
-#    name: "polly-app"
-#...
-#HEREDOC
-
-    if options["with-registry"]
-      polly_services << <<-HEREDOC
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: "polly-registry"
-spec:
-  ports:
-  - port: 23443
-    targetPort: 23443
-    name: https
-    protocol: TCP
-  selector:
-    name: "polly-registry"
-...
-HEREDOC
-    end
-
-#    polly_services << <<-HEREDOC
-#---
-#apiVersion: v1
-#kind: Service
-#metadata:
-#  name: "polly-app-node"
-#spec:
-#  type: NodePort
-#  ports:
-#  - port: 5000
-#    nodePort: 31500
-#    name: docker-registry-node
-#    protocol: TCP
-#  selector:
-#    name: "polly-app"
-#...
-#HEREDOC
-
-    polly_deployments << <<-HEREDOC
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: polly-buildkitd-configuration
-data:
-  buildkitd.toml: |-
-    debug = true
-    [registry."polly-registry:23443"]
-    ca=["/certs/ca.polly.crt"]
-    insecure = true
-...
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  labels:
-    app: buildkitd
-    stack: polly
-  name: polly-buildkitd
-spec:
-  serviceName: polly-buildkitd
-  replicas: 1
-  podManagementPolicy: Parallel
-  selector:
-    matchLabels:
-      app: buildkitd
-  template:
-    metadata:
-      labels:
-        name: polly-buildkitd
-        app: buildkitd
-        stack: polly
-      annotations:
-        container.apparmor.security.beta.kubernetes.io/buildkitd: unconfined
-        container.seccomp.security.alpha.kubernetes.io/buildkitd: unconfined
-    spec:
-      terminationGracePeriodSeconds: 180
-      containers:
-#####<<<<<<< HEAD
-        - name: buildkitd
-          image: moby/buildkit:master-rootless
-          args:
-            - --oci-worker-no-process-sandbox
-          readinessProbe:
-            exec:
-              command:
-                - buildctl
-                - debug
-                - workers
-            initialDelaySeconds: 5
-            periodSeconds: 30
-          livenessProbe:
-            exec:
-              command:
-                - buildctl
-                - debug
-                - workers
-            initialDelaySeconds: 5
-            periodSeconds: 30
-          securityContext:
-            # Needs Kubernetes >= 1.19
-            seccompProfile:
-              type: Unconfined
-            # To change UID/GID, you need to rebuild the image
-            runAsUser: 1000
-            runAsGroup: 1000
-          volumeMounts:
-          # Dockerfile has `VOLUME /home/user/.local/share/buildkit` by default too,
-          # but the default VOLUME does not work with rootless on Google's Container-Optimized OS
-          # as it is mounted with `nosuid,nodev`.
-          # https://github.com/moby/buildkit/issues/879#issuecomment-1240347038
-          - mountPath: /home/user/.local/share/buildkit
-            name: buildkitd
-          - name: configurations
-            subPath: buildkitd.toml
-            mountPath: /home/user/.config/buildkit/buildkitd.toml
-          - name: ca-certificates
-            mountPath: /certs
-      volumes:
-      - name: buildkitd
-        emptyDir: {}
-      - name: configurations
-        configMap:
-          name: polly-buildkitd-configuration
-      - name: ca-certificates
-        secret:
-          secretName: ca-certificates
-####=======
-#      - name: buildkitd
-#        image: moby/buildkit:master-rootless
-#        resources:
-#          requests:
-#            memory: 10Mi
-#            cpu: 10m
-#          limits:
-#            memory: 12000Mi
-#        args:
-#        - --addr
-#        - tcp://0.0.0.0:1234
-#        - --tlscacert
-#        - /certs/server/ca.pem
-#        - --tlscert
-#        - /certs/server/cert.pem
-#        - --tlskey
-#        - /certs/server/key.pem
-#        - --oci-worker=true
-#        - --oci-worker-rootless=true
-#        - --oci-worker-no-process-sandbox=true
-#        - --oci-worker-gc=true
-#        - --oci-worker-gc-keepstorage=20000
-#        - --oci-worker-snapshotter=overlayfs
-#        readinessProbe:
-#          exec:
-#            command:
-#            - buildctl
-#            - --addr
-#            - tcp://127.0.0.1:1234
-#            - --tlscacert
-#            - /certs/client/ca.pem
-#            - --tlscert
-#            - /certs/client/cert.pem
-#            - --tlskey
-#            - /certs/client/key.pem
-#            - debug
-#            - workers
-#          initialDelaySeconds: 30
-#          periodSeconds: 60
-#          successThreshold: 1
-#          failureThreshold: 16
-#          timeoutSeconds: 30
-#        livenessProbe:
-#          exec:
-#            command:
-#            - buildctl
-#            - --addr
-#            - tcp://127.0.0.1:1234
-#            - --tlscacert
-#            - /certs/client/ca.pem
-#            - --tlscert
-#            - /certs/client/cert.pem
-#            - --tlskey
-#            - /certs/client/key.pem
-#            - debug
-#            - workers
-#          initialDelaySeconds: 30
-#          periodSeconds: 60
-#          successThreshold: 1
-#          failureThreshold: 16
-#          timeoutSeconds: 30
-#        securityContext:
-#          runAsUser: 1000
-#          runAsGroup: 1000
-#        ports:
-#        - containerPort: 1234
-#        volumeMounts:
-#        - name: "share-dir"
-#          mountPath: /home/user/.local/share/buildkit
-#        - name: buildkit-daemon-certs
-#          readOnly: true
-#          mountPath: /certs/server
-#        - name: buildkit-client-certs
-#          readOnly: true
-#          mountPath: /certs/client
-#      securityContext:
-#        fsGroup: 1000
-#      volumes:
-#      - name: buildkit-daemon-certs
-#        secret:
-#          secretName: buildkit-daemon-certs
-#      - name: buildkit-client-certs
-#        secret:
-#          secretName: buildkit-client-certs
-#      - name: share-dir
-#        emptyDir: {}
-...
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: polly-controller
-  labels:
-    app: polly-controller
-    stack: polly
-spec:
-  revisionHistoryLimit: 1
-  strategy:
-    type: Recreate
-  replicas: 1
-  selector:
-    matchLabels:
-      name: polly-controller
-  template:
-    metadata:
-      labels:
-        name: polly-controller
-        stack: polly
-    spec:
-      serviceAccountName: polly
-      volumes:
-      - name: buildkit-client-certs
-        secret:
-          secretName: buildkit-client-certs
-      - name: polly-mount
-        persistentVolumeClaim:
-          claimName: polly-mount
-      - name: registry-certificates
-        secret:
-          secretName: registry-certificates
-      securityContext:
-        runAsUser: 1000
-        fsGroup: 1000
-        #supplementalGroups: [121, 123, 134, 999, 1000, 1001]
-      initContainers:
-      containers:
-      - name: polly-controller
-        securityContext:
-          runAsUser: 1000
-        volumeMounts:
-        - mountPath: /polly/safe
-          name: polly-mount
-        - mountPath: /etc/ssl/private
-          name: registry-certificates
-          readOnly: true
-        - mountPath: /certs/client
-          name: buildkit-client-certs
-          readOnly: true
-        image: #{git_image}
-        imagePullPolicy: IfNotPresent
-        env:
-        resources:
-          requests:
-            memory: 500Mi
-            cpu: 10m
-          limits:
-            memory: 8000Mi
-            cpu: 5000m
-        command: #{git_command}
-...
-HEREDOC
-
-    if options["with-registry"]
-      polly_deployments << <<-HEREDOC
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: registry-config
-data:
-  registry.conf: |
-    version: 0.1
-    storage:
-      filesystem:
-        rootdirectory: /polly/safe/registry
-...
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: polly-registry
-  labels:
-    app: polly-registry
-    stack: polly
-spec:
-  revisionHistoryLimit: 1
-  strategy:
-    type: Recreate
-  replicas: 1
-  selector:
-    matchLabels:
-      name: polly-registry
-  template:
-    metadata:
-      labels:
-        name: polly-registry
-        stack: polly
-    spec:
-      hostNetwork: true
-      volumes:
-        - name: registry-config
-          configMap:
-            name: registry-config
-        - name: polly-mount
-          persistentVolumeClaim:
-            claimName: polly-mount
-        - name: registry-certificates
-          secret:
-            secretName: registry-certificates
-      initContainers:
-      containers:
-      - name: polly-registry
-        volumeMounts:
-          - mountPath: /polly/safe
-            name: polly-mount
-          - mountPath: /etc/ssl/private
-            name: registry-certificates
-            readOnly: true
-          - mountPath: /registry.conf
-            subPath: registry.conf
-            name: registry-config
-        image: registry:2
-        imagePullPolicy: IfNotPresent
-        resources:
-          requests:
-            memory: 500Mi
-            cpu: 500m
-          limits:
-            memory: 1000Mi
-            cpu: 2000m
-        ports:
-        - containerPort: 23443
-          name: https
-        command:
-        - /bin/registry
-        args:
-        - serve
-        - /registry.conf
-        env:
-        - name: REGISTRY_HTTP_TLS_CERTIFICATE
-          value: /etc/ssl/private/registry.polly.pem
-        - name: REGISTRY_HTTP_TLS_KEY
-          value: /etc/ssl/private/registry.polly.key
-        - name: REGISTRY_HTTP_ADDR
-          value: 0.0.0.0:23443
-...
-HEREDOC
-    end
-
-    polly_run = polly_resources.join + polly_pvcs.join + polly_services.join + polly_deployments.join
+    polly_run = polly_certificates
 
     if options["re-init"]
-      deploy_polly_app = ["kubectl", "delete", "-f", "-"]
+      delete_polly_init = ["kubectl", "delete", "-f", "-"]
       options = {:stdin_data => polly_run}
-      o,e,s = exe.execute_simple(:output, deploy_polly_app, options)
+      o,e,s = exe.execute_simple(:output, deploy_polly_init, options)
       puts [o, e, s]
 
-      wait_polly_app_deleted = ["kubectl", "wait", "--for=delete", "pod", "-l", "stack=polly"]
-      o,e,s = exe.execute_simple(:output, wait_polly_app_deleted, {})
-      puts [o, e, s]
+      #wait_polly_app_deleted = ["kubectl", "wait", "--for=delete", "pod", "-l", "stack=polly"]
+      #o,e,s = exe.execute_simple(:output, wait_polly_app_deleted, {})
+      #puts [o, e, s]
     end
 
     deploy_polly_app = ["kubectl", "apply", "--server-side=true", "-f", "-"]
@@ -1475,17 +1103,17 @@ HEREDOC
     o,e,s = exe.execute_simple(:output, deploy_polly_app, options)
     puts [o, e, s]
 
-    wait_polly_app = ["kubectl", "wait", "--for=condition=available", "deployment/polly-controller"]
-    o,e,s = exe.execute_simple(:output, wait_polly_app, {})
-    puts [o, e, s]
+    #wait_polly_app = ["kubectl", "wait", "--for=condition=available", "deployment/polly-controller"]
+    #o,e,s = exe.execute_simple(:output, wait_polly_app, {})
+    #puts [o, e, s]
 
-    wait_polly_app = ["kubectl", "rollout", "status", "deployment/polly-controller"]
-    o,e,s = exe.execute_simple(:output, wait_polly_app, {})
-    puts [o, e, s]
+    #wait_polly_app = ["kubectl", "rollout", "status", "deployment/polly-controller"]
+    #o,e,s = exe.execute_simple(:output, wait_polly_app, {})
+    #puts [o, e, s]
   end
 
   desc "xxh", "debug shell into polly controller"
-  def xxh(service = "git", sh_cmd = "sh")
+  def xxh(service = "controller", sh_cmd = "bash")
     exe = ::Polly::Execute.new
 
     exec(*["kubectl", "exec", exe.polly_pod(service), "-i", $stdin.tty? ? "-t" : nil, "--", sh_cmd].compact)
@@ -1512,15 +1140,16 @@ HEREDOC
     env_flags = (environment_overrides || []).collect { |env| "--env=#{env["name"]}=#{env["value"]}" }
 
     version = exe.current_revision
-    branch = exe.current_branch
+    branch = exe.current_branch.gsub("/", "-")
     app = exe.current_app
     image_repo = Polly::Config.image_repo
 
-    tag = Polly::Build.build_image_to_tag(app, options["stage"] || branch, version)
+    tag = Polly::Build.build_image_to_tag(app, version, options["stage"])
     #tag = Polly::Build.build_image_to_tag(app, "wkndr", version)
     puts tag.inspect
+    #tag = "#{app}:latest"
 
-    cmd = ["kubectl", "run", "rxn-#{app}", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--", rxn_cmd].compact
+    cmd = ["kubectl", "run", "rxn-#{app}", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--command", "--", rxn_cmd].compact
     #      cmd = ["kubectl", "run", "rxn", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--command", "--", rxn_cmd].compact
     puts cmd.inspect
 
@@ -1534,35 +1163,68 @@ HEREDOC
     exec("ssh", "-AX", "app@#{exe.multipass_ip(profile)}")
   end
 
-  desc "waitx", "TBD: wait for pod availability, execute subsequent command"
-  def waitx(clean_name, *cmd)
+  desc "waitx [CLEAN_NAME]", "wait for pod availability, execute subsequent command"
+  def waitx(clean_name = nil, *cmd)
+    puts "waiting for #{clean_name}"
+
     exe = ::Polly::Execute.new
 
-    #$stderr.write("waiting for deploy\n")
-    exe.execute_simple(:silent, ["kubectl", "wait", "--for=condition=available", "deployment/#{clean_name}"], {})
+    label_selector = clean_name || URI.encode_www_form(exe.polly_labels.to_a).gsub("&",",")
 
-    #$stderr.write("listing pods\n")
-    find_all_pods = "kubectl get pods -l name=#{clean_name} -o name | cut -d/ -f2"
-    a = IO.popen(find_all_pods).read.strip
-    exe.wait_child
-    all_pods = a.split("\n")
+    waited_for_deployments = false
+    while !waited_for_deployments
+      #$stderr.write("waiting for deploy\n")
+      o,e,waited_for_deployments = exe.execute_simple(:output, ["kubectl", "wait", "--for=condition=available", "deployment", "-l", label_selector, "--timeout=30s"], {})
+      puts o
+      puts e
+    end
 
-    pod_index = 0
-    kube_exec_cmd = [
-                     "kubectl", "exec",
-                     all_pods[pod_index],
-                     "--"
-                    ] + cmd
+    waited_for_pods = false
+    while !waited_for_pods
+      #$stderr.write("waiting for deploy\n")
+      o,e,waited_for_pods = exe.execute_simple(:output, ["kubectl", "wait", "--for=condition=ready", "pod", "-l", label_selector, "--timeout=30s"], {})
+      puts o
+      puts e
+    end
 
-    o,e,s = exe.execute_simple(:output, kube_exec_cmd, {})
-    #TODO
-    puts [e, e, s] unless s
+    unless cmd.empty?
+      $stderr.write("listing pods to run #{cmd.inspect}\n")
+      find_all_pods = "kubectl get pods -l #{label_selector} -o name | cut -d/ -f2"
+      a = IO.popen(find_all_pods).read.strip
+      exe.wait_child
+      all_pods = a.split("\n")
+
+      run_cmd_args = ["bash", "-e", "-o", "pipefail", "-c", cmd.join(" ")]
+      #"bash #{run_shell_path} > /proc/1/fd/1 2> /proc/1/fd/2"]
+
+      pod_index = 0
+      kube_exec_cmd = [
+                       "kubectl", "exec",
+                       all_pods[pod_index],
+                       "--"
+                      ] + run_cmd_args
+
+      #puts kube_exec_cmd.inspect #join(" ")
+
+      s = exe.execute_simple(:async_wait_status, kube_exec_cmd, {}) #{:out => $stdout, :err => $stderr})
+
+      if s
+        #puts o
+        puts "OKOK"
+      else
+        #puts e
+        #fail
+        puts "fail"
+        fail
+      end
+    end
   end
 
   desc "logs", "fetch logs from polly controller pod"
+  option "polly", :type => :boolean, :default => false
   def logs
     exe = ::Polly::Execute.new
-    exec(*["kubectl", "logs", exe.polly_pod, "-f"].compact)
+    exec(*["kubectl", "logs", "-l", URI.encode_www_form(exe.polly_labels.to_a).gsub("&",","), "-f"].compact, "--max-log-requests=128")
   end
 
   desc "dev [PROCFILE]", "runs processes as outlined in Procfile"
@@ -1593,6 +1255,8 @@ HEREDOC
 
   desc "generate", "emits CI structure yaml"
   option "mirror", :type => :string, :default => "dockerfile"
+  option "registry", :type => :string, :default => "polly-registry:23443/polly-registry"
+                                                   #ghcr.io/unhookd
   #TODO: cleanup these bits
   #option "pipeline-fu", :type => :string, :default => "circleci"
   #option "image-fu", :type => :string, :default => "buildkit"
@@ -1605,11 +1269,15 @@ HEREDOC
 
     Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, pollyfile)
 
+    #ghcr.io/unhookd/polly:3.0-rc1
+
+    exe_image = "#{options['registry']}/#{exe.current_app}:#{exe.current_branch}"
+
     case options["mirror"]
       when "circleci"
         pollyfile_ruby = File.read("Pollyfile")
         Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, "Pollyfile")
-        generated_circleci_config_yml = YAML.dump(Polly::Generate.read_circleci_output)
+        generated_circleci_config_yml = YAML.dump(Polly::Generate.read_circleci_output(exe_image))
         $stdout.write(generated_circleci_config_yml)
 
       when "github"
@@ -1617,6 +1285,7 @@ HEREDOC
 
       when "dockerfile"
         $stdout.write(Polly::Generate.read_output)
+
     else
       $stderr.puts "unknown option #{options.inspect}"
     end
@@ -2054,9 +1723,26 @@ HEREDOC
     end
   end
 
+  desc "tags", "todo"
+  def tags
+    exe = ::Polly::Execute.new
+    polly_registry_ip = exe.polly_service("registry")
+    uri = URI("https://polly.local:23443/v2/polly-registry/polly/tags/list")
+    Net::HTTP.start(uri.host, uri.port, use_ssl: true, ipaddr: polly_registry_ip) do |http|
+      request = Net::HTTP::Get.new(uri)
+      response = http.request(request)
+      if response.code == "200"
+        parsed_response = JSON.parse(response.body)
+        puts parsed_response["tags"].sort
+      else
+        puts response.body
+      end
+    end
+  end
+
   private
 
-  def fetch_from_registry(path)
+  def fetch_from_registry(path) #TODO: delete this?
     exe = ::Polly::Execute.new
 
     #registry_label = "name=polly-registry"

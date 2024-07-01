@@ -1,3 +1,27 @@
+# [4.31.0] - 2024-04-12 - Jon Bardin
+
+Add `polly tags` and initial prototype of build,test,deploy gitch ci
+
+#######
+
+# [4.30.0] - 2024-04-10 - Jon Bardin
+
+better async output
+
+#######
+
+# [4.29.0] - 2024-04-10 - Jon Bardin
+
+new version bits
+
+#######
+
+# [4.28.0] - 2024-04-01 - Jon Bardin
+
+Upgrade base images and to ruby3
+
+#######
+
 # [4.27.0] - 2024-02-07 - Jon Bardin
 
 Merge build features
