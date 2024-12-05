@@ -455,7 +455,7 @@ class PollyTasks < Thor
 
     generated_dockerfile = nil
 
-    if (container_definition == nil && File.exists?(default_pollyfile)) || (container_definition && container_definition.includes?(default_pollyfile) && File.exists?(container_defintion))
+    if (container_definition == nil && File.exist?(default_pollyfile)) || (container_definition && container_definition.include?(default_pollyfile) && File.exist?(container_defintion))
       pollyfile_ruby = File.read(default_pollyfile)
       #TODO: ??? Polly::Generate.options = options
       Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, default_pollyfile)
@@ -481,7 +481,7 @@ class PollyTasks < Thor
       raise if version.empty?
       Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, File.basename(file_path), options["stage"], options["no-cache"], options["push"], options["extra-tag"])
       exit
-    elsif (container_definition == nil && File.exists(default_dockerfile)) || (container_definition && container_definition.includes?(default_dockerfile) && File.exists?(container_definition))
+    elsif (container_definition == nil && File.exist?(default_dockerfile)) || (container_definition && container_definition.include?(default_dockerfile) && File.exist?(container_definition))
       raise if version.empty?
       Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, container_definition, options["stage"], options["no-cache"], options["push"], options["extra-tag"])
       exit
@@ -1114,18 +1114,10 @@ HEREDOC
     exec(*["kubectl", "run", "shr", "-it", "--pod-running-timeout=3m0s", "--image=ghcr.io/unhookd/polly:master", "--image-pull-policy=IfNotPresent", "--rm=true", "--quiet=true", "--", shr_cmd].compact)
   end
 
-  desc "rxn [CMD]", "rxn app pod"
+  desc "rxn [CMD]", "rxn app pod" # uses --command override of ENTRYPOINT/CMD
   option "stage", :type => :string, :default => nil
   def rxn(rxn_cmd = "/bin/bash")
     exe = ::Polly::Execute.new
-
-    environment_overrides = nil
-    if File.exist?("vertical.yaml")
-      vertical_lookup = YAML.load(File.read("vertical.yaml"))
-      environment_overrides = vertical_lookup["environment-overrides"]
-    end
-
-    env_flags = (environment_overrides || []).collect { |env| "--env=#{env["name"]}=#{env["value"]}" }
 
     version = exe.current_revision
     branch = exe.current_branch.gsub("/", "-")
@@ -1133,18 +1125,70 @@ HEREDOC
     image_repo = Polly::Config.image_repo
 
     tag = Polly::Build.build_image_to_tag(app, version, options["stage"])
-    #tag = Polly::Build.build_image_to_tag(app, "wkndr", version)
     puts tag.inspect
-    #tag = "#{app}:latest"
 
-    cmd = ["kubectl", "run", "rxn-#{app}", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--command", "--", rxn_cmd].compact
-    #      cmd = ["kubectl", "run", "rxn", "--attach=true", "-it", "--pod-running-timeout=3m0s", *env_flags, "--image=polly-registry:23443/polly-registry/#{tag}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--command", "--", rxn_cmd].compact
+    pod_name = "rxn-#{app}"
+    pod_image = "polly-registry:23443/polly-registry/#{tag}"
+
+    spec_overrides = {
+      "spec" => {
+        "containers" => [{
+          "name" => pod_name,
+          "image" => pod_image,
+          "imagePullPolicy" => "Always",
+          "command" => [
+            rxn_cmd
+          ],
+          "stdin" => true,
+          "stdinOnce" => true,
+          "tty" => true
+        }]
+      }
+    }
+
+    environment_overrides = nil
+    if File.exist?("vertical.yaml")
+      vertical_lookup = YAML.load(File.read("vertical.yaml"))
+      environment_overrides = vertical_lookup["environment-overrides"]
+
+      volume_mounts = vertical_lookup["volume-mounts"]
+      volumes = vertical_lookup["volumes"]
+
+      envs = (environment_overrides || [])
+
+      spec_overrides["spec"]["containers"][0]["env"] = envs
+      spec_overrides["spec"]["containers"][0]["volumeMounts"] = volume_mounts
+      spec_overrides["spec"]["volumes"] = volumes
+    end
+
+    #"containers": [
+    #  {
+    #    "name": "polly-bootstrap",
+    #    "image": "alpine/git:latest",
+    #    "command": ["/bin/sh"],
+    #    "stdin": true,
+    #    "stdinOnce": true,
+    #    "tty": false,
+    #    "volumeMounts": [{
+    #      "mountPath": "/polly-safe",
+    #      "name": "polly-mount"
+    #    }]
+    #  }
+    #],
+    #"volumes": [{
+    #  "name":"polly-mount",
+    #  "persistentVolumeClaim": {
+    #    "claimName": "polly-mount"
+    #  }
+    #}]
+
+    cmd = ["kubectl", "run", pod_name, "--attach=true", "-it", "--pod-running-timeout=3m0s", "--image=#{pod_image}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", "--overrides", JSON.dump(spec_overrides), "--command", "--", rxn_cmd].compact
     puts cmd.inspect
 
     exec(*cmd)
   end
 
-  desc "exe", "exe app pod"
+  desc "exe", "exe app pod" # matches docker run use case, invokes ENTRYPOINT/CMD
   option "stage", :type => :string, :default => nil
   def exe
     exe = ::Polly::Execute.new
