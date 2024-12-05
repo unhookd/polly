@@ -9,6 +9,18 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'polly'
 
 class PollyTasks < Thor
+  desc "static [PUBDIR]", "serves static files over http"
+  def static(pubdir = "public")
+    app = Rack::Builder.new do
+      map "/" do
+        use Rack::Static, :urls => [""], :root => 'public', :index => 'index.html', :header_rules => [[:all, {'cache-control' => 'private,max-age=0,must-revalidate,no-store'}]]
+        run proc { |env| }
+      end
+    end
+
+    Rackup::Server.start(app: app)
+  end
+
   desc "changelog [CHANGELOG]", "appends changelog item to CHANGELOG.md"
   def changelog(changelog = "CHANGELOG.md")
     exe = Polly::Execute.new

@@ -19,6 +19,8 @@ require 'uri'
 require 'pathname'
 require 'fileutils'
 require 'net/ssh'
+require 'rack'
+require 'rackup'
 require 'net/http'
 
 module Polly
