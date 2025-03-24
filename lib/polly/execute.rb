@@ -59,7 +59,7 @@ module Polly
     end
 
     def check_current_kube_context_is_safe!
-      if File.exists?(File.join(Etc.getpwuid.dir, ".kube/config")) || ENV['KUBE_CONFIG']
+      if File.exist?(File.join(Etc.getpwuid.dir, ".kube/config")) || ENV['KUBE_CONFIG']
         begin
           current_kube_context = IO.popen("kubectl config current-context").read.strip
           return true if current_kube_context.empty?
@@ -383,7 +383,7 @@ module Polly
           "runAsUser" => username_to_uid(first_docker_executor_hint["user"]),
           #"runAsGroup" => 134
           "fsGroup" => 999,
-          "supplementalGroups" => [999, 1000, File.exists?("/var/run/docker.sock") ? File.stat("/var/run/docker.sock").gid : 1001] #TODO: fix this hack
+          "supplementalGroups" => [999, 1000, File.exist?("/var/run/docker.sock") ? File.stat("/var/run/docker.sock").gid : 1001] #TODO: fix this hack
         },
         "containers" => [
           {
