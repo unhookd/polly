@@ -467,7 +467,7 @@ class PollyTasks < Thor
 
     generated_dockerfile = nil
 
-    if (container_definition == nil && File.exist?(default_pollyfile)) || (container_definition && container_definition.include?(default_pollyfile) && File.exist?(container_defintion))
+    if (container_definition == nil && File.exist?(default_pollyfile)) || (container_definition && container_definition.include?(default_pollyfile) && File.exist?(container_definition))
       pollyfile_ruby = File.read(default_pollyfile)
       #TODO: ??? Polly::Generate.options = options
       Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, default_pollyfile)
