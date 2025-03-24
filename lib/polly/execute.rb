@@ -1086,6 +1086,13 @@ module Polly
       end
     end
 
+    def app_pod
+      cmd = "kubectl get pods --field-selector=status.phase=Running -l #{polly_labels.flatten.each_slice(2).collect { |x| x.join("=") }.join(",")} -o name | cut -d/ -f2"
+      a = IO.popen(cmd).read.strip.split("\n")[0]
+      #wait_child
+      a
+    end
+
     def polly_service(service)
       label = "name=#{POLLY}-#{service}"
       @polly_services ||= {}
