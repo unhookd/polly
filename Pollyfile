@@ -116,7 +116,7 @@
 
   run %q{mkdir -p /polly/safe/git/polly/hooks && chown -R polly:polly /polly/safe}
 
-  polly
+  app
 
   command("ENTRYPOINT") {
     '["/bin/dockerfile-frontend"]'
