@@ -173,7 +173,7 @@ module Polly
       end
 
       def app
-        user("app")
+        user("polly")
       end
 
       def prototype1
