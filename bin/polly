@@ -1173,6 +1173,8 @@ HEREDOC
       vertical_lookup = YAML.load(File.read("vertical.yaml"))
       environment_overrides = vertical_lookup["environment-overrides"]
 
+      service_account_name = vertical_lookup["service-account-name"]
+
       volume_mounts = vertical_lookup["volume-mounts"]
       volumes = vertical_lookup["volumes"]
 
@@ -1181,6 +1183,7 @@ HEREDOC
       spec_overrides["spec"]["containers"][0]["env"] = envs
       spec_overrides["spec"]["containers"][0]["volumeMounts"] = volume_mounts
       spec_overrides["spec"]["volumes"] = volumes
+      spec_overrides["spec"]["serviceAccountName"] = service_account_name
     end
 
     #"containers": [
