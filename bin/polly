@@ -1136,6 +1136,7 @@ HEREDOC
   desc "rxn CMD", "rxn app pod" # uses --command override of ENTRYPOINT/CMD
   option "stage", :type => :string, :default => nil
   option "port", :type => :numeric, :default => nil
+  option "privileged", :type => :boolean, :default => false
   def rxn(*cmd)
     exe = ::Polly::Execute.new
 
@@ -1153,18 +1154,47 @@ HEREDOC
     cmd << "/bin/bash" if cmd.empty?
 
     spec_overrides = {
+      #"annotations" => {
+      #  "container.apparmor.security.beta.kubernetes.io/#{pod_name}" => "unconfined",
+      #  "container.seccomp.security.alpha.kubernetes.io/#{pod_name}" => "unconfined"
+      #},
       "spec" => {
-        "containers" => [{
-          "name" => pod_name,
-          "image" => pod_image,
-          "imagePullPolicy" => "Always",
-          "command" => [
-            *cmd
-          ],
-          "stdin" => true,
-          "stdinOnce" => true,
-          "tty" => true
-        }]
+        "securityContext" => {
+          "appArmorProfile" => {
+            #"type" => "Unconfined"
+            "type" => "unconfined"
+            #"type" => "RuntimeDefault"
+            #"type" => "Localhost",
+            #"localhostProfile" => "Unconfined"
+            #"localhostProfile" => "Unconfined"
+            #"localhostProfile" => "k8s-apparmor-example-deny-write"
+          },
+          #"fsGroup" => 1001
+        },
+        "containers" => [
+          {
+            "name" => pod_name,
+            "image" => pod_image,
+            "imagePullPolicy" => "Always",
+            "command" => [
+              *cmd
+            ],
+            "stdin" => true,
+            "stdinOnce" => true,
+            "tty" => true,
+            "privileged" => true,
+            "securityContext" => {
+              "seccompProfile" => {
+                "type" => "Unconfined"
+                #"type" => "unconfined"
+              },
+              "appArmorProfile" => {
+                #"type" => "Unconfined"
+                "type" => "unconfined"
+              }
+            }
+          }
+        ]
       }
     }
 
@@ -1213,7 +1243,14 @@ HEREDOC
       expose_port_args << "--port=#{options['port']}"
     end
 
-    cmd = ["kubectl", "run", pod_name, "--attach=true", "-it", "--pod-running-timeout=3m0s", "--image=#{pod_image}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", *expose_port_args, "--overrides", JSON.dump(spec_overrides), "--command", "--", *cmd].compact
+    privileged_args = []
+    if options["privileged"]
+      #privileged_args << "--privileged"
+      privileged_args << "--annotations=container.apparmor.security.beta.kubernetes.io/#{pod_name}=unconfined"
+      #privileged_args << "--annotations=container.seccomp.security.alpha.kubernetes.io/#{pod_name}=unconfined"
+    end
+
+    cmd = ["kubectl", "run", pod_name, *privileged_args, "--attach=true", "-it", "--pod-running-timeout=3m0s", "--image=#{pod_image}", "--image-pull-policy=Always", "--rm=true", "--quiet=true", *expose_port_args, "--overrides", JSON.dump(spec_overrides), "--command", "--", *cmd].compact
     puts cmd.inspect
 
     exec(*cmd)
