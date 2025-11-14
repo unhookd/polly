@@ -9,7 +9,7 @@ workflows:
 version: 2
 jobs:
   primary:
-    working_directory: "/home/app/polly"
+    #working_directory: "/home/app/polly"
     steps:
     - checkout
     - run:
