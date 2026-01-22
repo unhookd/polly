@@ -13,7 +13,7 @@ Gem::Specification.new do |spec|
   spec.homepage      = "https://unctl.io/"
   spec.license       = "MIT"
 
-  spec.files         = ["Thorfile", "polly.gemspec", "VERSION", "CHANGELOG.md"] + Dir.glob("lib/**/*")
+  spec.files         = ["Thorfile", "polly.gemspec", "VERSION", "CHANGELOG.md"] + Dir.glob("lib/**/*") + Dir.glob("kubernetes/**/*")
   spec.bindir        = ["bin"]
   spec.executables   = ["polly"]
   spec.require_paths = ["lib"]

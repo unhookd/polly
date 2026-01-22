@@ -34,7 +34,6 @@ TODO, in the future, `polly` will be available via `sudo gem install polly` ... 
 
 polly understands circleci config and is able to plan and execute workflows on a local or remote kubernetes cluster
 
-
 TBD: rebake this bootstrap script into github actions as test-suite cross-check
 
 # initial polly deploy to local kubeadm cluster
@@ -49,7 +48,8 @@ We can re-bootstrap `polly` from scratch for development purposes, or just start
 Install the `polly` controller into your kube cluster.
 
     kubectx
-    polly init
+    polly certificates
+    polly init /var/tmp/abc-123-efg-789
     
 should install `polly` controller into desired kubernetes context
 

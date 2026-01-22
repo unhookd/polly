@@ -1,4 +1,6 @@
-if Dir.exist?(File.expand_path("../.bundle", __dir__))
+if Dir.exist?(File.expand_path("../.git", __dir__))
+  #NOTE: .git dir only present when installed in "dev mode"
+  #NOTE: "normal mode" the gem deps are solved via gemspec + gem install
   ENV["BUNDLE_GEMFILE"] ||= File.expand_path("../Gemfile", __dir__)
 
   require "bundler/setup" # Set up gems listed in the Gemfile.

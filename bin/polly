@@ -574,6 +574,7 @@ class PollyTasks < Thor
     version = exe.current_revision
     branch = exe.current_branch.gsub("/", "-")
     app = exe.current_app
+
     image_repo = Polly::Config.image_repo
 
     tag = Polly::Build.build_image_to_tag(app, version, options["stage"])
@@ -974,6 +975,8 @@ HEREDOC
       File.write("#{dir}/buildkit-client-cert.crt", cert3)
       File.write("#{dir}/buildkit-client-cert.key", key3)
 
+      FileUtils.cp_r(File.expand_path("../kubernetes", __dir__), dir)
+
       #TODO: link with vertical.yaml specification
       puts "certificates will be found in #{dir}"
     end
@@ -983,10 +986,10 @@ HEREDOC
   def init(cert_package_dir)
     exe = ::Polly::Execute.new
 
-    unless exe.in_polly?
-      $stderr.puts "... halting, init only for polly"
-      Kernel.exit(1)
-    end
+    #unless exe.in_polly?
+    #  $stderr.puts "... halting, init only for polly"
+    #  Kernel.exit(1)
+    #end
 
     polly_resources = []
     polly_services = []
