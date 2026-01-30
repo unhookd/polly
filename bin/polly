@@ -27,7 +27,7 @@ class PollyTasks < Thor
 
     Dir.chdir(ENV['PWD'])
 
-    existing_entries = File.exists?(changelog) ? File.read(changelog).split("\n").collect { |l| l.strip } : []
+    existing_entries = File.exist?(changelog) ? File.read(changelog).split("\n").collect { |l| l.strip } : []
 
     version_delim = "#######"
     version_count = existing_entries.count { |l| l.include?(version_delim) }
@@ -35,7 +35,7 @@ class PollyTasks < Thor
     today = Date.today.to_s
     username = IO.popen("git config user.name").read.strip || ENV["USER"] || "ac"
     template_args = [today, username]
-    version = "#{File.exists?('VERSION.major') ? File.read('VERSION.major').strip : 1}.#{version_count + 1}.0"
+    version = "#{File.exist?('VERSION.major') ? File.read('VERSION.major').strip : 1}.#{version_count + 1}.0"
     opening_line_template = "# [#{version}] - %s - %s\n\n\n\n#{version_delim}\n" % template_args
 
     Tempfile.create(changelog) do |new_entry_tmp|
@@ -146,7 +146,7 @@ class PollyTasks < Thor
     config = options["config"]
 
     #TODO: switch plan based on detected hueristics here
-    if File.exists?(config)
+    if File.exist?(config)
       pollyfile_ruby = File.read(config)
       Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, config)
       cmd_list = Polly::Generate.read_shell_commands
@@ -189,7 +189,7 @@ class PollyTasks < Thor
 
     ##TODO: switch plan based on detected hueristics here
     detected_config = config || default_config
-    if File.exists?(detected_config)
+    if File.exist?(detected_config)
       if detected_config == default_config
         pollyfile_ruby = File.read(detected_config)
         Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, detected_config)
@@ -498,25 +498,25 @@ class PollyTasks < Thor
       Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, container_definition || default_dockerfile, options["stage"], options["no-cache"], options["push"], options["extra-tag"])
       exit
 
-    ##elsif container_definition == nil && File.exists?(default_dockerfile)
+    ##elsif container_definition == nil && File.exist?(default_dockerfile)
     ##  generated_dockerfile = File.read(default_dockerfile)
     #else
     #  generated_dockerfile = File.read(container_definition)
     end
 
-    #elsif ((container_definition == nil && File.exists?(default_dockerfile)) 
+    #elsif ((container_definition == nil && File.exist?(default_dockerfile)) 
     #  raise if version.empty?
     #  Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, default_dockerfile, options["stage"], options["no-cache"], options["push"])
     #  exit
 
-    #elsif File.exists?(container_definition)
+    #elsif File.exist?(container_definition)
     #container_definition == default_dockerfile) && 
     #  #generated_dockerfile = File.read(default_dockerfile)
     #  raise if version.empty?
     #  Polly::Build.buildkit_workstation_to_controller(exe, app, version, branch, container_definition, options["stage"], options["no-cache"], options["push"])
     #  exit
 
-    ##elsif container_definition == nil && File.exists?(default_dockerfile)
+    ##elsif container_definition == nil && File.exist?(default_dockerfile)
     ##  generated_dockerfile = File.read(default_dockerfile)
     #else
     #  generated_dockerfile = File.read(container_definition)
@@ -537,12 +537,12 @@ class PollyTasks < Thor
 
     #exit
 
-    #if container_definition == "-" && File.exists?(default_pollyfile)
+    #if container_definition == "-" && File.exist?(default_pollyfile)
     #  pollyfile_ruby = File.read(default_pollyfile)
     #  #TODO: ??? Polly::Generate.options = options
     #  Kernel.eval(pollyfile_ruby, Polly::Generate.get_binding, default_pollyfile)
     #  generated_dockerfile = Polly::Generate.read_output
-    #elsif container_definition == "-" && File.exists?(default_dockerfile)
+    #elsif container_definition == "-" && File.exist?(default_dockerfile)
     #  #generated_dockerfile = File.read(default_dockerfile)
     #else
     #  generated_dockerfile = File.read(container_definition)
@@ -1379,7 +1379,7 @@ HEREDOC
     end
 
     unless options["only-prepare"]
-      if File.exists?(procfile)
+      if File.exist?(procfile)
         procfile_lines = File.readlines(procfile)
         exe.execute_procfile(ENV['PWD'], procfile_lines)
       end
@@ -1733,9 +1733,9 @@ HEREDOC
           end
 
           known_hosts_file = File.expand_path("~/.ssh/known_hosts")
-          known_hosts = File.read(known_hosts_file) if File.exists?(known_hosts_file)
+          known_hosts = File.read(known_hosts_file) if File.exist?(known_hosts_file)
 
-          multipass_launch_cmd = ["multipass", "launch", "--name", profile, "--disk=100G", "--cpus=4", "--memory=10G", "--cloud-init=-", distro]
+          multipass_launch_cmd = ["multipass", "launch", "--name", profile, "--disk=100G", "--cpus=4", "--memory=12G", "--cloud-init=-", distro]
           multipass_options = {:out => $stdout, :err => $stderr, :in => ::Polly::Build.generated_string_fd(cloud_init_yaml)}
           exe.system({}, *multipass_launch_cmd, multipass_options)
 
