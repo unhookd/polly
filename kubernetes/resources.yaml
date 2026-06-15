@@ -1,0 +1,403 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: polly
+  namespace: default
+...
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: polly
+  namespace: default
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+...
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: polly-bindings
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: polly
+subjects:
+- kind: ServiceAccount
+  name: polly
+  namespace: default
+...
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: polly
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - persistentvolumes
+  - clusterroles
+  - clusterrolebindings
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+- apiGroups:
+  - "rbac.authorization.k8s.io"
+  resources:
+  - clusterroles
+  - clusterrolebindings
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+...
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: polly-bindings
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: polly
+subjects:
+- kind: ServiceAccount
+  name: polly
+  namespace: default
+...
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+  labels:
+    stack: polly
+  name: polly-mount
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: local-path
+...
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: polly-mount
+  labels:
+    stack: polly
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: local-path
+  hostPath:
+    path: /var/tmp/polly-safe
+...
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: buildkitd
+  name: polly-buildkitd
+spec:
+  ports:
+    - port: 1234
+      protocol: TCP
+  selector:
+    app: buildkitd
+...
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: polly-buildkitd-configuration
+data:
+  buildkitd.toml: |-
+    debug = true
+    [registry."polly-registry:23443"]
+    ca=["/certs/ca.polly.crt"]
+    insecure = true
+...
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: buildkitd
+    stack: polly
+  name: polly-buildkitd
+spec:
+  serviceName: polly-buildkitd
+  replicas: 1
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app: buildkitd
+  template:
+    metadata:
+      labels:
+        name: polly-buildkitd
+        app: buildkitd
+        stack: polly
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/buildkitd: unconfined
+        container.seccomp.security.alpha.kubernetes.io/buildkitd: unconfined
+    spec:
+      terminationGracePeriodSeconds: 180
+      containers:
+        - name: buildkitd
+          image: moby/buildkit:v0.23.2-rootless
+          args:
+            - --oci-worker-no-process-sandbox
+          readinessProbe:
+            exec:
+              command:
+                - buildctl
+                - debug
+                - workers
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          livenessProbe:
+            exec:
+              command:
+                - buildctl
+                - debug
+                - workers
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          securityContext:
+            # Needs Kubernetes >= 1.19
+            seccompProfile:
+              type: Unconfined
+            # To change UID/GID, you need to rebuild the image
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+          # Dockerfile has `VOLUME /home/user/.local/share/buildkit` by default too,
+          # but the default VOLUME does not work with rootless on Google's Container-Optimized OS
+          # as it is mounted with `nosuid,nodev`.
+          # https://github.com/moby/buildkit/issues/879#issuecomment-1240347038
+          - mountPath: /home/user/.local/share/buildkit
+            name: buildkitd
+          - name: configurations
+            subPath: buildkitd.toml
+            mountPath: /home/user/.config/buildkit/buildkitd.toml
+          - name: ca-certificates
+            mountPath: /certs
+      volumes:
+      - name: buildkitd
+        emptyDir: {}
+      - name: configurations
+        configMap:
+          name: polly-buildkitd-configuration
+      - name: ca-certificates
+        secret:
+          secretName: ca-certificates
+...
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: polly-controller
+  labels:
+    app: polly-controller
+    stack: polly
+spec:
+  revisionHistoryLimit: 1
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      name: polly-controller
+  template:
+    metadata:
+      labels:
+        name: polly-controller
+        stack: polly
+    spec:
+      serviceAccountName: polly
+      volumes:
+      - name: buildkit-client-certs
+        secret:
+          secretName: buildkit-client-certs
+      - name: polly-mount
+        persistentVolumeClaim:
+          claimName: polly-mount
+      - name: registry-certificates
+        secret:
+          secretName: registry-certificates
+      securityContext:
+        runAsUser: 1000
+        fsGroup: 1000
+        #supplementalGroups: [121, 123, 134, 999, 1000, 1001]
+      initContainers:
+      containers:
+      - name: polly-controller
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+        volumeMounts:
+        - mountPath: /polly/safe
+          name: polly-mount
+        - mountPath: /etc/ssl/private
+          name: registry-certificates
+          readOnly: true
+        - mountPath: /certs/client
+          name: buildkit-client-certs
+          readOnly: true
+        image: polly:latest
+        imagePullPolicy: Always
+        env:
+        resources:
+          requests:
+            memory: 500Mi
+            cpu: 10m
+          limits:
+            memory: 8000Mi
+            cpu: 5000m
+        command: ["sleep", "infinity"]
+...
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: registry-config
+data:
+  registry.conf: |
+    version: 0.1
+    storage:
+      filesystem:
+        rootdirectory: /polly/safe/registry
+...
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: polly-registry
+  labels:
+    app: polly-registry
+    stack: polly
+spec:
+  revisionHistoryLimit: 1
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      name: polly-registry
+  template:
+    metadata:
+      labels:
+        name: polly-registry
+        stack: polly
+    spec:
+      hostNetwork: true
+      volumes:
+        - name: registry-config
+          configMap:
+            name: registry-config
+        - name: polly-mount
+          persistentVolumeClaim:
+            claimName: polly-mount
+        - name: registry-certificates
+          secret:
+            secretName: registry-certificates
+      initContainers:
+      containers:
+      - name: polly-registry
+        volumeMounts:
+          - mountPath: /polly/safe
+            name: polly-mount
+          - mountPath: /etc/ssl/private
+            name: registry-certificates
+            readOnly: true
+          - mountPath: /registry.conf
+            subPath: registry.conf
+            name: registry-config
+        image: registry:2
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            memory: 500Mi
+            cpu: 500m
+          limits:
+            memory: 1000Mi
+            cpu: 2000m
+        ports:
+        - containerPort: 23443
+          name: https
+        command:
+        - /bin/registry
+        args:
+        - serve
+        - /registry.conf
+        env:
+        - name: REGISTRY_HTTP_TLS_CERTIFICATE
+          value: /etc/ssl/private/registry.polly.pem
+        - name: REGISTRY_HTTP_TLS_KEY
+          value: /etc/ssl/private/registry.polly.key
+        - name: REGISTRY_HTTP_ADDR
+          value: 0.0.0.0:23443
+...
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "polly-registry"
+  labels:
+    name: "polly-registry"
+  annotations:
+    #traefik.ingress.kubernetes.io/service.serverstransport: default-polly-registry-transport@kubernetescrd
+spec:
+  ports:
+  - port: 23443
+    targetPort: 23443
+    name: https
+    protocol: TCP
+  selector:
+    name: "polly-registry"
+...
+#TODO: should polly-registry be an Ingress???? security issues exposing polly-registry to wide internet?
+#---
+#apiVersion: networking.k8s.io/v1
+#kind: Ingress
+#metadata:
+#  name: polly-registry-vhost
+#spec:
+#  rules:
+#  - host: polly-registry
+#    http:
+#      paths:
+#        - pathType: Prefix
+#          path: /
+#          backend:
+#            service:
+#              name: polly-registry
+#              port:
+#                name: https
+#...
+#---
+#apiVersion: traefik.containo.us/v1alpha1
+#kind: ServersTransport
+#metadata:
+#  name: polly-registry-transport
+#spec:
+#  insecureSkipVerify: true # Skip SSL verification
+#...

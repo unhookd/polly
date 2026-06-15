@@ -16,20 +16,23 @@ Do not expose polly to a kubernetes cluster unless you have thoroughly understoo
 
 TODO, in the future, `polly` will be available via `sudo gem install polly` ... until then it must be installed manually, see below
 
+    #### deps
     sudo apt-get install ruby rubygems-integration libffi-dev build-essential --no-install-recommends
     sudo gem install bundler
-    cd ~/workspace
+
+    #### clone repo
     git clone git@github.com:unhookd/polly.git
     cd polly
+
+    #### install app
     bundle config set --local path vendor/bundle
     bundle install
-    sudo ln -fs ${HOME}/workspace/polly/bin/polly /usr/local/bin/polly
+    sudo ln -fs $(realpath bin/polly) /usr/local/bin/polly
     polly help
 
 # .circleci/config.yml
 
 polly understands circleci config and is able to plan and execute workflows on a local or remote kubernetes cluster
-
 
 TBD: rebake this bootstrap script into github actions as test-suite cross-check
 
@@ -45,7 +48,8 @@ We can re-bootstrap `polly` from scratch for development purposes, or just start
 Install the `polly` controller into your kube cluster.
 
     kubectx
-    polly init
+    polly certificates
+    polly init /var/tmp/abc-123-efg-789
     
 should install `polly` controller into desired kubernetes context
 
@@ -115,12 +119,6 @@ exec's into the polly controller deployement to provide a debugging interactive 
 # polly logs
 
 prints logs of polly controller deployement for debugging
-
-# polly docker-config
-
-accepts on STDIN a `~/.docker/config.json` document, and creates a specific secret for allowin fetching from private repos in private clusters.
-
-TBD: allow STDIN creation of a variety of configMap/secretMap resources (SEE: `polly certificate`)
 
 # polly key
 

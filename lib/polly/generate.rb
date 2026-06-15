@@ -22,7 +22,7 @@ module Polly
         @all_images
       end
 
-      def read_circleci_output(ident = nil)
+      def read_circleci_output(image, ident = nil)
         jobs_repacked = {}
 
         @pl_wk = ident.nil? ? @workflows_by_ident[@workflows_by_ident.keys.first] : @workflows_by_ident[ident]
@@ -42,8 +42,10 @@ module Polly
               }
             ].compact
           }.merge({
-            "docker" => job_spec.parameters[:executor_hints][:docker]
+            "docker" => [{"image" => image}]
           })
+          #job_spec.parameters[:executor_hints][:docker]
+          #[{"image"=>workflow_image}],
           jobs_repacked[job_name].delete("environment") unless jobs_repacked[job_name]["environment"] && !jobs_repacked[job_name]["environment"].empty?
           jobs_repacked[job_name].delete("working_directory") unless jobs_repacked[job_name]["working_directory"]
         }
@@ -171,13 +173,13 @@ module Polly
       end
 
       def app
-        user("app")
+        user("polly")
       end
 
       def prototype1
         @prototype1 = true
         @bootstrap = image {
-          stage "bootstrap", "ubuntu:focal-20221130"
+          stage "bootstrap", "ubuntu:jammy-20221130"
 
           root
 
@@ -191,7 +193,7 @@ module Polly
 
           run %q{test -e /usr/lib/locale/locale-archive || ((locale-gen --purge en_US); (echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\n" | tee /etc/default/locale); (locale-gen $LANGUAGE); (dpkg-reconfigure locales))}
 
-          apt %w{curl mysql-client-8.0 mysql-server-core-8.0 ruby2* libruby2* ruby-bundler rubygems-integration rake git build-essential default-libmysqlclient-dev}
+          apt %w{curl mysql-client-8.0 mysql-server-core-8.0 ruby3* libruby3* ruby-bundler rubygems-integration rake git build-essential default-libmysqlclient-dev}
           run %q{useradd --uid 1000 --home-dir /home/app --create-home --shell /bin/bash app}
           command("WORKDIR") {
             "/home/app"
@@ -206,6 +208,7 @@ module Polly
           run %q{bundle config set --local jobs 4}
           run %q{bundle config set --local retry 3}
           #TODO: figure out conventional bundling strategy
+          #TODO: figure out .gem strategy prototype
           #run %q{bundle config set --local deploment true}
           #run %q{bundle config set --local without development}
           command("COPY") {
@@ -309,6 +312,10 @@ module Polly
         @this_plan.add_circleci_job(*args)
       end
 
+      def container_image(filename)
+        emit(File.read(filename))
+      end
+
       def plan
         @workflows_by_ident ||= {}
 
@@ -329,6 +336,14 @@ module Polly
 
       def test(plan)
         @shell_commands << ["polly", "test", "--ident", plan.ident]
+      end
+
+      def build(container_image)
+        @shell_commands << ["polly", "build"]
+      end
+
+      def deploy(instance)
+        @shell_commands << ["polly", "deploy"]
       end
 
       def read_shell_commands

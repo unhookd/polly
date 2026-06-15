@@ -1,4 +1,6 @@
-if Dir.exists?(File.expand_path("../.bundle", __dir__))
+if Dir.exist?(File.expand_path("../.git", __dir__))
+  #NOTE: .git dir only present when installed in "dev mode"
+  #NOTE: "normal mode" the gem deps are solved via gemspec + gem install
   ENV["BUNDLE_GEMFILE"] ||= File.expand_path("../Gemfile", __dir__)
 
   require "bundler/setup" # Set up gems listed in the Gemfile.
@@ -19,6 +21,9 @@ require 'uri'
 require 'pathname'
 require 'fileutils'
 require 'net/ssh'
+require 'rack'
+require 'rackup'
+require 'net/http'
 
 module Polly
   POLLY = "polly"
@@ -32,4 +37,5 @@ module Polly
   autoload 'Job', 'polly/job'
   autoload 'Observe', 'polly/observe'
   autoload 'Plan', 'polly/plan'
+  autoload 'DocumentStreamHandler', 'polly/document_stream_handler'
 end

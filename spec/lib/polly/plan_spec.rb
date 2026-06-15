@@ -281,8 +281,8 @@ describe Polly::Plan do
 
       #TODO: more testing, wtf was this for ???? puts "debug stuff here 3"
 
-      plan.add_circleci_job("bootstrap", "ubuntu:latest", [{"run"=>{"name"=>"bootstrap", "command"=>"true\n"}}], {}, nil)
-      plan.add_circleci_job("primary", "polly:latest", [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {}, nil)
+      plan.add_circleci_job("bootstrap", [{"run"=>{"name"=>"bootstrap", "command"=>"true\n"}}], {}, nil, "ubuntu:latest")
+      plan.add_circleci_job("primary", [{"run"=>{"name"=>"rspec", "command"=>"bundle exec rspec\n"}}], {}, nil, "polly:latest")
       plan.depends("primary", "bootstrap")
 
       plain_workflow(plan)
