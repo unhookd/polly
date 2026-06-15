@@ -1727,6 +1727,8 @@ HEREDOC
 
           cloud_init_yaml = ::Polly::Build.build_cloudinit_yaml(exe, vertical_lookup, File.read(ca_cert), File.read(client_key_pub), File.read(server_key), File.read(server_key_pub))
 
+          File.write("/tmp/cloud-init-debian.yml", cloud_init_yaml)
+
           if options["debug"]
             puts cloud_init_yaml
             exit
@@ -1736,6 +1738,8 @@ HEREDOC
           known_hosts = File.read(known_hosts_file) if File.exist?(known_hosts_file)
 
           multipass_launch_cmd = ["multipass", "launch", "--name", profile, "--disk=100G", "--cpus=4", "--memory=12G", "--cloud-init=-", distro]
+          puts multipass_launch_cmd.join(" ")
+
           multipass_options = {:out => $stdout, :err => $stderr, :in => ::Polly::Build.generated_string_fd(cloud_init_yaml)}
           exe.system({}, *multipass_launch_cmd, multipass_options)
 

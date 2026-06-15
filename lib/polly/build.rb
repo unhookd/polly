@@ -275,13 +275,22 @@ HEREDOC
     def self.build_cloudinit_yaml(exe, vertical_lookup, ca_cert, client_key_pub, server_key, server_key_pub)
       prewrites = vertical_lookup["prewrites"]
 
-      users = [{
-        'name' => 'app',
-        'shell' => '/bin/bash',
-        'groups' => 'sudo',
-        'sudo' => 'ALL=(ALL) NOPASSWD:ALL',
-        'ssh_authorized_keys' => [client_key_pub]
-      }]
+      users = [
+        {
+          'name' => 'app',
+          'shell' => '/bin/bash',
+          'groups' => 'sudo',
+          'sudo' => 'ALL=(ALL) NOPASSWD:ALL',
+          'ssh_authorized_keys' => [client_key_pub]
+        },
+        {
+          'name' => 'ubuntu',
+          'shell' => '/bin/bash',
+          'groups' => 'sudo',
+          'sudo' => 'ALL=(ALL) NOPASSWD:ALL',
+          'ssh_authorized_keys' => [client_key_pub]
+        }
+      ]
 
       write_files = []
 
@@ -313,11 +322,11 @@ HEREDOC
         'permissions' => '0644'
       }
 
-      #write_files << {
-      #  'content' => "KUBECONFIG=\"~/.kube/k3s-config:~/.kube/config\"" + "\n" + "PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin\"" + "\n",
-      #  'path' => '/etc/environment',
-      #  'permissions' => '0644'
-      #}
+      write_files << {
+        'content' => "KUBECONFIG=\"~/.kube/k3s-config:~/.kube/config\"" + "\n" + "PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin\"" + "\n",
+        'path' => '/etc/environment',
+        'permissions' => '0644'
+      }
 
       write_files << {
         'content' => "HostKey /etc/ssh/custom_ssh_host_rsa_key" + "\n",
@@ -325,28 +334,28 @@ HEREDOC
         'permissions' => '0644'
       }
 
-      write_files << {
-        'path' => '/etc/systemd/resolved.conf',
-        'append' => true,
-        'content' => "MulticastDNS=yes\n"
-      }
-
-      write_files << {
-        'path' => '/etc/systemd/system/mdns@.service',
-        'content' => "[Service]
-Type=oneshot
-ExecStart=/usr/bin/resolvectl mdns %i yes
-After=sys-subsystem-net-devices-%i.device
-
-[Install]
-WantedBy=sys-subsystem-net-devices-%i.device
-"
-      }
+#      write_files << {
+#        'path' => '/etc/systemd/resolved.conf',
+#        'append' => true,
+#        'content' => "MulticastDNS=yes\n"
+#      }
+#
+#      write_files << {
+#        'path' => '/etc/systemd/system/mdns@.service',
+#        'content' => "[Service]
+#Type=oneshot
+#ExecStart=/usr/bin/resolvectl mdns %i yes
+#After=sys-subsystem-net-devices-%i.device
+#
+#[Install]
+#WantedBy=sys-subsystem-net-devices-%i.device
+#"
+#      }
 
       runcmd = [
-        "systemctl restart systemd-resolved.service",
-        "systemctl start mdns@ens3.service", # https://github.com/canonical/multipass/issues/1830
-        "systemctl enable mdns@ens3.service"
+        #"systemctl restart systemd-resolved.service",
+        #"systemctl start mdns@ens3.service", # https://github.com/canonical/multipass/issues/1830
+        #"systemctl enable mdns@ens3.service"
       ]
 
 #mirrors:
@@ -396,11 +405,32 @@ WantedBy=sys-subsystem-net-devices-%i.device
         'permissions' => '0644'
       }
 
+      runcmd = [
+        "ufw allow 22/tcp",
+        "ufw enable",
+        "systemctl enable ssh",
+        "systemctl start ssh"
+      ]
+
       {
         'users' => users,
         'write_files' => write_files,
+        'packages' => ['sudo', 'openssh-server', 'ufw', 'git'],
         'manage_etc_hosts' => true,
-        'runcmd' => runcmd
+        'runcmd' => runcmd,
+        'network' => {
+					'version' => 2,
+					'ethernets' => {
+						'eth0' => {
+							'dhcp4' => true
+            }
+          }
+        },
+        #'package_update' => true,
+        #'package_upgrade' => true,
+
+
+
       }.to_yaml
     end
   end
